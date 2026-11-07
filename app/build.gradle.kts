@@ -94,8 +94,6 @@ android {
         abortOnError = true
         checkReleaseBuilds = true
         lintConfig = file("lint.xml")
-        htmlReport = true
-        xmlReport = true
     }
 
     packaging {
@@ -120,11 +118,11 @@ android {
  * Robolectric downloads the jar over plain HTTP at test time, which CI runners get rate-limited on
  * (HTTP 429 from Maven Central) and which bypasses dependency verification.
  */
-val robolectricRuntime: Configuration by configurations.creating { isTransitive = false }
+val robolectricRuntime: Configuration = configurations.create("robolectricRuntime") { isTransitive = false }
 // Kept under the Gradle user home: Robolectric URL-encodes this path and fails on directories
 // containing spaces (such as a project folder named "Expense Manager").
 val robolectricRuntimeDir = File(gradle.gradleUserHomeDir, "robolectric-runtime/${libs.versions.robolectricAndroidAll.get()}")
-val prepareRobolectricRuntime by tasks.registering(Sync::class) {
+val prepareRobolectricRuntime = tasks.register<Sync>("prepareRobolectricRuntime") {
     from(robolectricRuntime)
     into(robolectricRuntimeDir)
 }
