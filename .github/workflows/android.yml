@@ -20,6 +20,8 @@ jobs:
     name: Test, lint and build
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      signed: ${{ steps.signed.outputs.signed }}
     env:
       HAS_SIGNING: ${{ secrets.SPENDLY_KEYSTORE_BASE64 != '' && secrets.SPENDLY_KEYSTORE_PASSWORD != '' && secrets.SPENDLY_KEY_ALIAS != '' && secrets.SPENDLY_KEY_PASSWORD != '' }}
     steps:
@@ -94,6 +96,10 @@ jobs:
         if: env.HAS_SIGNING != 'true'
         run: echo "::notice::Signing secrets are not configured, so no release APK was built. See README > Release signing."
 
+      - name: Report signing status
+        id: signed
+        run: echo "signed=$HAS_SIGNING" >> "$GITHUB_OUTPUT"
+
       - name: Upload release APK
         if: env.HAS_SIGNING == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -105,7 +111,9 @@ jobs:
   release:
     name: Publish GitHub Release
     needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
+    # Only CI-signed builds are published from here. Releases uploaded manually (see README)
+    # are left untouched when no signing secrets are configured.
+    if: startsWith(github.ref, 'refs/tags/v') && needs.build.outputs.signed == 'true'
     runs-on: ubuntu-latest
     permissions:
       contents: write
