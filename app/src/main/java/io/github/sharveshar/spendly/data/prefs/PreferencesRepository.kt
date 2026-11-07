@@ -6,11 +6,14 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
+import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.sharveshar.spendly.domain.model.PaymentChannel
 import io.github.sharveshar.spendly.domain.model.PaymentProvider
+import io.github.sharveshar.spendly.shortcut.ButtonShortcut
+import io.github.sharveshar.spendly.shortcut.ShortcutButton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
@@ -27,6 +30,8 @@ data class UserPreferences(
     val lastAccountId: Long? = null,
     val lastChannel: PaymentChannel? = null,
     val lastProvider: PaymentProvider? = null,
+    /** Volume-button pattern that opens Quick Add (only acts once the user enables the service). */
+    val buttonShortcut: ButtonShortcut = ButtonShortcut(),
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "spendly_prefs")
@@ -40,6 +45,8 @@ class PreferencesRepository(private val context: Context) {
         val lastAccount = longPreferencesKey("last_account_id")
         val lastChannel = stringPreferencesKey("last_channel")
         val lastProvider = stringPreferencesKey("last_provider")
+        val shortcutButton = stringPreferencesKey("shortcut_button")
+        val shortcutPresses = intPreferencesKey("shortcut_presses")
     }
 
     val preferences: Flow<UserPreferences> = context.dataStore.data
@@ -53,6 +60,10 @@ class PreferencesRepository(private val context: Context) {
                 lastAccountId = p[Keys.lastAccount],
                 lastChannel = p[Keys.lastChannel]?.let { runCatching { PaymentChannel.valueOf(it) }.getOrNull() },
                 lastProvider = p[Keys.lastProvider]?.let { runCatching { PaymentProvider.valueOf(it) }.getOrNull() },
+                buttonShortcut = ButtonShortcut(
+                    button = p[Keys.shortcutButton]?.let { runCatching { ShortcutButton.valueOf(it) }.getOrNull() } ?: ShortcutButton.VOLUME_DOWN,
+                    presses = p[Keys.shortcutPresses]?.takeIf { it in ButtonShortcut.PRESS_CHOICES } ?: ButtonShortcut.DEFAULT_PRESSES,
+                ),
             )
         }
 
@@ -60,6 +71,10 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setOnboardingDone() = context.dataStore.edit { it[Keys.onboarding] = true }
     suspend fun setVoiceDisclosureAccepted() = context.dataStore.edit { it[Keys.voiceDisclosure] = true }
     suspend fun setSecureScreen(enabled: Boolean) = context.dataStore.edit { it[Keys.secureScreen] = enabled }
+    suspend fun setButtonShortcut(shortcut: ButtonShortcut) = context.dataStore.edit {
+        it[Keys.shortcutButton] = shortcut.button.name
+        it[Keys.shortcutPresses] = shortcut.presses
+    }
 
     suspend fun rememberPaymentChoice(accountId: Long, channel: PaymentChannel?, provider: PaymentProvider?) =
         context.dataStore.edit {

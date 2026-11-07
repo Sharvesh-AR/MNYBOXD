@@ -14,6 +14,7 @@ import io.github.sharveshar.spendly.data.backup.BackupValidator
 import io.github.sharveshar.spendly.data.prefs.PreferencesRepository
 import io.github.sharveshar.spendly.data.prefs.ThemeMode
 import io.github.sharveshar.spendly.data.prefs.UserPreferences
+import io.github.sharveshar.spendly.shortcut.ButtonShortcut
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -51,6 +52,7 @@ class SettingsViewModel(
 
     fun setTheme(mode: ThemeMode) = viewModelScope.launch { prefs.setThemeMode(mode) }
     fun setSecureScreen(enabled: Boolean) = viewModelScope.launch { prefs.setSecureScreen(enabled) }
+    fun setButtonShortcut(shortcut: ButtonShortcut) = viewModelScope.launch { prefs.setButtonShortcut(shortcut) }
     fun consumeMessage() { _message.value = null }
 
     fun holdPassword(password: CharArray) {

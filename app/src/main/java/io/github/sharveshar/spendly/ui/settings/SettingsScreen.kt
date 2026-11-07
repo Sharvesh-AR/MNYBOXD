@@ -132,6 +132,8 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onCategorie
                 )
                 Spacer(Modifier.height(Space.md))
 
+                ShortcutsSection(prefs.buttonShortcut, onShortcutChange = viewModel::setButtonShortcut)
+
                 Group("Privacy")
                 Row(
                     Modifier.fillMaxWidth().clickable(role = Role.Switch) { viewModel.setSecureScreen(!prefs.secureScreen) }.heightIn(min = 64.dp).padding(horizontal = Space.gutter, vertical = Space.sm),
@@ -262,7 +264,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onCategorie
 }
 
 @Composable
-private fun Group(title: String) {
+internal fun Group(title: String) {
     Text(
         title,
         style = MaterialTheme.typography.labelLarge,

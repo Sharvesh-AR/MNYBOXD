@@ -52,5 +52,45 @@
                 <action android:name="android.service.quicksettings.action.QS_TILE" />
             </intent-filter>
         </service>
+
+        <!--
+          Optional "Add expense" app-list entry for phone gestures that can only open an app
+          (back tap, side-key double press). Disabled until switched on in Settings → Shortcuts.
+          No UI, ignores its intent; own empty task affinity so it never joins Spendly's task.
+        -->
+        <activity
+            android:name=".shortcut.QuickAddLauncherActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:label="@string/tile_label"
+            android:icon="@mipmap/ic_launcher_add"
+            android:roundIcon="@mipmap/ic_launcher_add"
+            android:theme="@android:style/Theme.NoDisplay">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          Optional volume-button shortcut. Inactive until the user switches it on in Android's
+          Accessibility settings; only the system (BIND_ACCESSIBILITY_SERVICE) can bind to it.
+          Capabilities are limited to key-event filtering (see res/xml/button_shortcut_service.xml).
+        -->
+        <service
+            android:name=".shortcut.ButtonShortcutService"
+            android:exported="true"
+            android:label="@string/button_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/button_shortcut_service" />
+        </service>
     </application>
 </manifest>

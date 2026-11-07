@@ -47,6 +47,13 @@ builds (`ScreenshotTest`).</sub>
   extracts amount, description, category, payment method, app and account. **You always review
   the result before it is saved.**
 * **Quick Settings tile** and **launcher shortcuts** (*Add expense*, *Voice expense*).
+* **Volume-button shortcut** (optional): press volume down (or up) two or three times on any
+  screen to open Quick Add. Your volume buttons keep working normally. Turn it on in
+  *Settings → Shortcuts*; it uses a minimal, opt-in accessibility service that only notices
+  button presses (see [SECURITY.md](SECURITY.md#optional-accessibility-service-volume-button-shortcut)).
+* **"Add expense" app icon** (optional): a second icon that opens Quick Add directly, so your
+  phone's own gestures can launch it, such as back tap (Pixel *Quick Tap*) or double-pressing
+  the side key (Samsung).
 
 **Accurate money**
 * All amounts are integer paise (`Long`); floating point is never used for money.
@@ -167,7 +174,9 @@ Prefer to publish manually? Build locally, then
 Automated tests run on the JVM (Robolectric). Before each public release, install the signed APK
 on a real phone and check: first launch and onboarding; adding an expense, income, transfer and
 refund; balances on Accounts; voice entry (allow and deny the microphone); creating and restoring
-an encrypted backup; the Quick Settings tile; light/dark theme; and a large font size.
+an encrypted backup; the Quick Settings tile; the volume-button shortcut (in another app, on the
+lock screen, during a call, and that the volume returns to where it was); the "Add expense" app
+icon; light/dark theme; and a large font size.
 
 ## Technology
 
@@ -182,6 +191,7 @@ app/src/main/java/io/github/sharveshar/spendly/
 ├── domain/            Pure Kotlin rules: ledger & validation, insights & budgets, voice parser
 ├── data/              Room entities/DAOs, SQLCipher key manager, repositories, backup, prefs
 ├── ui/                Compose screens, components, motion, theme, navigation
+├── shortcut/          Volume-button shortcut service, optional "Add expense" launcher entry
 ├── MainActivity.kt    Single activity, intent allow-list, shortcuts
 └── QuickAddTileService.kt
 ```

@@ -1,6 +1,8 @@
 package io.github.sharveshar.spendly.ui
 
+import android.app.Application
 import android.content.Context
+import android.provider.Settings
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
@@ -18,20 +20,26 @@ import io.github.sharveshar.spendly.AppContainer
 import io.github.sharveshar.spendly.data.db.SpendlyDatabase
 import io.github.sharveshar.spendly.data.testDatabase
 import io.github.sharveshar.spendly.domain.model.TransactionType
+import io.github.sharveshar.spendly.shortcut.ButtonShortcut
+import io.github.sharveshar.spendly.shortcut.ShortcutButton
+import io.github.sharveshar.spendly.shortcut.ShortcutSettings
 import io.github.sharveshar.spendly.ui.navigation.LocalAppContainer
 import io.github.sharveshar.spendly.ui.theme.SpendlyTheme
 import io.github.sharveshar.spendly.ui.voice.VoiceRecognizer
 import io.github.sharveshar.spendly.ui.voice.VoiceState
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -133,6 +141,38 @@ class UiTest {
             compose.waitForIdle()
             val unlabeled = compose.onAllNodes(hasClickAction() and !labelled, useUnmergedTree = false).fetchSemanticsNodes()
             assertTrue("Unlabelled clickable nodes on $tab: ${unlabeled.map { it.config }}", unlabeled.isEmpty())
+        }
+    }
+
+    @Test fun `settings sets up the button shortcut and the add-expense app icon`() {
+        try {
+            launchApp()
+            compose.onNodeWithContentDescription("Settings").performClick()
+            shown("Volume button shortcut")
+
+            compose.onNodeWithText("Volume up").performScrollTo().performClick()
+            compose.onNodeWithText("Twice").performScrollTo().performClick()
+            val chosen = ButtonShortcut(ShortcutButton.VOLUME_UP, 2)
+            compose.waitUntil(5_000) { runBlocking { container.preferences.preferences.first().buttonShortcut } == chosen }
+
+            assertFalse(ShortcutSettings.isAppIconOn(context))
+            compose.onNodeWithText("\u201CAdd expense\u201D app icon").performScrollTo().performClick()
+            compose.waitForIdle()
+            assertTrue(ShortcutSettings.isAppIconOn(context))
+            compose.onNodeWithText("\u201CAdd expense\u201D app icon").performClick()
+            compose.waitForIdle()
+            assertFalse(ShortcutSettings.isAppIconOn(context))
+
+            // Not switched on in Android yet: the row explains, using the chosen pattern, and links to settings.
+            compose.onNodeWithText("Volume button shortcut").performScrollTo().performClick()
+            shown("Add expenses with a volume button")
+            compose.onNodeWithText("Press volume up twice", substring = true).assertIsDisplayed()
+            compose.onNodeWithText("Accessibility settings").performClick()
+            compose.waitForIdle()
+            val started = shadowOf(ApplicationProvider.getApplicationContext<Application>()).nextStartedActivity
+            assertEquals(Settings.ACTION_ACCESSIBILITY_SETTINGS, started?.action)
+        } finally {
+            runBlocking { container.preferences.setButtonShortcut(ButtonShortcut()) }
         }
     }
 
