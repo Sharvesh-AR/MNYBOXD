@@ -48,9 +48,15 @@ builds (`ScreenshotTest`).</sub>
   the result before it is saved.**
 * **Quick Settings tile** and **launcher shortcuts** (*Add expense*, *Voice expense*).
 * **Volume-button shortcut** (optional): press volume down (or up) two or three times on any
-  screen to open Quick Add. Your volume buttons keep working normally. Turn it on in
-  *Settings → Shortcuts*; it uses a minimal, opt-in accessibility service that only notices
-  button presses (see [SECURITY.md](SECURITY.md#optional-accessibility-service-volume-button-shortcut)).
+  screen to open Quick Add. Your volume buttons keep working normally, and the volume is put
+  back afterwards. Off by default; pick the button and *Twice* or *3 times* (the default) in
+  *Settings → Shortcuts*, then switch on *Spendly volume shortcut* in Android's Accessibility
+  settings (Spendly links there). It uses a minimal, opt-in accessibility service that only
+  notices button presses (see [SECURITY.md](SECURITY.md#optional-accessibility-service-volume-button-shortcut)).
+  It works while the screen is on, stays out of the way during calls, and asks you to unlock
+  first on the lock screen. If Android says *Restricted setting* (Android 13+ does this for
+  apps installed outside an app store), open *App info → ⋮ → Allow restricted settings* and try
+  again. *Twice* is quicker but can fire when you just turn the volume down fast.
 * **"Add expense" app icon** (optional): a second icon that opens Quick Add directly, so your
   phone's own gestures can launch it, such as back tap (Pixel *Quick Tap*) or double-pressing
   the side key (Samsung).
@@ -196,11 +202,13 @@ app/src/main/java/io/github/sharveshar/spendly/
 └── QuickAddTileService.kt
 ```
 
-Testing: 92 automated tests covering balance rules (including a randomized property test that
+Testing: 108 automated tests (plus an opt-in screenshot test) covering balance rules (including a randomized property test that
 checks SQL balances against a reference calculator), validation, paise precision, duplicate
 prevention, voice parsing, insights and budgets, database constraints and triggers, migrations,
 encrypted backup round-trip and tamper detection, CSV injection, the Quick Add form logic (voice pre-fill, edit, refund, process-death restore),
-and Compose UI flows (navigation, Quick Add, validation, empty states, accessibility labels).
+the volume-button shortcut (press patterns, holding vs. pressing, volume restore, calls and ringing),
+and Compose UI flows (navigation, Quick Add, validation, empty states, accessibility labels, Settings → Shortcuts).
+Each Robolectric test has a 2-minute limit and the test task a 15-minute one, so a hang fails fast in CI.
 
 See [`DEPENDENCIES.md`](DEPENDENCIES.md) for every library, version and licence.
 
