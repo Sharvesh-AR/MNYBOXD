@@ -24,6 +24,7 @@ import kotlinx.serialization.Serializable
 @Serializable object ThemesRoute
 @Serializable object ShortcutsRoute
 @Serializable object ResetRoute
+@Serializable object WidgetsRoute
 
 /** Empty, transparent start screen of QuickAddActivity; Quick Add opens on top of it. */
 @Serializable object PopupBaseRoute

@@ -12,6 +12,8 @@ import io.github.sharveshar.spendly.data.repo.BudgetRepository
 import io.github.sharveshar.spendly.data.repo.CategoryRepository
 import io.github.sharveshar.spendly.data.repo.TransactionRepository
 import io.github.sharveshar.spendly.shortcut.ShortcutSettings
+import io.github.sharveshar.spendly.widget.WidgetPrefs
+import io.github.sharveshar.spendly.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
@@ -72,7 +74,10 @@ class SpendlyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         container = AppContainer(this)
+        container.onDataReset = { context -> WidgetPrefs.clear(context) }
         container.start()
+        // Keep home-screen widgets in step with the data while the app runs (no polling).
+        WidgetUpdater.observe(this, container)
     }
 }
 

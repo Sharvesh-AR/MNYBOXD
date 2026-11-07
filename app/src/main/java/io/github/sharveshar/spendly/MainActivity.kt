@@ -32,8 +32,16 @@ import io.github.sharveshar.spendly.ui.theme.ThemeCache
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 
-/** External entry points (Quick Settings tile, launcher shortcuts, button shortcut). Only these fixed actions are honoured. */
-enum class LaunchRequest { QUICK_ADD, VOICE }
+/** Top-level screens an external entry point (a widget) may open. */
+enum class AppTab { HOME, ACTIVITY, ACCOUNTS, BUDGETS, INSIGHTS }
+
+/** External entry points (launcher shortcuts, widgets). Only these fixed requests are honoured. */
+sealed interface LaunchRequest {
+    data object QuickAdd : LaunchRequest
+    data object Voice : LaunchRequest
+    data class Open(val tab: AppTab) : LaunchRequest
+    data class OpenAccount(val id: Long) : LaunchRequest
+}
 
 class MainActivity : ComponentActivity() {
     private val launchRequests = Channel<LaunchRequest>(Channel.CONFLATED)
@@ -80,16 +88,27 @@ class MainActivity : ComponentActivity() {
         handleIntent(intent)
     }
 
-    /** Accepts only our own explicit actions; extras and data are ignored entirely. */
+    /**
+     * Accepts only our own fixed actions. Data is ignored, and the single extra read (an account
+     * id for ACTION_OPEN_ACCOUNT) must be a positive number; anything else falls back to the
+     * Accounts tab. At most this opens one of Spendly's own screens.
+     */
     private fun handleIntent(intent: Intent?) {
         val request = when (intent?.action) {
-            ACTION_QUICK_ADD -> LaunchRequest.QUICK_ADD
-            ACTION_VOICE_ADD -> LaunchRequest.VOICE
+            ACTION_QUICK_ADD -> LaunchRequest.QuickAdd
+            ACTION_VOICE_ADD -> LaunchRequest.Voice
+            ACTION_OPEN_HOME -> LaunchRequest.Open(AppTab.HOME)
+            ACTION_OPEN_BUDGETS -> LaunchRequest.Open(AppTab.BUDGETS)
+            ACTION_OPEN_ACCOUNTS -> LaunchRequest.Open(AppTab.ACCOUNTS)
+            ACTION_OPEN_INSIGHTS -> LaunchRequest.Open(AppTab.INSIGHTS)
+            ACTION_OPEN_ACCOUNT -> runCatching { intent.getLongExtra(EXTRA_ACCOUNT_ID, 0L) }.getOrDefault(0L)
+                .let { id -> if (id > 0) LaunchRequest.OpenAccount(id) else LaunchRequest.Open(AppTab.ACCOUNTS) }
             else -> null
         } ?: return
-        // Lets the launcher rank shortcuts by actual use.
-        runCatching { ShortcutManagerCompat.reportShortcutUsed(this, if (request == LaunchRequest.VOICE) SHORTCUT_VOICE else SHORTCUT_ADD) }
         launchRequests.trySend(request)
+        if (request != LaunchRequest.QuickAdd && request != LaunchRequest.Voice) return
+        // Lets the launcher rank shortcuts by actual use.
+        runCatching { ShortcutManagerCompat.reportShortcutUsed(this, if (request == LaunchRequest.Voice) SHORTCUT_VOICE else SHORTCUT_ADD) }
         // The volume-button shortcut also works on the lock screen. Spendly never shows over the
         // keyguard, so ask the user to unlock; Quick Add is waiting behind it.
         val keyguard = getSystemService(KeyguardManager::class.java)
@@ -121,6 +140,12 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val ACTION_QUICK_ADD = "io.github.sharveshar.spendly.action.QUICK_ADD"
         const val ACTION_VOICE_ADD = "io.github.sharveshar.spendly.action.VOICE_ADD"
+        const val ACTION_OPEN_HOME = "io.github.sharveshar.spendly.action.OPEN_HOME"
+        const val ACTION_OPEN_BUDGETS = "io.github.sharveshar.spendly.action.OPEN_BUDGETS"
+        const val ACTION_OPEN_ACCOUNTS = "io.github.sharveshar.spendly.action.OPEN_ACCOUNTS"
+        const val ACTION_OPEN_INSIGHTS = "io.github.sharveshar.spendly.action.OPEN_INSIGHTS"
+        const val ACTION_OPEN_ACCOUNT = "io.github.sharveshar.spendly.action.OPEN_ACCOUNT"
+        const val EXTRA_ACCOUNT_ID = "account_id"
         const val SHORTCUT_ADD = "quick_add"
         const val SHORTCUT_VOICE = "voice_add"
 

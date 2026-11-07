@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated with the other Spendly widget layouts; keep ids in sync with WidgetRenderer. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@android:id/background" android:layout_width="match_parent" android:layout_height="match_parent">
+  <ImageView android:id="@+id/bg" android:layout_width="match_parent" android:layout_height="match_parent" android:src="@drawable/widget_surface" android:importantForAccessibility="no"  android:scaleType="fitXY"/>
+  <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:padding="@dimen/widget_padding" >
+<TextView android:id="@+id/avail_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Available" android:textSize="12sp" android:fontFamily="sans-serif" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false"  />
+<TextView android:id="@+id/avail" android:layout_width="match_parent" android:layout_height="34dp" android:text="" android:fontFamily="sans-serif-medium" android:fontFeatureSettings="tnum" android:maxLines="1" android:includeFontPadding="false" android:gravity="center_vertical|start" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="14sp" android:autoSizeMaxTextSize="26sp" android:autoSizeStepGranularity="1sp" />
+<FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+<TextView android:id="@+id/owed_label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Owed on cards" android:textSize="12sp" android:fontFamily="sans-serif" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false"  />
+<TextView android:id="@+id/owed" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="" android:textSize="16sp" android:fontFamily="sans-serif-medium" android:maxLines="1" android:ellipsize="end" android:includeFontPadding="false"  android:fontFeatureSettings="tnum" android:layout_marginTop="2dp"/>
+  </LinearLayout>
+</FrameLayout>

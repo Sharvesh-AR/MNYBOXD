@@ -97,5 +97,82 @@
           accessibility service) is declared only in the volumeShortcut build:
           src/volumeShortcut/AndroidManifest.xml. ManifestPolicyTest guards this.
         -->
+
+        <!--
+          Home-screen widgets. Providers must be exported to receive APPWIDGET_UPDATE, which only the
+          system can send. They show data from the encrypted database; nothing is stored for them.
+        -->
+        <receiver
+            android:name=".widget.QuickAddWidget"
+            android:exported="true"
+            android:label="@string/widget_quick_add_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_add_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.MonthlyWidget"
+            android:exported="true"
+            android:label="@string/widget_monthly_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_monthly_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.AccountsWidget"
+            android:exported="true"
+            android:label="@string/widget_accounts_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_accounts_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.TrendWidget"
+            android:exported="true"
+            android:label="@string/widget_trend_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_trend_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.StatsWidget"
+            android:exported="true"
+            android:label="@string/widget_stats_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_stats_info" />
+        </receiver>
+
+        <!-- Midnight refresh for widgets (inexact alarm, no permission). Only Spendly sends it. -->
+        <receiver android:name=".widget.WidgetRefreshReceiver" android:exported="false" />
+
+        <!--
+          Account widget setup. Exported because the launcher opens it; it only accepts ids of
+          Spendly's own Account widgets and only chooses which account that widget shows.
+        -->
+        <activity
+            android:name=".widget.AccountWidgetConfigActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Spendly">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

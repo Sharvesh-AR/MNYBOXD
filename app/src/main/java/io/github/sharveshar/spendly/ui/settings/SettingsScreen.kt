@@ -29,6 +29,7 @@ import androidx.compose.material.icons.rounded.Category
 import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Palette
@@ -93,6 +94,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onThemes: () -> Unit,
     onShortcuts: () -> Unit,
+    onWidgets: () -> Unit,
     onCategories: () -> Unit,
     onAbout: () -> Unit,
     onReset: () -> Unit,
@@ -144,6 +146,7 @@ fun SettingsScreen(
                     chevron = true,
                     onClick = onShortcuts,
                 )
+                SettingRow(Icons.Rounded.Widgets, "Home-screen widgets", "Quick Add, monthly overview, balances, trend and stats", chevron = true, onClick = onWidgets)
 
                 Group("Privacy")
                 Row(

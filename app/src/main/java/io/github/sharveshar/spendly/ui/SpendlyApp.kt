@@ -151,6 +151,7 @@ import io.github.sharveshar.spendly.ui.navigation.SettingsRoute
 import io.github.sharveshar.spendly.ui.navigation.ResetRoute
 import io.github.sharveshar.spendly.ui.navigation.ShortcutsRoute
 import io.github.sharveshar.spendly.ui.navigation.ThemesRoute
+import io.github.sharveshar.spendly.ui.navigation.WidgetsRoute
 import io.github.sharveshar.spendly.ui.navigation.TransactionDetailRoute
 import io.github.sharveshar.spendly.ui.navigation.TransactionsRoute
 import io.github.sharveshar.spendly.ui.navigation.spendlyViewModel
@@ -163,6 +164,7 @@ import io.github.sharveshar.spendly.ui.settings.ResetScreen
 import io.github.sharveshar.spendly.ui.settings.ResetViewModel
 import io.github.sharveshar.spendly.ui.settings.ShortcutsScreen
 import io.github.sharveshar.spendly.ui.settings.ThemesScreen
+import io.github.sharveshar.spendly.ui.settings.WidgetsScreen
 import io.github.sharveshar.spendly.ui.start.RecoveryScreen
 import io.github.sharveshar.spendly.ui.start.SplashScreen
 import io.github.sharveshar.spendly.ui.start.WelcomeScreen
@@ -245,7 +247,17 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>) {
     }
 
     LaunchedEffect(nav) {
-        launchRequests.collect { r -> openQuickAdd(EntryRoute(startVoice = r == LaunchRequest.VOICE)) }
+        launchRequests.collect { r ->
+            when (r) {
+                LaunchRequest.QuickAdd -> openQuickAdd(EntryRoute())
+                LaunchRequest.Voice -> openQuickAdd(EntryRoute(startVoice = true))
+                is LaunchRequest.Open -> nav.switchTab(tabs[r.tab.ordinal].route)
+                is LaunchRequest.OpenAccount -> {
+                    nav.switchTab(AccountsRoute)
+                    nav.navigate(AccountDetailRoute(r.id)) { launchSingleTop = true }
+                }
+            }
+        }
     }
 
     SharedTransitionLayout(Modifier.fillMaxSize()) {
@@ -361,6 +373,7 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>) {
                                 onBack = { nav.popBackStack() },
                                 onThemes = { nav.navigate(ThemesRoute) },
                                 onShortcuts = { nav.navigate(ShortcutsRoute) },
+                                onWidgets = { nav.navigate(WidgetsRoute) },
                                 onCategories = { nav.navigate(CategoriesRoute) },
                                 onAbout = { nav.navigate(AboutRoute) },
                                 onReset = { nav.navigate(ResetRoute) },
@@ -376,6 +389,7 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>) {
                                 onBack = { nav.popBackStack() },
                             )
                         }
+                        composable<WidgetsRoute> { WidgetsScreen(onBack = { nav.popBackStack() }) }
                         composable<ResetRoute> {
                             ResetScreen(viewModel = spendlyViewModel { c, _ -> ResetViewModel(c) }, onBack = { nav.popBackStack() })
                         }

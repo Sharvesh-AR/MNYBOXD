@@ -213,4 +213,45 @@ class ReviewShotsTest {
         compose.mainClock.advanceTimeBy(1_000)
         compose.captureScreen().savePng(File(out, "v-calendar.png"))
     }
+
+    /** Every widget layout at its breakpoint size, real sample data, drawn onto a wallpaper-ish backdrop. */
+    @Test fun captureWidgets() {
+        val dir = System.getenv("SPENDLY_REVIEW_DIR")
+        assumeTrue("Set SPENDLY_REVIEW_DIR to capture review shots", !dir.isNullOrBlank())
+        val out = File(dir!!).apply { mkdirs() }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = testDatabase()
+        val container = AppContainer(context)
+        container.databaseManager.useForTesting(db)
+        runBlocking { DebugTools.loadSampleData(container.repositories) }
+        val data = runBlocking { io.github.sharveshar.spendly.widget.WidgetSnapshot.load(container.repositories) }
+        val density = context.resources.displayMetrics.density
+        for (palette in listOf(io.github.sharveshar.spendly.ui.theme.Palettes.MidnightEmerald, io.github.sharveshar.spendly.ui.theme.Palettes.WarmSand, io.github.sharveshar.spendly.ui.theme.Palettes.OceanBlue)) {
+            for (kind in io.github.sharveshar.spendly.widget.WidgetKind.entries) {
+                for (bp in io.github.sharveshar.spendly.widget.WidgetRenderer.sizesFor(kind, context, 3)) {
+                    // Render at a typical launcher cell size for this breakpoint.
+                    val wDp = if (bp.minWidth >= 200f) 330 else 160
+                    val hDp = when {
+                        bp.minHeight >= 140f -> 230
+                        bp.minHeight >= 90f -> 160
+                        else -> 76
+                    }
+                    val view = io.github.sharveshar.spendly.widget.WidgetRenderer.layout(context, kind, 3, bp, data, palette)
+                        .apply(context, android.widget.FrameLayout(context))
+                    val w = (wDp * density).toInt(); val h = (hDp * density).toInt()
+                    view.measure(android.view.View.MeasureSpec.makeMeasureSpec(w, android.view.View.MeasureSpec.EXACTLY), android.view.View.MeasureSpec.makeMeasureSpec(h, android.view.View.MeasureSpec.EXACTLY))
+                    view.layout(0, 0, w, h)
+                    val pad = (16 * density).toInt()
+                    val bmp = Bitmap.createBitmap(w + 2 * pad, h + 2 * pad, Bitmap.Config.ARGB_8888)
+                    val canvas = android.graphics.Canvas(bmp)
+                    canvas.drawColor(android.graphics.Color.rgb(58, 70, 92))
+                    canvas.translate(pad.toFloat(), pad.toFloat())
+                    view.draw(canvas)
+                    val name = context.resources.getResourceEntryName(bp.layout)
+                    bmp.savePng(File(out, "w-${palette.theme.name.lowercase()}-$name.png"))
+                }
+            }
+        }
+        db.close()
+    }
 }
