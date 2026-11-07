@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.ripple
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.clip
@@ -34,7 +33,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.window.DialogProperties
 import androidx.navigation.FloatingWindow
-import androidx.navigation.NavGraph
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.dialog
 import androidx.compose.material3.SnackbarHost
@@ -99,6 +97,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -223,10 +222,14 @@ private val DockMargin = 12.dp
 @Composable
 private fun MainShell(launchRequests: Flow<LaunchRequest>) {
     val nav = rememberNavController()
-    val backStack by nav.currentBackStack.collectAsState()
+    val top by nav.currentBackStackEntryAsState()
     // The screen underneath any sheet decides whether the dock and Quick Add button show, so
-    // they stay in place (dimmed) behind Quick Add instead of sliding away.
-    val base = backStack.lastOrNull { it.destination !is FloatingWindow && it.destination !is NavGraph }
+    // they stay in place (dimmed) behind Quick Add instead of sliding away. Dialogs (Quick Add)
+    // sit on top of it, and opening a full screen from a dialog closes the dialog first, so the
+    // last full-screen entry seen is always the one underneath.
+    val baseHolder = remember { arrayOfNulls<NavBackStackEntry>(1) }
+    top?.let { if (it.destination !is FloatingWindow) baseHolder[0] = it }
+    val base = baseHolder[0]
     val topLevel = base?.destination.isTopLevel()
     val selectedTab = tabs.indexOfFirst { t -> base?.destination?.hierarchy?.any { it.hasRoute(t.routeClass) } == true }
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()

@@ -48,6 +48,7 @@ import io.github.sharveshar.spendly.ui.components.SectionCard
 import io.github.sharveshar.spendly.ui.components.SectionHeader
 import io.github.sharveshar.spendly.ui.components.Slice
 import io.github.sharveshar.spendly.ui.components.compactAxisDescription
+import io.github.sharveshar.spendly.ui.components.staggered
 import io.github.sharveshar.spendly.ui.theme.Space
 import io.github.sharveshar.spendly.ui.theme.Spendly
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -136,6 +137,7 @@ class InsightsViewModel(repos: Repositories, private val handle: SavedStateHandl
 @Composable
 fun InsightsScreen(viewModel: InsightsViewModel, contentPadding: PaddingValues) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val stagger = io.github.sharveshar.spendly.ui.components.rememberStagger()
     LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
         item(key = "title") {
             Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.xs, top = Space.lg), verticalAlignment = Alignment.CenterVertically) {
@@ -183,7 +185,7 @@ fun InsightsScreen(viewModel: InsightsViewModel, contentPadding: PaddingValues) 
         }
         if (state.hasData) {
             item(key = "daily") {
-                SectionCard(Modifier.padding(horizontal = Space.gutter, vertical = Space.sm)) {
+                SectionCard(Modifier.staggered(stagger, 1).padding(horizontal = Space.gutter, vertical = Space.sm)) {
                     Text("Daily spending", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(Space.lg))
                     val labels = state.daily.indices.map { (it + 1).toString() }
@@ -192,7 +194,7 @@ fun InsightsScreen(viewModel: InsightsViewModel, contentPadding: PaddingValues) 
                 }
             }
             item(key = "cats") {
-                SectionCard(Modifier.padding(horizontal = Space.gutter, vertical = Space.sm)) {
+                SectionCard(Modifier.staggered(stagger, 2).padding(horizontal = Space.gutter, vertical = Space.sm)) {
                     Text("By category", style = MaterialTheme.typography.titleMedium)
                     Spacer(Modifier.height(Space.lg))
                     val palette = Spendly.colors.categoryPalette
@@ -217,7 +219,7 @@ fun InsightsScreen(viewModel: InsightsViewModel, contentPadding: PaddingValues) 
             }
             if (state.channels.isNotEmpty()) {
                 item(key = "channels") {
-                    SectionCard(Modifier.padding(horizontal = Space.gutter, vertical = Space.sm)) {
+                    SectionCard(Modifier.staggered(stagger, 3).padding(horizontal = Space.gutter, vertical = Space.sm)) {
                         Text("By payment method", style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(Space.sm))
                         val total = state.channels.sumOf { it.second }

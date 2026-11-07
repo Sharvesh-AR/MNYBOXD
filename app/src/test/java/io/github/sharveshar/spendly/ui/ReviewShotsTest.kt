@@ -254,4 +254,50 @@ class ReviewShotsTest {
         }
         db.close()
     }
+
+    /** A tour of every screen, for visual review of the redesign. */
+    @Test fun captureTour() {
+        val dir = System.getenv("SPENDLY_REVIEW_DIR")
+        assumeTrue("Set SPENDLY_REVIEW_DIR to capture review shots", !dir.isNullOrBlank())
+        val out = File(dir!!).apply { mkdirs() }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = testDatabase()
+        val container = AppContainer(context)
+        container.databaseManager.useForTesting(db)
+        runBlocking {
+            container.preferences.setOnboardingDone()
+            DebugTools.loadSampleData(container.repositories)
+        }
+        compose.setContent {
+            CompositionLocalProvider(LocalAppContainer provides container, LocalRippleConfiguration provides null) {
+                SpendlyTheme { SpendlyApp(container, emptyFlow()) }
+            }
+        }
+        fun settle() {
+            compose.mainClock.advanceTimeBy(2_000)
+            ShadowLooper.idleMainLooper(2, TimeUnit.SECONDS)
+            compose.waitForIdle()
+        }
+        fun shot(name: String) { settle(); compose.captureScreen().savePng(File(out, "x-$name.png")) }
+        fun back() { compose.onNodeWithContentDescription("Back").performClick(); settle() }
+        shot("01-home")
+        compose.onNodeWithText("Activity").performClick(); shot("02-activity")
+        compose.onAllNodesWithText("Petrol").onFirst().performClick(); shot("03-tx-detail"); back()
+        compose.onNodeWithText("Accounts").performClick(); shot("04-accounts")
+        compose.onAllNodesWithText("HDFC Savings").onFirst().performClick(); shot("05-account-detail"); back()
+        compose.onNodeWithText("Budgets").performClick(); shot("06-budgets")
+        compose.onNodeWithText("Insights").performClick(); shot("07-insights")
+        compose.onNodeWithText("Home").performClick(); settle()
+        compose.onNodeWithContentDescription("Settings").performClick(); shot("08-settings")
+        compose.onNodeWithText("Themes").performClick(); shot("09-themes"); back()
+        compose.onNodeWithText("Shortcut settings").performClick(); shot("10-shortcuts"); back()
+        compose.onNodeWithText("Home-screen widgets").performClick(); shot("11-widgets"); back()
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Categories"))
+        compose.onNodeWithText("Categories").performClick(); shot("12-categories"); back()
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("About Spendly"))
+        compose.onNodeWithText("About Spendly").performClick(); shot("13-about"); back()
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Built with", substring = true))
+        shot("14-settings-bottom")
+        db.close()
+    }
 }

@@ -4,7 +4,7 @@ import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
-import android.graphics.drawable.ColorDrawable
+import androidx.core.graphics.drawable.toDrawable
 import android.graphics.Color
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -78,7 +78,7 @@ class MainActivity : ComponentActivity() {
         (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
 
     private fun applyWindowTheme(palette: SpendlyPalette) {
-        window.setBackgroundDrawable(ColorDrawable(palette.background.toArgb()))
+        window.setBackgroundDrawable(palette.background.toArgb().toDrawable())
         val style = if (palette.isDark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
         enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
     }

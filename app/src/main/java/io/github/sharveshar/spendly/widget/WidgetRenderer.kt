@@ -16,6 +16,7 @@ import androidx.annotation.IdRes
 import androidx.annotation.LayoutRes
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.core.graphics.createBitmap
 import io.github.sharveshar.spendly.MainActivity
 import io.github.sharveshar.spendly.QuickAddActivity
 import io.github.sharveshar.spendly.R
@@ -327,7 +328,7 @@ object WidgetRenderer {
     private fun progressBitmap(context: Context, widthDp: Int, fraction: Float, track: Color, fill: Color): Bitmap {
         val w = px(context, widthDp).toInt().coerceAtLeast(1)
         val h = px(context, 8).toInt().coerceAtLeast(1)
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val bmp = createBitmap(w, h)
         val c = Canvas(bmp)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         val r = h / 2f
@@ -345,7 +346,7 @@ object WidgetRenderer {
     private fun barsBitmap(context: Context, widthDp: Int, heightDp: Int, d: WidgetSnapshot, p: SpendlyPalette, labels: Boolean): Bitmap {
         val w = px(context, widthDp).toInt().coerceAtLeast(1)
         val h = px(context, heightDp).toInt().coerceAtLeast(1)
-        val bmp = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888)
+        val bmp = createBitmap(w, h)
         val c = Canvas(bmp)
         val paint = Paint(Paint.ANTI_ALIAS_FLAG)
         val labelSpace = if (labels) px(context, 16) else 0f

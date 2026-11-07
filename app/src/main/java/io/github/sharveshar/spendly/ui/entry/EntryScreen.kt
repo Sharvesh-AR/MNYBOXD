@@ -685,7 +685,7 @@ private fun AccountChip(a: AccountUi, selected: Boolean, hold: Boolean, onClick:
 @Composable
 private fun Keypad(keyHeight: androidx.compose.ui.unit.Dp, onDigit: (Char) -> Unit, onDecimal: () -> Unit, onBackspace: () -> Unit, onClear: () -> Unit) {
     val haptics = LocalHapticFeedback.current
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = Space.md, vertical = Space.xs)) {
+    Box(Modifier.fillMaxWidth().padding(horizontal = Space.md, vertical = Space.xs)) {
         Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
             listOf(listOf('1', '2', '3'), listOf('4', '5', '6'), listOf('7', '8', '9'), listOf('.', '0', '<')).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
@@ -859,15 +859,23 @@ private fun VoicePopup(visible: Boolean, anchor: OriginAnchor, state: VoiceState
     OriginPopup(visible = visible, anchor = anchor, onDismissRequest = onCancel) {
         Column(Modifier.fillMaxWidth().padding(Space.xxl), horizontalAlignment = Alignment.CenterHorizontally) {
             val listening = state as? VoiceState.Listening
-            val level by animateFloatAsState(listening?.level ?: 0f, spring(stiffness = Spring.StiffnessMediumLow), label = "rms")
-            Box(Modifier.size(132.dp), contentAlignment = Alignment.Center) {
-                Box(
-                    Modifier
-                        .size(132.dp)
-                        .graphicsLayer { val s = 0.62f + 0.38f * level; scaleX = s; scaleY = s }
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                )
+            // Three rings follow the voice level, each a little more lazily than the one inside it,
+            // so speech ripples outwards. They move only with sound: silence means stillness.
+            val raw = listening?.level ?: 0f
+            val inner by animateFloatAsState(raw, spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium), label = "rms1")
+            val middle by animateFloatAsState(raw, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow), label = "rms2")
+            val outer by animateFloatAsState(raw, spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessLow), label = "rms3")
+            val ring = MaterialTheme.colorScheme.primary
+            Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
+                listOf(Triple(150.dp, outer, 0.07f), Triple(120.dp, middle, 0.11f), Triple(96.dp, inner, 0.16f)).forEach { (size, level, alpha) ->
+                    Box(
+                        Modifier
+                            .size(size)
+                            .graphicsLayer { val s = 0.6f + 0.4f * level; scaleX = s; scaleY = s }
+                            .clip(CircleShape)
+                            .background(ring.copy(alpha = alpha)),
+                    )
+                }
                 Box(
                     Modifier.size(72.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = if (listening != null) 1f else 0.3f)),
                     contentAlignment = Alignment.Center,

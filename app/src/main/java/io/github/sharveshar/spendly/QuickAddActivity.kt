@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.rememberUpdatedState
@@ -29,13 +28,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.github.sharveshar.spendly.data.db.DatabaseState
 import io.github.sharveshar.spendly.ui.components.LocalReducedMotion
 import io.github.sharveshar.spendly.ui.components.LocalSecureWindows
 import io.github.sharveshar.spendly.ui.components.rememberReducedMotion
 import io.github.sharveshar.spendly.ui.components.setSecure
-import io.github.sharveshar.spendly.ui.navigation.AccountEditSheetRoute
 import io.github.sharveshar.spendly.ui.navigation.EntryRoute
 import io.github.sharveshar.spendly.ui.navigation.PopupBaseRoute
 import io.github.sharveshar.spendly.ui.quickAddDestinations
@@ -129,10 +128,10 @@ private fun QuickAddPopup(startVoice: Boolean, onFinished: () -> Unit) {
             nav.navigate(EntryRoute(startVoice = startVoice))
         }
     }
-    // When Quick Add (and any account editor it opened) is gone, so is the pop-up.
-    val backStack by nav.currentBackStack.collectAsState()
-    LaunchedEffect(backStack, opened) {
-        val showing = backStack.any { it.destination.hasRoute(EntryRoute::class) || it.destination.hasRoute(AccountEditSheetRoute::class) }
-        if (opened && !showing) finished()
+    // When Quick Add (and any account editor it opened) is gone, so is the pop-up: the empty
+    // base screen is on top again.
+    val top by nav.currentBackStackEntryAsState()
+    LaunchedEffect(top, opened) {
+        if (opened && top?.destination?.hasRoute(PopupBaseRoute::class) == true) finished()
     }
 }

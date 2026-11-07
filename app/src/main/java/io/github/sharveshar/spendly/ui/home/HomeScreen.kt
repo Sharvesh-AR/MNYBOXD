@@ -56,7 +56,9 @@ import io.github.sharveshar.spendly.ui.components.SectionHeader
 import io.github.sharveshar.spendly.ui.components.TransactionListItem
 import io.github.sharveshar.spendly.ui.components.compactAxisDescription
 import io.github.sharveshar.spendly.ui.components.icon
+import io.github.sharveshar.spendly.ui.components.rememberStagger
 import io.github.sharveshar.spendly.ui.components.sharedContainer
+import io.github.sharveshar.spendly.ui.components.staggered
 import io.github.sharveshar.spendly.ui.theme.AmountStyle
 import io.github.sharveshar.spendly.ui.theme.Space
 import io.github.sharveshar.spendly.ui.theme.Spendly
@@ -77,6 +79,7 @@ fun HomeScreen(
     LifecycleResumeEffect(Unit) { Today.refresh(); onPauseOrDispose { } }
     val state by viewModel.state.collectAsStateWithLifecycle()
 
+    val stagger = rememberStagger()
     LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
         item(key = "top") {
             Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.sm, top = Space.sm), verticalAlignment = Alignment.CenterVertically) {
@@ -85,7 +88,7 @@ fun HomeScreen(
             }
         }
         item(key = "hero") {
-            Column(Modifier.padding(horizontal = Space.gutter, vertical = Space.lg)) {
+            Column(Modifier.staggered(stagger, 0).padding(horizontal = Space.gutter, vertical = Space.lg)) {
                 Text("Spent in ${state.monthLabel}", style = MaterialTheme.typography.labelLarge, color = Spendly.colors.muted)
                 Spacer(Modifier.height(Space.xs))
                 MoneyText(state.spentThisMonth, MaterialTheme.typography.displayLarge, countUpOnFirstShow = !state.loading)
@@ -128,7 +131,7 @@ fun HomeScreen(
 
         if (!state.loading && state.transactionCount == 0) {
             item(key = "empty") {
-                SectionCard(Modifier.padding(horizontal = Space.gutter)) {
+                SectionCard(Modifier.staggered(stagger, 1).padding(horizontal = Space.gutter)) {
                     EmptyState(
                         icon = Icons.AutoMirrored.Rounded.ReceiptLong,
                         title = "Nothing recorded yet",
@@ -140,7 +143,7 @@ fun HomeScreen(
         }
 
         item(key = "week") {
-            SectionCard(Modifier.padding(horizontal = Space.gutter)) {
+            SectionCard(Modifier.staggered(stagger, 1).padding(horizontal = Space.gutter)) {
                 Row(verticalAlignment = Alignment.Bottom) {
                     Text("Last 7 days", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                     Text(Money.format(state.week.sum()), style = AmountStyle.compact, color = Spendly.colors.muted)
@@ -157,20 +160,20 @@ fun HomeScreen(
         }
 
         if (state.accounts.isNotEmpty()) {
-            item(key = "accounts-h") { SectionHeader("Accounts", Modifier.padding(start = Space.gutter, end = Space.sm, top = Space.lg), "See all", onSeeAccounts) }
+            item(key = "accounts-h") { SectionHeader("Accounts", Modifier.staggered(stagger, 2).padding(start = Space.gutter, end = Space.sm, top = Space.lg), "See all", onSeeAccounts) }
             item(key = "accounts") {
-                LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.md)) {
+                LazyRow(Modifier.staggered(stagger, 3), contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.md)) {
                     items(state.accounts, key = { it.id }) { a -> AccountChipCard(a) { onOpenAccount(a.id) } }
                 }
             }
         }
 
         if (state.topCategories.isNotEmpty()) {
-            item(key = "cats-h") { SectionHeader("Where it went", Modifier.padding(start = Space.gutter, end = Space.sm, top = Space.lg)) }
+            item(key = "cats-h") { SectionHeader("Where it went", Modifier.staggered(stagger, 4).padding(start = Space.gutter, end = Space.sm, top = Space.lg)) }
             item(key = "cats") {
                 val palette = Spendly.colors.categoryPalette
                 val total = state.spentThisMonth.coerceAtLeast(state.topCategories.sumOf { it.amountPaise })
-                SectionCard(Modifier.padding(horizontal = Space.gutter), padding = Space.md) {
+                SectionCard(Modifier.staggered(stagger, 5).padding(horizontal = Space.gutter), padding = Space.md) {
                     state.topCategories.forEach { c ->
                         val color = palette[(c.category?.colorIndex ?: 9).coerceIn(0, palette.lastIndex)]
                         ProportionRow(
@@ -186,8 +189,8 @@ fun HomeScreen(
         }
 
         if (state.recent.isNotEmpty()) {
-            item(key = "recent-h") { SectionHeader("Recent", Modifier.padding(start = Space.gutter, end = Space.sm, top = Space.lg), "See all", onSeeAllTransactions) }
-            items(state.recent, key = { "r" + it.id }) { row -> TransactionListItem(row, onClick = { onOpenTransaction(row.id) }) }
+            item(key = "recent-h") { SectionHeader("Recent", Modifier.staggered(stagger, 6).padding(start = Space.gutter, end = Space.sm, top = Space.lg), "See all", onSeeAllTransactions) }
+            items(state.recent, key = { "r" + it.id }) { row -> TransactionListItem(row, onClick = { onOpenTransaction(row.id) }, modifier = Modifier.staggered(stagger, 7).animateItem()) }
         }
     }
 }

@@ -2,10 +2,11 @@ package io.github.sharveshar.spendly.ui.settings
 
 import android.appwidget.AppWidgetManager
 import android.content.Context
-import android.os.Build
 import android.view.View
 import android.widget.FrameLayout
+import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -71,7 +72,7 @@ fun WidgetsScreen(onBack: () -> Unit) {
     var version by remember { mutableIntStateOf(0) }
     val content by produceState<WidgetRenderer.Content?>(null) { value = WidgetUpdater.loadContent(container) }
     val manager = remember { AppWidgetManager.getInstance(context) }
-    val canPin = remember { Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && manager?.isRequestPinAppWidgetSupported == true }
+    val canPin = remember { manager?.isRequestPinAppWidgetSupported == true }
 
     SubScreen("Widgets", onBack) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
@@ -98,7 +99,15 @@ fun WidgetsScreen(onBack: () -> Unit) {
                     Spacer(Modifier.height(Space.md))
                     Text("Preview", style = MaterialTheme.typography.labelSmall, color = Spendly.colors.muted)
                     Spacer(Modifier.height(Space.xs))
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.md)) {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(20.dp))
+                            .background(Brush.linearGradient(listOf(Spendly.colors.accent.copy(alpha = 0.30f), Spendly.colors.secondaryAccent.copy(alpha = 0.12f), Spendly.colors.background)))
+                            .horizontalScroll(rememberScrollState())
+                            .padding(Space.md),
+                        horizontalArrangement = Arrangement.spacedBy(Space.md),
+                    ) {
                         content?.let { c ->
                             WidgetPreview(info.kind, c, info.compact, version, "${info.title}, compact")
                             WidgetPreview(info.kind, c, info.expanded, version, "${info.title}, expanded")

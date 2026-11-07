@@ -237,6 +237,35 @@ fun DialogWindowSetup(view: android.view.View) {
     }
 }
 
+/** Drives a one-time staggered entrance for a screen's sections. */
+@Stable
+class StaggerState internal constructor(internal val progress: Animatable<Float, androidx.compose.animation.core.AnimationVector1D>)
+
+/**
+ * Sections fade and rise into place one after another the first time a screen is shown. It plays
+ * once per screen per session (not on every tab switch) and never with reduced motion.
+ */
+@Composable
+fun rememberStagger(): StaggerState {
+    val reduced = LocalReducedMotion.current
+    var played by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(false) }
+    val progress = remember { Animatable(if (reduced || played) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (!played) {
+            played = true
+            progress.animateTo(1f, androidx.compose.animation.core.tween(720, easing = androidx.compose.animation.core.LinearOutSlowInEasing))
+        }
+    }
+    return remember { StaggerState(progress) }
+}
+
+/** Item [index]'s part of a [StaggerState] entrance (read in the draw phase: no recomposition). */
+fun Modifier.staggered(state: StaggerState, index: Int): Modifier = graphicsLayer {
+    val p = ((state.progress.value - index * 0.07f) / 0.5f).coerceIn(0f, 1f)
+    alpha = p
+    translationY = (1f - p) * 20.dp.toPx()
+}
+
 /** Gentle press-down scale for tappable surfaces. */
 fun Modifier.pressScale(interactionSource: MutableInteractionSource, pressed: Float = 0.96f): Modifier = composed {
     val isPressed by interactionSource.collectIsPressedAsState()
