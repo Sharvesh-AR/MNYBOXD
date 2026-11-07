@@ -6,12 +6,15 @@ import android.media.AudioManager.STREAM_MUSIC
 import android.media.AudioManager.STREAM_RING
 import android.view.KeyEvent
 import androidx.test.core.app.ApplicationProvider
+import io.github.sharveshar.spendly.HangWatchdog
 import io.github.sharveshar.spendly.data.prefs.PreferencesRepository
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -20,6 +23,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class ButtonShortcutHandlerTest {
+    @get:Rule val watchdog = HangWatchdog(2.minutes)
     private val context: Context get() = ApplicationProvider.getApplicationContext()
     private val down = KeyEvent.KEYCODE_VOLUME_DOWN
     private val up = KeyEvent.KEYCODE_VOLUME_UP

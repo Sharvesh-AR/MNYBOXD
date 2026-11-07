@@ -3,6 +3,7 @@ package io.github.sharveshar.spendly.ui
 import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.test.core.app.ApplicationProvider
+import io.github.sharveshar.spendly.HangWatchdog
 import io.github.sharveshar.spendly.Repositories
 import io.github.sharveshar.spendly.data.db.SpendlyDatabase
 import io.github.sharveshar.spendly.data.prefs.PreferencesRepository
@@ -17,6 +18,7 @@ import io.github.sharveshar.spendly.domain.model.PaymentProvider
 import io.github.sharveshar.spendly.domain.model.TransactionType
 import io.github.sharveshar.spendly.ui.entry.EntryEvent
 import io.github.sharveshar.spendly.ui.entry.EntryViewModel
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -30,6 +32,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -40,6 +43,7 @@ import org.robolectric.shadows.ShadowLooper
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class EntryViewModelTest {
+    @get:Rule val watchdog = HangWatchdog(2.minutes)
     private lateinit var db: SpendlyDatabase
     private lateinit var repos: Repositories
     private lateinit var prefs: PreferencesRepository

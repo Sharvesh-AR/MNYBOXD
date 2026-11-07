@@ -1,5 +1,6 @@
 package io.github.sharveshar.spendly.data
 
+import io.github.sharveshar.spendly.HangWatchdog
 import io.github.sharveshar.spendly.data.backup.BackupCodec
 import io.github.sharveshar.spendly.data.backup.BackupFormatException
 import io.github.sharveshar.spendly.data.backup.BackupPasswordException
@@ -15,11 +16,13 @@ import io.github.sharveshar.spendly.data.repo.WriteResult
 import io.github.sharveshar.spendly.domain.ledger.TransactionDraft
 import io.github.sharveshar.spendly.domain.model.AccountType
 import io.github.sharveshar.spendly.domain.model.TransactionType
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -30,6 +33,7 @@ import java.time.ZoneId
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class BackupTest {
+    @get:Rule val watchdog = HangWatchdog(2.minutes)
     private val now = 1_760_000_000_000L
     private val password = "correct horse battery".toCharArray()
     private val fastIterations = 100_000

@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import io.github.sharveshar.spendly.AppContainer
+import io.github.sharveshar.spendly.HangWatchdog
 import io.github.sharveshar.spendly.data.db.SpendlyDatabase
 import io.github.sharveshar.spendly.data.testDatabase
 import io.github.sharveshar.spendly.domain.model.TransactionType
@@ -27,9 +28,12 @@ import io.github.sharveshar.spendly.ui.navigation.LocalAppContainer
 import io.github.sharveshar.spendly.ui.theme.SpendlyTheme
 import io.github.sharveshar.spendly.ui.voice.VoiceRecognizer
 import io.github.sharveshar.spendly.ui.voice.VoiceState
+import kotlin.time.Duration.Companion.minutes
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -47,7 +51,8 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w411dp-h891dp-xxhdpi")
 class UiTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule(order = 0) val watchdog = HangWatchdog(2.minutes)
+    @get:Rule(order = 1) val compose = createComposeRule()
 
     private lateinit var db: SpendlyDatabase
     private lateinit var container: AppContainer
@@ -62,11 +67,23 @@ class UiTest {
 
     @After fun tearDown() = db.close()
 
-    /** Room emits on background executors that waitForIdle() doesn't track, so wait for content explicitly. */
-    private fun shown(text: String) {
+    /**
+     * Room emits on background executors that waitForIdle() doesn't track, so wait for content explicitly.
+     * [scroll] brings the text into view first; it needs a scrollable ancestor, so pass false for text in an
+     * OriginPopup, whose card merges its content (scroll column included) into one node.
+     */
+    private fun shown(text: String, scroll: Boolean = true) {
         compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithText(text).performScrollTo().assertIsDisplayed()
+        val node = compose.onNodeWithText(text)
+        if (scroll) node.performScrollTo()
+        node.assertIsDisplayed()
     }
+
+    /**
+     * Saved preferences, read on an IO thread with a deadline. Never block the main thread on DataStore
+     * once UI exists: a write started by a tap finishes on the main thread, so blocking it can deadlock.
+     */
+    private fun savedPreferences() = runBlocking(Dispatchers.IO) { withTimeout(5_000) { container.preferences.preferences.first() } }
 
     private fun launchApp() {
         compose.setContent {
@@ -168,11 +185,11 @@ class UiTest {
 
         // Not switched on in Android yet: the row explains, using the saved pattern, and links to settings.
         compose.onNodeWithText("Volume button shortcut").performScrollTo().performClick()
-        shown("Add expenses with a volume button")
+        shown("Add expenses with a volume button", scroll = false)
         compose.waitUntil(5_000) {
             compose.onAllNodesWithText("Press volume up twice", substring = true).fetchSemanticsNodes().isNotEmpty()
         }
-        assertEquals(ButtonShortcut(ShortcutButton.VOLUME_UP, 2), runBlocking { container.preferences.preferences.first() }.buttonShortcut)
+        assertEquals(ButtonShortcut(ShortcutButton.VOLUME_UP, 2), savedPreferences().buttonShortcut)
 
         compose.onNodeWithText("Accessibility settings").performClick()
         compose.waitForIdle()
