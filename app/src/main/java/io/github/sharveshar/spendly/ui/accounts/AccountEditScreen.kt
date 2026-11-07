@@ -55,7 +55,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import androidx.navigation.toRoute
 import io.github.sharveshar.spendly.Repositories
 import io.github.sharveshar.spendly.core.money.AmountInput
 import io.github.sharveshar.spendly.core.money.Money
@@ -70,7 +69,6 @@ import io.github.sharveshar.spendly.ui.components.SelectChip
 import io.github.sharveshar.spendly.ui.components.icon
 import io.github.sharveshar.spendly.ui.components.originAnchor
 import io.github.sharveshar.spendly.ui.components.rememberOriginAnchor
-import io.github.sharveshar.spendly.ui.navigation.AccountEditRoute
 import io.github.sharveshar.spendly.ui.theme.Space
 import io.github.sharveshar.spendly.ui.theme.Spendly
 import kotlinx.coroutines.channels.Channel
@@ -105,7 +103,8 @@ sealed interface AccountEditEvent {
 }
 
 class AccountEditViewModel(private val repos: Repositories, handle: SavedStateHandle) : ViewModel() {
-    private val id = handle.toRoute<AccountEditRoute>().id.takeIf { it > 0 }
+    // Read by key so the same screen serves AccountEditRoute and AccountEditSheetRoute (both have `id`).
+    private val id = handle.get<Long>("id")?.takeIf { it > 0 }
     private val form = MutableStateFlow(
         (if (handle.get<Boolean>("loaded") == true) restore(handle) else null) ?: AccountEditState(editing = id != null),
     )

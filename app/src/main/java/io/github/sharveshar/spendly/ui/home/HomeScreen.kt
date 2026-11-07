@@ -111,12 +111,12 @@ fun HomeScreen(
                 }
                 Spacer(Modifier.height(Space.md))
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                    FilledTonalButton(onClick = onAdd, modifier = Modifier.heightIn(min = 48.dp).sharedContainer("entry-home-add", 24)) {
+                    FilledTonalButton(onClick = onAdd, modifier = Modifier.heightIn(min = 48.dp)) {
                         Icon(Icons.Rounded.Add, contentDescription = null)
                         Spacer(Modifier.width(Space.sm))
                         Text("Add expense")
                     }
-                    FilledTonalButton(onClick = onVoice, modifier = Modifier.heightIn(min = 48.dp).sharedContainer("entry-home-voice", 24)) {
+                    FilledTonalButton(onClick = onVoice, modifier = Modifier.heightIn(min = 48.dp)) {
                         Icon(Icons.Rounded.Mic, contentDescription = null)
                         Spacer(Modifier.width(Space.sm))
                         Text("Voice")
@@ -188,7 +188,6 @@ fun HomeScreen(
             item(key = "recent-h") { SectionHeader("Recent", Modifier.padding(start = Space.gutter, end = Space.sm, top = Space.lg), "See all", onSeeAllTransactions) }
             items(state.recent, key = { "r" + it.id }) { row -> TransactionListItem(row, onClick = { onOpenTransaction(row.id) }) }
         }
-        item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
     }
 }
 

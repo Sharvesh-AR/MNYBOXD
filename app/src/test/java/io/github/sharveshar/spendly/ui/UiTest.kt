@@ -9,6 +9,7 @@ import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -47,6 +48,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowLooper
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -87,6 +89,17 @@ class UiTest {
      * once UI exists: a write started by a tap finishes on the main thread, so blocking it can deadlock.
      */
     private fun savedPreferences() = runBlocking(Dispatchers.IO) { withTimeout(5_000) { container.preferences.preferences.first() } }
+
+    /** Advances the paused test clock in small steps until [condition] holds. */
+    private fun stepUntil(timeoutMs: Long, condition: () -> Boolean) {
+        var waited = 0L
+        while (!condition()) {
+            check(waited < timeoutMs) { "Condition not met within $timeoutMs ms" }
+            compose.mainClock.advanceTimeBy(50)
+            ShadowLooper.idleMainLooper()
+            waited += 50
+        }
+    }
 
     private fun launchApp() {
         compose.setContent {
@@ -132,13 +145,20 @@ class UiTest {
         compose.onNodeWithContentDescription("Decimal point").performClick()
         compose.onNodeWithContentDescription("5").performClick()
         compose.onNodeWithText("Food & Dining").performClick()
+        // Step the clock by hand: an auto-advancing clock would play the whole save animation
+        // (coin, confirmation, sheet closing) inside a single wait and never show "Saved".
+        compose.mainClock.autoAdvance = false
         compose.onNodeWithText("Save expense").performClick()
-        compose.waitUntil(5_000) { runBlocking { db.transactionDao().getAll().isNotEmpty() } }
+        // "Saved" shows only after the transaction is committed (and the coin has landed).
+        stepUntil(5_000) { compose.onAllNodesWithText("Saved").fetchSemanticsNodes().isNotEmpty() }
+        compose.mainClock.autoAdvance = true
         val saved = runBlocking { db.transactionDao().getAll() }.single()
         assertEquals(TransactionType.EXPENSE, saved.type)
         assertEquals(12_050L, saved.amountPaise)
         assertEquals("Cash", runBlocking { db.accountDao().getById(saved.accountId)!!.name })
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Saved").fetchSemanticsNodes().isNotEmpty() }
+        // Then Quick Add closes by itself and the dashboard is back, with no second sheet.
+        compose.waitUntil(5_000) { compose.onAllNodes(isRoot()).fetchSemanticsNodes().size == 1 }
+        shown("Spendly")
     }
 
     @Test fun `quick add validation blocks empty and categoryless entries`() {

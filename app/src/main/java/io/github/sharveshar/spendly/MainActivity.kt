@@ -3,27 +3,32 @@ package io.github.sharveshar.spendly
 import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
+import android.content.res.Configuration
+import android.graphics.drawable.ColorDrawable
 import android.graphics.Color
 import android.os.Bundle
-import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
 import androidx.core.graphics.drawable.IconCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import io.github.sharveshar.spendly.data.prefs.ThemeMode
 import io.github.sharveshar.spendly.ui.SpendlyApp
 import io.github.sharveshar.spendly.ui.components.LocalReducedMotion
 import io.github.sharveshar.spendly.ui.components.rememberReducedMotion
-import io.github.sharveshar.spendly.ui.theme.SpendlyTheme
+import io.github.sharveshar.spendly.ui.components.LocalSecureWindows
+import io.github.sharveshar.spendly.ui.components.setSecure
+import io.github.sharveshar.spendly.ui.theme.AnimatedSpendlyTheme
+import io.github.sharveshar.spendly.ui.theme.Palettes
+import io.github.sharveshar.spendly.ui.theme.SpendlyPalette
+import io.github.sharveshar.spendly.ui.theme.ThemeCache
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 
@@ -34,7 +39,11 @@ class MainActivity : ComponentActivity() {
     private val launchRequests = Channel<LaunchRequest>(Channel.CONFLATED)
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        enableEdgeToEdge()
+        // The cached theme is read synchronously so the very first frame (window background,
+        // splash, system bar icons) already matches the user's theme.
+        val cachedTheme = ThemeCache.read(this)
+        val startPalette = Palettes.of(cachedTheme.resolve(isNightMode()))
+        applyWindowTheme(startPalette)
         super.onCreate(savedInstanceState)
         if (savedInstanceState == null) handleIntent(intent)
         publishShortcuts()
@@ -42,26 +51,28 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val prefs by container.preferences.preferences.collectAsStateWithLifecycle(initialValue = null)
-            val dark = when (prefs?.themeMode ?: ThemeMode.DARK) {
-                ThemeMode.DARK -> true
-                ThemeMode.LIGHT -> false
-                ThemeMode.SYSTEM -> isSystemInDarkTheme()
-            }
-            DisposableEffect(dark) {
-                val style = if (dark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
-                enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
-                onDispose { }
-            }
-            LaunchedEffect(prefs?.secureScreen) {
-                if (prefs?.secureScreen == true) window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
-            }
-            CompositionLocalProvider(LocalReducedMotion provides rememberReducedMotion()) {
-                SpendlyTheme(dark = dark) {
+            val choice = prefs?.theme ?: cachedTheme
+            val palette = Palettes.of(choice.resolve(isSystemInDarkTheme()))
+            LaunchedEffect(palette) { applyWindowTheme(palette) }
+            LaunchedEffect(prefs?.theme) { prefs?.theme?.let { ThemeCache.write(this@MainActivity, it) } }
+            val secure = prefs?.secureScreen == true
+            LaunchedEffect(secure) { window.setSecure(secure) }
+            val reduced = rememberReducedMotion()
+            CompositionLocalProvider(LocalReducedMotion provides reduced, LocalSecureWindows provides secure) {
+                AnimatedSpendlyTheme(palette, reduced) {
                     SpendlyApp(container, launchRequests.receiveAsFlow())
                 }
             }
         }
+    }
+
+    private fun isNightMode() =
+        (resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
+
+    private fun applyWindowTheme(palette: SpendlyPalette) {
+        window.setBackgroundDrawable(ColorDrawable(palette.background.toArgb()))
+        val style = if (palette.isDark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
+        enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -94,13 +105,13 @@ class MainActivity : ComponentActivity() {
                         .setShortLabel("Add expense")
                         .setLongLabel("Add an expense")
                         .setIcon(IconCompat.createWithResource(this, R.drawable.ic_shortcut_add))
-                        .setIntent(launchIntent(this, ACTION_QUICK_ADD))
+                        .setIntent(QuickAddActivity.launchIntent(this, ACTION_QUICK_ADD))
                         .build(),
                     ShortcutInfoCompat.Builder(this, SHORTCUT_VOICE)
                         .setShortLabel("Voice expense")
                         .setLongLabel("Add an expense by voice")
                         .setIcon(IconCompat.createWithResource(this, R.drawable.ic_shortcut_mic))
-                        .setIntent(launchIntent(this, ACTION_VOICE_ADD))
+                        .setIntent(QuickAddActivity.launchIntent(this, ACTION_VOICE_ADD))
                         .build(),
                 ),
             )
@@ -110,8 +121,8 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val ACTION_QUICK_ADD = "io.github.sharveshar.spendly.action.QUICK_ADD"
         const val ACTION_VOICE_ADD = "io.github.sharveshar.spendly.action.VOICE_ADD"
-        private const val SHORTCUT_ADD = "quick_add"
-        private const val SHORTCUT_VOICE = "voice_add"
+        const val SHORTCUT_ADD = "quick_add"
+        const val SHORTCUT_VOICE = "voice_add"
 
         fun launchIntent(context: Context, action: String): Intent =
             Intent(action).setClass(context, MainActivity::class.java)

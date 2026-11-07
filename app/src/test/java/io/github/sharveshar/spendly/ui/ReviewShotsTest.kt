@@ -1,0 +1,216 @@
+package io.github.sharveshar.spendly.ui
+
+import android.content.Context
+import android.graphics.Bitmap
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalRippleConfiguration
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
+import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.hasText
+import androidx.test.core.app.ApplicationProvider
+import io.github.sharveshar.spendly.AppContainer
+import io.github.sharveshar.spendly.DebugTools
+import io.github.sharveshar.spendly.HangWatchdog
+import io.github.sharveshar.spendly.data.testDatabase
+import io.github.sharveshar.spendly.ui.navigation.LocalAppContainer
+import io.github.sharveshar.spendly.ui.theme.SpendlyTheme
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.runBlocking
+import org.junit.Assume.assumeTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+import org.robolectric.shadows.ShadowLooper
+import java.io.File
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.minutes
+
+/**
+ * Visual QA captures, including frames in the middle of transitions. Opt-in:
+ *   SPENDLY_REVIEW_DIR=$PWD/build/review ./gradlew testStandardDebugUnitTest --tests '*ReviewShotsTest*'
+ */
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35], qualifiers = "w393dp-h852dp-xxhdpi")
+@OptIn(ExperimentalMaterial3Api::class)
+class ReviewShotsTest {
+    @get:Rule(order = 0) val watchdog = HangWatchdog(3.minutes)
+    @get:Rule(order = 1) val compose = createComposeRule()
+
+    @Test fun captureReview() {
+        val dir = System.getenv("SPENDLY_REVIEW_DIR")
+        assumeTrue("Set SPENDLY_REVIEW_DIR to capture review shots", !dir.isNullOrBlank())
+        val out = File(dir!!).apply { mkdirs() }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = testDatabase()
+        val container = AppContainer(context)
+        container.databaseManager.useForTesting(db)
+        runBlocking {
+            container.preferences.setOnboardingDone()
+            DebugTools.loadSampleData(container.repositories)
+        }
+        compose.setContent {
+            CompositionLocalProvider(LocalAppContainer provides container, LocalRippleConfiguration provides null) {
+                SpendlyTheme { SpendlyApp(container, emptyFlow()) }
+            }
+        }
+        fun settle() {
+            compose.mainClock.advanceTimeBy(2_000)
+            ShadowLooper.idleMainLooper(2, TimeUnit.SECONDS)
+            compose.waitForIdle()
+        }
+        fun save(name: String) {
+            compose.captureScreen().savePng(File(out, "$name.png"))
+        }
+        settle(); save("a-home")
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Accounts"))
+        settle(); save("b-home-accounts")
+
+        // Quick Add opening, frame by frame.
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithContentDescription("Quick add").performClick()
+        for (t in listOf(48L, 96L, 160L, 240L, 400L)) {
+            compose.mainClock.advanceTimeBy(if (t == 48L) 48 else t - listOf(48L, 96L, 160L, 240L, 400L).let { it[it.indexOf(t) - 1] })
+            save("c-open-%03d".format(t))
+        }
+        compose.mainClock.autoAdvance = true
+        settle(); save("d-quick-add")
+
+        // Closing, frame by frame.
+        compose.mainClock.autoAdvance = false
+        compose.onNodeWithContentDescription("Close without saving").performClick()
+        var prev = 0L
+        for (t in listOf(48L, 120L, 240L)) {
+            compose.mainClock.advanceTimeBy(t - prev); prev = t
+            save("f-close-%03d".format(t))
+        }
+        compose.mainClock.autoAdvance = true
+        settle()
+
+        // Settings footer.
+        compose.onNodeWithContentDescription("Settings").performClick()
+        settle()
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Built with", substring = true))
+        settle(); save("g-settings-footer")
+        db.close()
+    }
+
+    /**
+     * Robolectric can't capture dialog windows (the capture returns the activity window), so the
+     * Quick Add sheet is rendered here in the activity window itself, over the real app.
+     */
+    @Test fun captureQuickAddSheet() {
+        val dir = System.getenv("SPENDLY_REVIEW_DIR")
+        assumeTrue("Set SPENDLY_REVIEW_DIR to capture review shots", !dir.isNullOrBlank())
+        val out = File(dir!!).apply { mkdirs() }
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val db = testDatabase()
+        val container = AppContainer(context)
+        container.databaseManager.useForTesting(db)
+        runBlocking {
+            container.preferences.setOnboardingDone()
+            DebugTools.loadSampleData(container.repositories)
+        }
+        val vm = io.github.sharveshar.spendly.ui.entry.EntryViewModel(container.repositories, container.preferences, androidx.lifecycle.SavedStateHandle())
+        var showSheet by androidx.compose.runtime.mutableStateOf(false)
+        var palette by androidx.compose.runtime.mutableStateOf(io.github.sharveshar.spendly.ui.theme.Palettes.MidnightEmerald)
+        compose.setContent {
+            CompositionLocalProvider(LocalAppContainer provides container, LocalRippleConfiguration provides null) {
+                SpendlyTheme(palette) {
+                    androidx.compose.foundation.layout.Box {
+                        SpendlyApp(container, emptyFlow())
+                        if (showSheet) io.github.sharveshar.spendly.ui.entry.EntryScreen(vm, startVoice = false, onClose = { showSheet = false }, onAddAccount = {})
+                    }
+                }
+            }
+        }
+        fun save(name: String) = compose.captureScreen().savePng(File(out, "$name.png"))
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.mainClock.autoAdvance = false
+        showSheet = true
+        var t = 0L
+        for (step in listOf(32L, 64L, 120L, 200L, 320L)) {
+            compose.mainClock.advanceTimeBy(step - t); t = step
+            save("s-open-%03d".format(step))
+        }
+        compose.mainClock.advanceTimeBy(1_500)
+        ShadowLooper.idleMainLooper(1, TimeUnit.SECONDS)
+        save("s-sheet")
+        compose.onNodeWithContentDescription("4").performClick()
+        compose.onNodeWithContentDescription("5").performClick()
+        compose.onNodeWithContentDescription("0").performClick()
+        // The sheet's chip, not the dashboard's "Where it went" row under the scrim.
+        compose.onAllNodesWithText("Food & Dining").onLast().performClick()
+        compose.mainClock.advanceTimeBy(1_000)
+        save("s-sheet-filled")
+        for (p in io.github.sharveshar.spendly.ui.theme.Palettes.all) {
+            palette = p
+            compose.mainClock.advanceTimeBy(800)
+            save("t-sheet-${p.theme.name.lowercase()}")
+        }
+        palette = io.github.sharveshar.spendly.ui.theme.Palettes.MidnightEmerald
+        compose.mainClock.advanceTimeBy(500)
+        // Save and watch the coin fly.
+        compose.onNodeWithText("Save expense").performClick()
+        var waited = 0L
+        while (compose.onAllNodesWithText("Saved").fetchSemanticsNodes().isEmpty() && waited < 400) {
+            compose.mainClock.advanceTimeBy(20); ShadowLooper.idleMainLooper(); waited += 20
+            if (waited % 100 == 0L) save("u-coin-%03d".format(waited))
+        }
+        compose.mainClock.advanceTimeBy(300)
+        save("u-saved")
+        db.close()
+    }
+
+    @Test fun captureCalendar() {
+        val dir = System.getenv("SPENDLY_REVIEW_DIR")
+        assumeTrue("Set SPENDLY_REVIEW_DIR to capture review shots", !dir.isNullOrBlank())
+        val out = File(dir!!).apply { mkdirs() }
+        val today = java.time.LocalDate.of(2026, 11, 8)
+        compose.setContent {
+            SpendlyTheme {
+                androidx.compose.foundation.layout.Box(
+                    androidx.compose.ui.Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                ) {
+                    androidx.compose.foundation.layout.Column(
+                        androidx.compose.ui.Modifier
+                            .padding(top = 80.dp, start = 16.dp, end = 16.dp)
+                    ) {
+                        io.github.sharveshar.spendly.ui.components.CalendarPicker(
+                            selected = java.time.LocalDate.of(2026, 11, 3),
+                            today = today,
+                            range = io.github.sharveshar.spendly.core.time.SelectableRange.forTransactions(today),
+                            onSelect = {},
+                        )
+                    }
+                }
+            }
+        }
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.captureScreen().savePng(File(out, "v-calendar.png"))
+    }
+}

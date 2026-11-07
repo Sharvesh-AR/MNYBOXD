@@ -11,7 +11,9 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +32,9 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ripple
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -38,6 +42,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -64,7 +75,27 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-/** A quiet surface block. Hierarchy comes from surface tone, not borders or shadows. */
+/**
+ * A layered surface: the theme's surface colour with a faint light edge along the top (dark
+ * themes) or a soft shadow (light theme). This gives cards depth without heavy borders.
+ */
+fun Modifier.layeredSurface(shape: Shape, color: Color? = null, raised: Boolean = false): Modifier = composed {
+    val c = Spendly.colors
+    val base = if (!c.isDark) {
+        shadow(if (raised) 8.dp else 2.dp, shape, clip = false, ambientColor = c.shadow.copy(alpha = 0.18f), spotColor = c.shadow.copy(alpha = 0.22f))
+    } else if (raised) {
+        shadow(10.dp, shape, clip = false, ambientColor = Color.Black.copy(alpha = 0.5f), spotColor = Color.Black.copy(alpha = 0.6f))
+    } else {
+        Modifier
+    }
+    this
+        .then(base)
+        .clip(shape)
+        .background(color ?: c.card)
+        .border(1.dp, Brush.verticalGradient(0f to c.edgeHighlight, 0.5f to Color.Transparent), shape)
+}
+
+/** A card-like section. Hierarchy comes from surface tone and a soft edge, not heavy borders. */
 @Composable
 fun SectionCard(
     modifier: Modifier = Modifier,
@@ -72,15 +103,64 @@ fun SectionCard(
     onClick: (() -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    val interaction = remember { MutableInteractionSource() }
     Column(
         modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(20.dp))
-            .background(Spendly.colors.card)
-            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .let { if (onClick != null) it.pressScale(interaction, 0.98f) else it }
+            .layeredSurface(RoundedCornerShape(22.dp))
+            .let { if (onClick != null) it.clickable(interactionSource = interaction, indication = ripple(), onClick = onClick) else it }
             .padding(padding),
         content = content,
     )
+}
+
+/**
+ * The main call to action (Save, Continue). A gently lit gradient face and a soft press-in, with
+ * loading and disabled states.
+ */
+@Composable
+fun PrimaryButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    loading: Boolean = false,
+    destructive: Boolean = false,
+) {
+    val c = Spendly.colors
+    val interaction = remember { MutableInteractionSource() }
+    val shape = RoundedCornerShape(18.dp)
+    val top = if (destructive) c.negative else c.accentHighlight
+    val bottom = if (destructive) c.negative else c.accent
+    val content = if (destructive) c.background else c.onAccent
+    val alpha by animateFloatAsState(if (enabled) 1f else 0.38f, label = "btnAlpha")
+    Box(
+        modifier
+            .heightIn(min = 56.dp)
+            .pressScale(interaction, 0.97f)
+            .graphicsLayer { this.alpha = alpha }
+            .clip(shape)
+            .background(Brush.verticalGradient(listOf(top, bottom)))
+            .border(1.dp, Brush.verticalGradient(0f to Color.White.copy(alpha = 0.22f), 0.45f to Color.Transparent), shape)
+            .clickable(
+                interactionSource = interaction,
+                indication = ripple(color = content),
+                enabled = enabled && !loading,
+                role = Role.Button,
+                onClick = onClick,
+            )
+            .padding(horizontal = Space.xl),
+        contentAlignment = Alignment.Center,
+    ) {
+        AnimatedContent(loading, transitionSpec = { fadeIn(tween(150)).togetherWith(fadeOut(tween(100))) }, label = "btnLoading") { busy ->
+            if (busy) {
+                CircularProgressIndicator(Modifier.size(22.dp), color = content, strokeWidth = 2.dp)
+            } else {
+                Text(text, style = MaterialTheme.typography.titleMedium, color = content, maxLines = 1)
+            }
+        }
+    }
 }
 
 @Composable

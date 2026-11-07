@@ -75,8 +75,7 @@ class ScreenshotTest {
             // Framework ripples run on the Android looper, not the Compose clock; let them finish.
             ShadowLooper.idleMainLooper(2, TimeUnit.SECONDS)
             compose.waitForIdle()
-            val bmp = compose.onRoot().captureToImage().asAndroidBitmap()
-            File(out, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            compose.captureScreen().savePng(File(out, "$name.png"))
         }
         shot("01-home")
         compose.onNodeWithText("Activity").performClick(); shot("02-activity")

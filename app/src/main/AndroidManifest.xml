@@ -41,6 +41,21 @@
             </intent-filter>
         </activity>
 
+        <!--
+          Quick Add as a pop-up over the current app, for the volume-button shortcut, tile, widgets
+          and launcher shortcuts. Own task, not in recents, transparent; finishes when Quick Add
+          closes. Exported so launchers can start it from app shortcuts; it honours only the two
+          fixed Quick Add actions and ignores extras and data, like MainActivity.
+        -->
+        <activity
+            android:name=".QuickAddActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.Spendly.QuickAdd" />
+
         <!-- Only the system (holding BIND_QUICK_SETTINGS_TILE) can bind to this service. -->
         <service
             android:name=".QuickAddTileService"

@@ -14,16 +14,19 @@ import io.github.sharveshar.spendly.domain.model.PaymentChannel
 import io.github.sharveshar.spendly.domain.model.PaymentProvider
 import io.github.sharveshar.spendly.shortcut.ButtonShortcut
 import io.github.sharveshar.spendly.shortcut.ShortcutButton
+import io.github.sharveshar.spendly.ui.theme.ThemeCache
+import io.github.sharveshar.spendly.ui.theme.ThemeChoice
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 
-enum class ThemeMode { SYSTEM, DARK, LIGHT }
+/** Pre-2.0 theme setting, read only to migrate it to [ThemeChoice]. */
+private enum class LegacyThemeMode { SYSTEM, DARK, LIGHT }
 
 /** Non-sensitive UI preferences only. No financial data or keys are stored here. */
 data class UserPreferences(
-    val themeMode: ThemeMode = ThemeMode.DARK,
+    val theme: ThemeChoice = ThemeChoice.DEFAULT,
     val onboardingDone: Boolean = false,
     val voiceDisclosureAccepted: Boolean = false,
     val secureScreen: Boolean = false,
@@ -36,9 +39,18 @@ data class UserPreferences(
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "spendly_prefs")
 
+/** Dark → Midnight Emerald, Light → Warm Sand, System stays System. Missing → the default. */
+internal fun legacyTheme(name: String?): ThemeChoice =
+    when (name?.let { n -> LegacyThemeMode.entries.firstOrNull { it.name == n } }) {
+        LegacyThemeMode.LIGHT -> ThemeChoice.WARM_SAND
+        LegacyThemeMode.SYSTEM -> ThemeChoice.SYSTEM
+        LegacyThemeMode.DARK, null -> ThemeChoice.DEFAULT
+    }
+
 class PreferencesRepository(private val context: Context) {
     private object Keys {
-        val theme = stringPreferencesKey("theme_mode")
+        val legacyTheme = stringPreferencesKey("theme_mode")
+        val theme = stringPreferencesKey("app_theme")
         val onboarding = booleanPreferencesKey("onboarding_done")
         val voiceDisclosure = booleanPreferencesKey("voice_disclosure_accepted")
         val secureScreen = booleanPreferencesKey("secure_screen")
@@ -53,7 +65,7 @@ class PreferencesRepository(private val context: Context) {
         .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
         .map { p ->
             UserPreferences(
-                themeMode = p[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
+                theme = ThemeChoice.parse(p[Keys.theme]) ?: legacyTheme(p[Keys.legacyTheme]),
                 onboardingDone = p[Keys.onboarding] ?: false,
                 voiceDisclosureAccepted = p[Keys.voiceDisclosure] ?: false,
                 secureScreen = p[Keys.secureScreen] ?: false,
@@ -67,7 +79,22 @@ class PreferencesRepository(private val context: Context) {
             )
         }
 
-    suspend fun setThemeMode(mode: ThemeMode) = context.dataStore.edit { it[Keys.theme] = mode.name }
+    suspend fun setTheme(choice: ThemeChoice) {
+        context.dataStore.edit {
+            it[Keys.theme] = choice.name
+            it.remove(Keys.legacyTheme)
+        }
+        ThemeCache.write(context, choice)
+    }
+
+    /**
+     * Resets every preference to its default (part of Settings → Reset Spendly). The next read
+     * shows onboarding again. Theme cache is cleared too so the next launch starts on the default.
+     */
+    suspend fun clearAll() {
+        context.dataStore.edit { it.clear() }
+        ThemeCache.clear(context)
+    }
     suspend fun setOnboardingDone() = context.dataStore.edit { it[Keys.onboarding] = true }
     suspend fun setVoiceDisclosureAccepted() = context.dataStore.edit { it[Keys.voiceDisclosure] = true }
     suspend fun setSecureScreen(enabled: Boolean) = context.dataStore.edit { it[Keys.secureScreen] = enabled }

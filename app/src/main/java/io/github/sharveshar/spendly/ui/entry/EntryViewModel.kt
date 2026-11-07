@@ -83,7 +83,15 @@ data class EntryUiState(
 }
 
 sealed interface EntryEvent {
-    data class Saved(val alert: BudgetAlert?, val wasEdit: Boolean) : EntryEvent
+    /** Sent only after the database transaction committed. Carries what was saved, for the coin animation. */
+    data class Saved(
+        val alert: BudgetAlert?,
+        val wasEdit: Boolean,
+        val type: TransactionType,
+        val amountPaise: Long,
+        val accountId: Long?,
+        val toAccountId: Long?,
+    ) : EntryEvent
 }
 
 class EntryViewModel(
@@ -335,9 +343,9 @@ class EntryViewModel(
                         if (f.type == TransactionType.EXPENSE && f.accountId != null) {
                             runCatching { prefs.rememberPaymentChoice(f.accountId, f.channel, f.provider) }
                         }
-                        _events.send(EntryEvent.Saved(r.alert, f.editId != null))
+                        _events.send(EntryEvent.Saved(r.alert, f.editId != null, f.type, f.amount.paise ?: 0L, f.accountId, f.toAccountId))
                     }
-                    is SaveResult.Duplicate -> _events.send(EntryEvent.Saved(null, f.editId != null))
+                    is SaveResult.Duplicate -> _events.send(EntryEvent.Saved(null, f.editId != null, f.type, f.amount.paise ?: 0L, f.accountId, f.toAccountId))
                     is SaveResult.Invalid -> errors.value = r.errors
                 }
             } finally {

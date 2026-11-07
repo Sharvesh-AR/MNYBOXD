@@ -1,6 +1,8 @@
 package io.github.sharveshar.spendly.ui.components
 
 import android.provider.Settings
+import android.view.Window
+import android.view.WindowManager
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.BoundsTransform
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -53,6 +55,16 @@ import io.github.sharveshar.spendly.ui.theme.Spendly
 object Motion {
     fun <T> spatial() = spring<T>(dampingRatio = 0.86f, stiffness = 420f)
     val boundsSpring = spring(dampingRatio = 0.88f, stiffness = 380f, visibilityThreshold = Rect.VisibilityThreshold)
+}
+
+/**
+ * True while "Hide app contents" is on. Every window Spendly opens (dialogs and popups as well as
+ * the activity) must then carry FLAG_SECURE, because the flag doesn't extend to child windows.
+ */
+val LocalSecureWindows = staticCompositionLocalOf { false }
+
+fun Window.setSecure(secure: Boolean) {
+    if (secure) addFlags(WindowManager.LayoutParams.FLAG_SECURE) else clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
 }
 
 /** True when the user turned animations off (Developer options / Accessibility "Remove animations"). */
@@ -134,6 +146,7 @@ fun OriginPopup(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val reduced = LocalReducedMotion.current
+    val scrim = Spendly.colors.scrim
     val progress = remember { Animatable(0f) }
     var mounted by remember { mutableStateOf(false) }
     if (visible) mounted = true
@@ -153,18 +166,13 @@ fun OriginPopup(
         properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false),
     ) {
         // The window animation would fight our own transform, so disable it.
-        (LocalView.current.parent as? DialogWindowProvider)?.window?.let { w ->
-            LaunchedEffect(w) {
-                w.setWindowAnimations(0)
-                w.setDimAmount(0f)
-            }
-        }
+        DialogWindowSetup(LocalView.current)
         var cardBounds by remember { mutableStateOf<Rect?>(null) }
         val p = progress.value
         Box(
             Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = 0.55f * p))
+                .background(scrim.copy(alpha = scrim.alpha * p))
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onDismissRequest)
                 .systemBarsPadding()
                 .imePadding()
@@ -197,8 +205,34 @@ fun OriginPopup(
                     // Swallow taps so they don't reach the scrim.
                     .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
             ) {
-                Box(Modifier.graphicsLayer { alpha = ((p - 0.35f) / 0.65f).coerceIn(0f, 1f) }, content = content)
+                CompositionLocalProvider(androidx.compose.material3.LocalContentColor provides androidx.compose.material3.MaterialTheme.colorScheme.onSurface) {
+                    Box(Modifier.graphicsLayer { alpha = ((p - 0.35f) / 0.65f).coerceIn(0f, 1f) }, content = content)
+                }
             }
+        }
+    }
+}
+
+/**
+ * Prepares a Compose Dialog's window for Spendly's own animations: no window animation or dim
+ * (we draw our own scrim), FLAG_SECURE when "Hide app contents" is on, and system bar icons
+ * that stay readable on the current theme.
+ */
+@Composable
+fun DialogWindowSetup(view: android.view.View) {
+    val secure = LocalSecureWindows.current
+    val dark = Spendly.colors.isDark
+    val window = (view.parent as? DialogWindowProvider)?.window ?: return
+    LaunchedEffect(window, secure, dark) {
+        window.setWindowAnimations(0)
+        window.setDimAmount(0f)
+        window.setSecure(secure)
+        // Let the keyboard resize the window (delivered as IME insets) instead of panning it.
+        @Suppress("DEPRECATION")
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        androidx.core.view.WindowCompat.getInsetsController(window, view).apply {
+            isAppearanceLightStatusBars = !dark
+            isAppearanceLightNavigationBars = !dark
         }
     }
 }

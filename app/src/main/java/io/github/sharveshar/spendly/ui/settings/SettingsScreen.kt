@@ -61,6 +61,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -70,11 +71,9 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.sharveshar.spendly.data.backup.BackupCodec
-import io.github.sharveshar.spendly.data.prefs.ThemeMode
 import io.github.sharveshar.spendly.ui.common.Formats
 import io.github.sharveshar.spendly.ui.components.OriginAnchor
 import io.github.sharveshar.spendly.ui.components.OriginPopup
-import io.github.sharveshar.spendly.ui.components.SegmentedSelector
 import io.github.sharveshar.spendly.ui.components.originAnchor
 import io.github.sharveshar.spendly.ui.components.rememberOriginAnchor
 import io.github.sharveshar.spendly.ui.theme.Space
@@ -86,7 +85,7 @@ import java.time.ZoneId
 private enum class SettingsPopup { NONE, EXPORT_PASSWORD, IMPORT_PASSWORD, CSV_WARNING }
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onCategories: () -> Unit, onAbout: () -> Unit) {
+fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onThemes: () -> Unit, onCategories: () -> Unit, onAbout: () -> Unit) {
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
     val flow by viewModel.flow.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
@@ -122,15 +121,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onCategorie
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
                 Group("Appearance")
-                SettingRow(Icons.Rounded.Palette, "Theme", "Dark is Spendly's signature look")
-                SegmentedSelector(
-                    options = listOf(ThemeMode.DARK, ThemeMode.LIGHT, ThemeMode.SYSTEM),
-                    selected = prefs.themeMode,
-                    label = { when (it) { ThemeMode.DARK -> "Dark"; ThemeMode.LIGHT -> "Light"; ThemeMode.SYSTEM -> "System" } },
-                    onSelect = { viewModel.setTheme(it) },
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
-                )
-                Spacer(Modifier.height(Space.md))
+                SettingRow(Icons.Rounded.Palette, "Themes", prefs.theme.describe(Spendly.colors.palette.theme), chevron = true, onClick = onThemes)
 
                 ShortcutsSection(
                     shortcut = prefs.buttonShortcut,
@@ -371,28 +362,29 @@ private fun PasswordPopup(
 
 private const val BRAND_URL = "https://ar-sharvesh.vercel.app"
 
-/** Small, understated credit. The link opens in the user's browser; Spendly itself has no network access. */
+/**
+ * "Built with ♥ by ARS". Only "ARS" is a link (it opens the author's site in the browser; Spendly
+ * itself has no network access). The URL is never shown.
+ */
 @Composable
 fun BrandFooter(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
         Text(
             buildAnnotatedString {
                 withStyle(SpanStyle(color = Spendly.colors.muted)) { append("Built with ") }
-                withStyle(SpanStyle(color = MaterialTheme.colorScheme.primary)) { append("♥") }
-                withStyle(SpanStyle(color = Spendly.colors.muted)) { append(" by ") }
-                withStyle(SpanStyle(color = MaterialTheme.colorScheme.onSurface)) { append("ARS") }
+                withStyle(SpanStyle(color = Spendly.colors.negative)) { append("♥") }
+                withStyle(SpanStyle(color = Spendly.colors.muted)) { append(" by") }
             },
             style = MaterialTheme.typography.labelLarge,
-            textAlign = TextAlign.Center,
         )
         Text(
-            "ar-sharvesh.vercel.app",
-            style = MaterialTheme.typography.labelSmall,
-            color = Spendly.colors.muted,
+            "ARS",
+            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
                 .clip(RoundedCornerShape(8.dp))
-                .clickable(role = Role.Button, onClickLabel = "Open website in browser") {
+                .clickable(role = Role.Button, onClickLabel = "Open ARS's website in your browser") {
                     try {
                         context.startActivity(
                             Intent(Intent.ACTION_VIEW, BRAND_URL.toUri())
@@ -404,7 +396,7 @@ fun BrandFooter(modifier: Modifier = Modifier) {
                     }
                 }
                 .heightIn(min = 48.dp)
-                .padding(horizontal = Space.md, vertical = Space.md),
+                .padding(horizontal = 6.dp, vertical = Space.md),
         )
     }
 }
