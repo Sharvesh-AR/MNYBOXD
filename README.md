@@ -8,6 +8,19 @@ no account or sign-in, and stores everything in an encrypted database on your ph
 
 Free. No ads. No tracking. No internet permission.
 
+<h2 align="center">Download</h2>
+
+<p align="center">
+  <a href="https://github.com/Sharvesh-AR/Spendly/releases/latest/download/Spendly.apk">
+    <img src="docs/badges/available-on-android.svg" height="56" alt="Available on Android: download the Spendly APK">
+  </a>
+</p>
+
+<p align="center">
+  Grab the latest signed APK from the <a href="https://github.com/Sharvesh-AR/Spendly/releases/latest">Releases</a> page.
+  Sideloading requires enabling "Install unknown apps" for whichever app you download it with.
+</p>
+
 <p>
   <img src="docs/screenshots/01-home.png" width="200" alt="Home dashboard">
   <img src="docs/screenshots/06-quick-add.png" width="200" alt="Quick Add with custom keypad">
@@ -76,8 +89,9 @@ builds (`ScreenshotTest`).</sub>
 
 ## Install on your phone
 
-1. On your phone, open the repository's **Releases** page and download the latest
-   `spendly-vX.Y.Z.apk`. (Optionally compare its SHA-256 with `SHA256SUMS.txt`.)
+1. On your phone, tap the **Available on Android** badge above (or open
+   [Releases](https://github.com/Sharvesh-AR/Spendly/releases/latest)) to download `Spendly.apk`. (Optionally compare its SHA-256 with
+   `SHA256SUMS.txt` on the release page.)
 2. Open the downloaded file. If Android asks, allow your browser or file manager to
    **install unknown apps** (Settings → Apps → *your browser* → Install unknown apps).
 3. Tap **Install**, then **Open**.
@@ -134,7 +148,8 @@ chmod 600 ~/spendly-release.p12
 
 The workflow in `.github/workflows/android.yml` tests, lints and (when secrets exist) builds and
 verifies a signed APK on every push. Pushing a tag `vX.Y.Z` that matches `versionName` publishes
-a GitHub Release with the APK and its SHA-256.
+a GitHub Release with `Spendly.apk` and its SHA-256. The asset name never changes, so the
+README badge (`releases/latest/download/Spendly.apk`) always downloads the newest version.
 
 1. Add repository secrets (Settings → Secrets and variables → Actions):
    * `SPENDLY_KEYSTORE_BASE64`: output of `base64 -w0 ~/spendly-release.p12`
@@ -145,7 +160,7 @@ a GitHub Release with the APK and its SHA-256.
 Without signing secrets the workflow still tests and lints, but never creates a release.
 
 Prefer to publish manually? Build locally, then
-`gh release create v1.0.0 app/build/outputs/apk/release/app-release.apk --generate-notes`.
+`cp app/build/outputs/apk/release/app-release.apk Spendly.apk && gh release create v1.0.0 Spendly.apk --generate-notes`.
 
 ### Before publishing a release: device check
 
@@ -203,3 +218,6 @@ Details and limitations: [`SECURITY.md`](SECURITY.md). Latest review:
 ## Credits
 
 Built with ♥ by **ARS** · [ar-sharvesh.vercel.app](https://ar-sharvesh.vercel.app)
+
+<sub>The Android robot is reproduced or modified from work created and shared by Google and used
+according to terms described in the Creative Commons 3.0 Attribution License.</sub>

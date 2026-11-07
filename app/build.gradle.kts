@@ -114,8 +114,26 @@ android {
 // Unit/UI tests run against the debug variant only: they need the Room schema assets and
 // debug-only sample data, neither of which may ship in release builds. Release code is the
 // same Kotlin source; the release APK itself is checked by lintRelease and apksigner.
+/*
+ * Robolectric's Android runtime jar is resolved by Gradle (checksum-verified via
+ * gradle/verification-metadata.xml, cached, retried) and Robolectric runs offline. Left to itself
+ * Robolectric downloads the jar over plain HTTP at test time, which CI runners get rate-limited on
+ * (HTTP 429 from Maven Central) and which bypasses dependency verification.
+ */
+val robolectricRuntime: Configuration by configurations.creating { isTransitive = false }
+// Kept under the Gradle user home: Robolectric URL-encodes this path and fails on directories
+// containing spaces (such as a project folder named "Expense Manager").
+val robolectricRuntimeDir = File(gradle.gradleUserHomeDir, "robolectric-runtime/${libs.versions.robolectricAndroidAll.get()}")
+val prepareRobolectricRuntime by tasks.registering(Sync::class) {
+    from(robolectricRuntime)
+    into(robolectricRuntimeDir)
+}
+
 tasks.withType<Test>().configureEach {
     if (name == "testReleaseUnitTest") enabled = false
+    dependsOn(prepareRobolectricRuntime)
+    systemProperty("robolectric.offline", "true")
+    systemProperty("robolectric.dependency.dir", robolectricRuntimeDir.absolutePath)
 }
 
 kotlin {
@@ -158,6 +176,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.robolectric)
+    robolectricRuntime(libs.robolectric.android.all)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.androidx.test.ext.junit)
     testImplementation(libs.room.testing)

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="170" height="56" viewBox="0 0 170 56" role="img" aria-label="Available on Android">
+  <title>Available on Android</title>
+  <rect x="0.5" y="0.5" width="169" height="55" rx="10" fill="#0D1117" stroke="#3A4652"/>
+  <!-- Android robot head: reproduced from work created and shared by Google, CC BY 3.0 -->
+  <g fill="none" stroke="#3DDC84" stroke-width="2.6" stroke-linecap="round">
+    <line x1="24.5" y1="23.5" x2="20" y2="16.5"/>
+    <line x1="43.5" y1="23.5" x2="48" y2="16.5"/>
+  </g>
+  <path d="M17 39 A17 17 0 0 1 51 39 Z" fill="#3DDC84"/>
+  <circle cx="27.3" cy="32" r="2.1" fill="#0D1117"/>
+  <circle cx="40.7" cy="32" r="2.1" fill="#0D1117"/>
+  <g font-family="Roboto, 'Segoe UI', system-ui, -apple-system, Helvetica, Arial, sans-serif">
+    <text x="62" y="24" font-size="12.5" fill="#C9D1D9">Available on</text>
+    <text x="61.5" y="44" font-size="20" font-weight="700" fill="#3DDC84">Android</text>
+  </g>
+</svg>
