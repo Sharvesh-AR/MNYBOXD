@@ -1,0 +1,167 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.ksp)
+}
+
+/**
+ * Release signing credentials are read from environment variables or from the
+ * user-level ~/.gradle/gradle.properties. They are never committed to the repository.
+ *
+ *   SPENDLY_KEYSTORE_FILE      absolute path to the .jks/.p12 keystore
+ *   SPENDLY_KEYSTORE_PASSWORD  keystore password
+ *   SPENDLY_KEY_ALIAS          key alias
+ *   SPENDLY_KEY_PASSWORD       key password
+ */
+fun signingValue(name: String): String? =
+    System.getenv(name)?.takeIf { it.isNotBlank() }
+        ?: (project.findProperty(name) as String?)?.takeIf { it.isNotBlank() }
+
+val releaseKeystore = signingValue("SPENDLY_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.isFile }
+val hasReleaseSigning = releaseKeystore != null &&
+    signingValue("SPENDLY_KEYSTORE_PASSWORD") != null &&
+    signingValue("SPENDLY_KEY_ALIAS") != null &&
+    signingValue("SPENDLY_KEY_PASSWORD") != null
+
+android {
+    namespace = "io.github.sharveshar.spendly"
+    compileSdk = 37
+
+    defaultConfig {
+        applicationId = "io.github.sharveshar.spendly"
+        minSdk = 26
+        targetSdk = 37
+        versionCode = 1
+        versionName = "1.0.0"
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = releaseKeystore
+                storePassword = signingValue("SPENDLY_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("SPENDLY_KEY_ALIAS")
+                keyPassword = signingValue("SPENDLY_KEY_PASSWORD")
+                enableV2Signing = true
+                enableV3Signing = true
+            }
+        }
+    }
+
+    buildTypes {
+        debug {
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+            isDebuggable = true
+        }
+        release {
+            isDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    buildFeatures {
+        compose = true
+        buildConfig = false
+    }
+
+    sourceSets {
+        // Exported Room schemas are read by the Robolectric migration tests from the debug
+        // variant's assets. They contain only table definitions and never ship in release builds.
+        getByName("debug").assets.directories.add("$projectDir/schemas")
+    }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+            all { it.maxHeapSize = "2g" }
+        }
+    }
+
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = true
+        lintConfig = file("lint.xml")
+        htmlReport = true
+        xmlReport = true
+    }
+
+    packaging {
+        resources {
+            excludes += setOf("/META-INF/{AL2.0,LGPL2.1}", "/META-INF/LICENSE*", "/META-INF/NOTICE*")
+        }
+    }
+
+    dependenciesInfo {
+        // Do not embed the (encrypted) dependency metadata block in the APK.
+        includeInApk = false
+        includeInBundle = false
+    }
+}
+
+// Unit/UI tests run against the debug variant only: they need the Room schema assets and
+// debug-only sample data, neither of which may ship in release builds. Release code is the
+// same Kotlin source; the release APK itself is checked by lintRelease and apksigner.
+tasks.withType<Test>().configureEach {
+    if (name == "testReleaseUnitTest") enabled = false
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_17)
+    }
+}
+
+ksp {
+    arg("room.schemaLocation", "$projectDir/schemas")
+    arg("room.generateKotlin", "true")
+}
+
+dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.lifecycle.runtime.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.compose)
+    implementation(libs.androidx.lifecycle.viewmodel.savedstate)
+    implementation(libs.androidx.navigation.compose)
+    implementation(libs.androidx.datastore.preferences)
+
+    implementation(platform(libs.compose.bom))
+    implementation(libs.compose.ui)
+    implementation(libs.compose.ui.graphics)
+    implementation(libs.compose.ui.tooling.preview)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
+    debugImplementation(libs.compose.ui.tooling)
+
+    implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    ksp(libs.room.compiler)
+    implementation(libs.sqlcipher.android)
+    implementation(libs.androidx.sqlite.ktx)
+
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.json)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.androidx.test.ext.junit)
+    testImplementation(libs.room.testing)
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
+}

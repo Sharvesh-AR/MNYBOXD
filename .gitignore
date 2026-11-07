@@ -1,0 +1,28 @@
+# Build output
+build/
+.gradle/
+.kotlin/
+/local.properties
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+output-metadata.json
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# Signing material and secrets — NEVER commit
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+keystore.properties
+signing.properties
+.env
+.env.*
+secrets.properties

@@ -1,0 +1,38 @@
+package io.github.sharveshar.spendly.data
+
+import androidx.room.testing.MigrationTestHelper
+import androidx.test.platform.app.InstrumentationRegistry
+import io.github.sharveshar.spendly.data.db.SpendlyDatabase
+import org.junit.Assert.assertEquals
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+
+/**
+ * Validates the exported Room schema (app/schemas) against the entities, and every migration
+ * path from version 1 to [SpendlyDatabase.VERSION]. When a new version is added, its schema is
+ * exported automatically and this test must be extended with the new migration.
+ */
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+class MigrationTest {
+    @get:Rule
+    val helper = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), SpendlyDatabase::class.java)
+
+    @Test fun `version 1 schema matches entities`() {
+        helper.createDatabase(TEST_DB, 1).apply {
+            execSQL("INSERT INTO accounts (name, institution, type, opening_balance_paise, color_index, is_archived, sort_order, created_at) VALUES ('Cash', '', 'CASH', 0, 0, 0, 0, 0)")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(TEST_DB, SpendlyDatabase.VERSION, true, *SpendlyDatabase.MIGRATIONS)
+        db.query("SELECT COUNT(*) FROM accounts").use {
+            it.moveToFirst()
+            assertEquals(1, it.getInt(0))
+        }
+        db.close()
+    }
+
+    private companion object { const val TEST_DB = "migration-test" }
+}

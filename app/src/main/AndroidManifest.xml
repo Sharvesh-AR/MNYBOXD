@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- The ONLY permission Spendly requests. Asked at the moment voice entry is first used. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Microphone is optional: the app is fully usable without it. -->
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+
+    <!-- Needed on Android 11+ to find the device's speech recognition service. -->
+    <queries>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".SpendlyApplication"
+        android:allowBackup="false"
+        android:fullBackupContent="false"
+        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true"
+        android:theme="@style/Theme.Spendly"
+        tools:targetApi="37">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:launchMode="singleTop"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.Spendly">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Only the system (holding BIND_QUICK_SETTINGS_TILE) can bind to this service. -->
+        <service
+            android:name=".QuickAddTileService"
+            android:exported="true"
+            android:icon="@drawable/ic_tile"
+            android:label="@string/tile_label"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter>
+                <action android:name="android.service.quicksettings.action.QS_TILE" />
+            </intent-filter>
+        </service>
+    </application>
+</manifest>
