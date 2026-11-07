@@ -20,9 +20,11 @@ import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ApplicationProvider
 import io.github.sharveshar.spendly.AppContainer
 import io.github.sharveshar.spendly.DebugTools
+import io.github.sharveshar.spendly.HangWatchdog
 import io.github.sharveshar.spendly.data.testDatabase
 import io.github.sharveshar.spendly.ui.navigation.LocalAppContainer
 import io.github.sharveshar.spendly.ui.theme.SpendlyTheme
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
 import org.junit.Assume.assumeTrue
@@ -46,7 +48,8 @@ import java.io.File
 @Config(sdk = [35], qualifiers = "w393dp-h852dp-xxhdpi")
 @OptIn(ExperimentalMaterial3Api::class)
 class ScreenshotTest {
-    @get:Rule val compose = createComposeRule()
+    @get:Rule(order = 0) val watchdog = HangWatchdog(2.minutes)
+    @get:Rule(order = 1) val compose = createComposeRule()
 
     @Test fun captureScreens() {
         val dir = System.getenv("SPENDLY_SCREENSHOT_DIR")

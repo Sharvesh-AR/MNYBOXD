@@ -1,3 +1,6 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import java.time.Duration
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -132,6 +135,14 @@ tasks.withType<Test>().configureEach {
     dependsOn(prepareRobolectricRuntime)
     systemProperty("robolectric.offline", "true")
     systemProperty("robolectric.dependency.dir", robolectricRuntimeDir.absolutePath)
+    // The whole suite takes about two minutes. Each Robolectric test also has its own limit
+    // (HangWatchdog); this is the backstop so a hang fails the build instead of stalling CI.
+    timeout.set(Duration.ofMinutes(15))
+    // Show the actual assertion and stack trace in the console (and CI log), not just "FAILED".
+    testLogging {
+        events("failed", "skipped")
+        exceptionFormat = TestExceptionFormat.FULL
+    }
 }
 
 kotlin {

@@ -96,7 +96,32 @@ Library-declared: `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` is a signature-leve
 added by AndroidX Core to protect its own runtime receivers; it grants nothing to other apps.
 
 Spendly does **not** request internet, location, contacts, SMS, phone, storage, notifications,
-accessibility, overlay, device-admin or any background permission.
+overlay, device-admin or any background permission.
+
+### Optional accessibility service (volume-button shortcut)
+
+`ButtonShortcutService` lets the user open Quick Add from any screen by pressing a volume button
+two or three times. It is **off by default** and does nothing until the user switches it on in
+Android's Accessibility settings, after an in-app explanation. Android requires an accessibility
+service for this: no other public API lets an app see button presses outside its own screens.
+
+Its configuration (`res/xml/button_shortcut_service.xml`) is as narrow as Android allows:
+
+* **No accessibility events** (`accessibilityEventTypes` unset) and
+  **`canRetrieveWindowContent="false"`**: it cannot read what is on screen or which app is open.
+* The only capability is **key-event filtering**. The service reads the key code, action, repeat
+  count and timestamp of each key press, compares them with the chosen volume-button pattern and
+  stores nothing. Every other key is ignored.
+* It **never consumes** an event (`onKeyEvent` always returns `false`), so volume buttons, camera
+  shutters and other key uses keep working unchanged and without delay. When the pattern matches,
+  it restores the media and ringer volume to their levels from before the first press.
+* It does nothing while the phone is ringing or in a call, and Android delivers no key events to
+  it while the screen is off. On the lock screen, Quick Add opens only after the user unlocks
+  (`requestDismissKeyguard`); Spendly never shows over the keyguard.
+* `isAccessibilityTool="false"`: it is a convenience feature, not an assistive tool.
+* With no `INTERNET` permission, nothing it sees could leave the device anyway.
+
+Turning it off: Android Settings → Accessibility → *Spendly volume shortcut*.
 
 ### Exported components
 
@@ -104,6 +129,8 @@ accessibility, overlay, device-admin or any background permission.
 |---|---|---|
 | `MainActivity` | Yes (launcher) | Only two fixed custom actions are honoured (open Quick Add / voice entry). Extras and data are ignored. Nothing is ever saved without user confirmation. |
 | `QuickAddTileService` | Yes | Requires `BIND_QUICK_SETTINGS_TILE` (system only). Uses an immutable `PendingIntent`. |
+| `ButtonShortcutService` | Yes | Requires `BIND_ACCESSIBILITY_SERVICE` (system only). Inactive unless the user enables it in Accessibility settings. See above. |
+| `QuickAddLauncherActivity` | Yes (launcher), **disabled by default** | Optional "Add expense" app-list entry the user can switch on in Settings. No UI; ignores its intent and opens Quick Add. Own empty task affinity. |
 | `androidx.profileinstaller.ProfileInstallReceiver` | Yes (library) | Requires `android.permission.DUMP` (system/shell only). |
 | Room `MultiInstanceInvalidationService`, AndroidX Startup provider | No | Not exported. |
 

@@ -1,5 +1,6 @@
 package io.github.sharveshar.spendly.data
 
+import io.github.sharveshar.spendly.HangWatchdog
 import io.github.sharveshar.spendly.data.db.SpendlyDatabase
 import io.github.sharveshar.spendly.data.db.TransactionEntity
 import io.github.sharveshar.spendly.data.repo.AccountInput
@@ -19,6 +20,7 @@ import io.github.sharveshar.spendly.domain.model.AccountType
 import io.github.sharveshar.spendly.domain.model.PaymentChannel
 import io.github.sharveshar.spendly.domain.model.PaymentProvider
 import io.github.sharveshar.spendly.domain.model.TransactionType
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
@@ -27,6 +29,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -38,6 +41,7 @@ import kotlin.random.Random
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class RepositoryTest {
+    @get:Rule val watchdog = HangWatchdog(2.minutes)
     private lateinit var db: SpendlyDatabase
     private lateinit var accounts: AccountRepository
     private lateinit var txs: TransactionRepository

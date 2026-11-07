@@ -1,5 +1,6 @@
 package io.github.sharveshar.spendly
 
+import android.app.KeyguardManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Color
@@ -26,7 +27,7 @@ import io.github.sharveshar.spendly.ui.theme.SpendlyTheme
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.receiveAsFlow
 
-/** External entry points (Quick Settings tile, launcher shortcuts). Only these fixed actions are honoured. */
+/** External entry points (Quick Settings tile, launcher shortcuts, button shortcut). Only these fixed actions are honoured. */
 enum class LaunchRequest { QUICK_ADD, VOICE }
 
 class MainActivity : ComponentActivity() {
@@ -78,6 +79,10 @@ class MainActivity : ComponentActivity() {
         // Lets the launcher rank shortcuts by actual use.
         runCatching { ShortcutManagerCompat.reportShortcutUsed(this, if (request == LaunchRequest.VOICE) SHORTCUT_VOICE else SHORTCUT_ADD) }
         launchRequests.trySend(request)
+        // The volume-button shortcut also works on the lock screen. Spendly never shows over the
+        // keyguard, so ask the user to unlock; Quick Add is waiting behind it.
+        val keyguard = getSystemService(KeyguardManager::class.java)
+        if (keyguard?.isKeyguardLocked == true) keyguard.requestDismissKeyguard(this, null)
     }
 
     private fun publishShortcuts() {

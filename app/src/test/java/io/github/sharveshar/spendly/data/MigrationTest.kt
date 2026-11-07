@@ -2,7 +2,9 @@ package io.github.sharveshar.spendly.data
 
 import androidx.room.testing.MigrationTestHelper
 import androidx.test.platform.app.InstrumentationRegistry
+import io.github.sharveshar.spendly.HangWatchdog
 import io.github.sharveshar.spendly.data.db.SpendlyDatabase
+import kotlin.time.Duration.Companion.minutes
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -18,6 +20,7 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class MigrationTest {
+    @get:Rule val watchdog = HangWatchdog(2.minutes)
     @get:Rule
     val helper = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), SpendlyDatabase::class.java)
 
