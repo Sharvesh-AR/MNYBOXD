@@ -39,6 +39,7 @@ import io.github.sharveshar.spendly.ui.components.CategoryIcons
 import io.github.sharveshar.spendly.ui.components.DonutChart
 import io.github.sharveshar.spendly.ui.components.EmptyState
 import io.github.sharveshar.spendly.ui.components.IconBadge
+import io.github.sharveshar.spendly.ui.components.LabeledAmount
 import io.github.sharveshar.spendly.ui.components.LabeledValue
 import io.github.sharveshar.spendly.ui.components.MonthSwitcher
 import io.github.sharveshar.spendly.ui.components.PairedBarChart
@@ -146,14 +147,14 @@ fun InsightsScreen(viewModel: InsightsViewModel, contentPadding: PaddingValues) 
             run {
                 Column(Modifier.padding(horizontal = Space.gutter, vertical = Space.lg)) {
                     Row(horizontalArrangement = Arrangement.spacedBy(Space.xl)) {
-                        LabeledValue("Spent", Money.format(state.spent), Modifier.weight(1f))
-                        LabeledValue("Income", Money.format(state.income), Modifier.weight(1f), valueColor = Spendly.colors.positive)
+                        LabeledAmount("Spent", state.spent, Modifier.weight(1f))
+                        LabeledAmount("Income", state.income, Modifier.weight(1f), valueColor = Spendly.colors.positive)
                     }
                     Spacer(Modifier.height(Space.lg))
                     Row(horizontalArrangement = Arrangement.spacedBy(Space.xl)) {
                         val net = state.income - state.spent
-                        LabeledValue("Saved", Money.format(net), Modifier.weight(1f), valueColor = if (net < 0) Spendly.colors.negative else MaterialTheme.colorScheme.onSurface)
-                        LabeledValue("Daily average", Money.format(state.dailyAverage), Modifier.weight(1f))
+                        LabeledAmount("Saved", net, Modifier.weight(1f), valueColor = if (net < 0) Spendly.colors.negative else MaterialTheme.colorScheme.onSurface)
+                        LabeledAmount("Daily average", state.dailyAverage, Modifier.weight(1f))
                     }
                     Spacer(Modifier.height(Space.md))
                     val prevLabel = state.month.minusMonths(1).format(Formats.month)
@@ -242,6 +243,5 @@ fun InsightsScreen(viewModel: InsightsViewModel, contentPadding: PaddingValues) 
                 )
             }
         }
-        item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
     }
 }

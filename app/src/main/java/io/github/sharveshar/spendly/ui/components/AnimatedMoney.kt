@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextOverflow
 import io.github.sharveshar.spendly.core.money.Money
@@ -82,6 +84,10 @@ fun AnimatedMoney(
         color = color,
         maxLines = 1,
         overflow = TextOverflow.Clip,
-        modifier = modifier.clearAndSetSemantics { contentDescription = spokenAmount(paise) },
+        // Assistive tech and tests get the exact final amount, never an in-between frame.
+        modifier = modifier.clearAndSetSemantics {
+            contentDescription = spokenAmount(paise)
+            text = AnnotatedString(prefix + format(paise))
+        },
     )
 }

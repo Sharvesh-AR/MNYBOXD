@@ -8,12 +8,17 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
@@ -101,6 +106,13 @@ class UiTest {
         }
     }
 
+    private fun openShortcutSettings() {
+        compose.onNodeWithContentDescription("Settings").performClick()
+        shown("Shortcut settings")
+        compose.onNodeWithText("Shortcut settings").performClick()
+        compose.waitForIdle()
+    }
+
     private fun launchApp() {
         compose.setContent {
             CompositionLocalProvider(LocalAppContainer provides container) {
@@ -186,7 +198,7 @@ class UiTest {
 
     @Test fun `settings switches the add-expense app icon on and off`() {
         launchApp()
-        compose.onNodeWithContentDescription("Settings").performClick()
+        openShortcutSettings()
         shown("\u201CAdd expense\u201D app icon")
 
         assertFalse(ShortcutSettings.isAppIconOn(context))
@@ -201,7 +213,7 @@ class UiTest {
     @Test fun `the standard build offers no volume-button shortcut`() {
         assumeFalse("volumeShortcut build", BuildConfig.VOLUME_SHORTCUT)
         launchApp()
-        compose.onNodeWithContentDescription("Settings").performClick()
+        openShortcutSettings()
         shown("\u201CAdd expense\u201D app icon")
         assertTrue(compose.onAllNodesWithText("Volume button shortcut").fetchSemanticsNodes().isEmpty())
         assertFalse(ShortcutSettings.isButtonShortcutOn(context))
@@ -216,7 +228,7 @@ class UiTest {
             container.preferences.setShortcutPresses(ButtonShortcut.DEFAULT_PRESSES)
         }
         launchApp()
-        compose.onNodeWithContentDescription("Settings").performClick()
+        openShortcutSettings()
         shown("Volume button shortcut")
 
         compose.onNodeWithText("Volume up").performScrollTo().performClick()
@@ -259,5 +271,75 @@ class UiTest {
                 n.config.getOrNull(SemanticsProperties.ContentDescription)?.isNotEmpty() == true ||
                 n.children.any(::walk)
         walk(node)
+    }
+
+    @Test fun `reset needs two confirmations and the exact phrase, then starts fresh`() {
+        runBlocking { io.github.sharveshar.spendly.DebugTools.loadSampleData(container.repositories) }
+        fun txCount() = runBlocking { db.transactionDao().getAll().size }
+        val before = txCount()
+        assertTrue(before > 0)
+        launchApp()
+        compose.onNodeWithContentDescription("Settings").performClick()
+        shown("Reset Spendly")
+
+        // Step 1, cancelled: nothing happens.
+        compose.onNodeWithText("Reset Spendly").performClick()
+        shown("Reset Spendly?", scroll = false)
+        compose.onNodeWithText("Cancel").performClick()
+        compose.waitForIdle()
+        assertEquals(before, txCount())
+
+        // Step 1, continued: the separate confirmation screen.
+        compose.onNodeWithText("Reset Spendly").performScrollTo().performClick()
+        shown("Reset Spendly?", scroll = false)
+        compose.onNodeWithText("Continue").performClick()
+        shown("This will permanently delete all your Spendly data.")
+        val delete = compose.onNodeWithText("Delete everything permanently")
+        delete.assertIsNotEnabled()
+
+        // Anything but the exact phrase keeps the button disabled and deletes nothing.
+        val field = compose.onNode(hasSetTextAction())
+        for (wrong in listOf("delete everything", "DELETE  EVERYTHING", "DELETE EVERYTHIN", "DELETE EVERYTHING ")) {
+            field.performTextReplacement(wrong)
+            compose.waitForIdle()
+            delete.assertIsNotEnabled()
+        }
+        delete.performClick()
+        compose.waitForIdle()
+        assertEquals(before, txCount())
+
+        // The exact phrase enables it; deleting returns to first run with only the defaults.
+        field.performTextReplacement("DELETE EVERYTHING")
+        compose.waitForIdle()
+        delete.assertIsEnabled()
+        delete.performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Get started").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(0, txCount())
+        assertEquals(listOf("Cash"), runBlocking { db.accountDao().getAll() }.map { it.name })
+        assertFalse(savedPreferences().onboardingDone)
+    }
+
+    @Test fun `deleting a transaction offers undo, and undo brings it back`() {
+        runBlocking {
+            val cash = db.accountDao().getAll().single().id
+            val food = db.categoryDao().getAll().first { it.key == "food" }.id
+            container.repositories.transactions.save(
+                io.github.sharveshar.spendly.domain.ledger.TransactionDraft(TransactionType.EXPENSE, 250_00, cash, null, food, null, null, null, "Lunch", System.currentTimeMillis()),
+                "undo-test", null,
+            )
+        }
+        launchApp()
+        compose.onNodeWithText("Activity").performClick()
+        shown("Lunch")
+        compose.onNodeWithText("Lunch").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Delete transaction").performClick()
+        shown("Delete this transaction?", scroll = false)
+        compose.onAllNodesWithText("Delete").onLast().performClick()
+        compose.waitUntil(5_000) { runBlocking { db.transactionDao().getAll().isEmpty() } }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Undo").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitUntil(5_000) { runBlocking { db.transactionDao().getAll().size == 1 } }
+        assertEquals(250_00L, runBlocking { db.transactionDao().getAll().single().amountPaise })
     }
 }

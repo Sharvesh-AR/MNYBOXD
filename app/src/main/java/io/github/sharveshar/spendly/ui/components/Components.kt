@@ -211,11 +211,26 @@ fun RollingText(text: String, style: TextStyle, color: Color, modifier: Modifier
     }
 }
 
-/** Large animated currency amount. */
+/** Large currency amount that counts smoothly to each new value (see [AnimatedMoney]). */
 @Composable
-fun MoneyText(paise: Long, style: TextStyle, modifier: Modifier = Modifier, color: Color = MaterialTheme.colorScheme.onSurface) {
-    val text = Money.format(paise)
-    RollingText(text, style, color, modifier, contentDescription = spokenAmount(paise))
+fun MoneyText(
+    paise: Long,
+    style: TextStyle,
+    modifier: Modifier = Modifier,
+    color: Color = MaterialTheme.colorScheme.onSurface,
+    countUpOnFirstShow: Boolean = false,
+) {
+    AnimatedMoney(paise, style, modifier, color, countUpOnFirstShow = countUpOnFirstShow)
+}
+
+/** Label above an amount that counts to its new value when the data changes. */
+@Composable
+fun LabeledAmount(label: String, paise: Long, modifier: Modifier = Modifier, valueColor: Color = MaterialTheme.colorScheme.onSurface) {
+    Column(modifier) {
+        Text(label, style = MaterialTheme.typography.labelMedium, color = Spendly.colors.muted)
+        Spacer(Modifier.height(Space.xxs))
+        AnimatedMoney(paise, AmountStyle.summary, color = valueColor)
+    }
 }
 
 /** Screen-reader friendly amount: "minus 1,250 rupees 50 paise". */

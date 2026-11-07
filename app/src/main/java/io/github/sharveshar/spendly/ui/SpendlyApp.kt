@@ -37,7 +37,12 @@ import androidx.navigation.FloatingWindow
 import androidx.navigation.NavGraph
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.dialog
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.runtime.rememberCoroutineScope
+import io.github.sharveshar.spendly.ui.components.AppMessages
 import io.github.sharveshar.spendly.ui.components.DialogWindowSetup
+import io.github.sharveshar.spendly.ui.components.LocalAppMessages
 import io.github.sharveshar.spendly.ui.components.layeredSurface
 import io.github.sharveshar.spendly.ui.entry.LocalSheetMotion
 import io.github.sharveshar.spendly.ui.entry.SheetMotion
@@ -143,6 +148,8 @@ import io.github.sharveshar.spendly.ui.navigation.EntryRoute
 import io.github.sharveshar.spendly.ui.navigation.HomeRoute
 import io.github.sharveshar.spendly.ui.navigation.InsightsRoute
 import io.github.sharveshar.spendly.ui.navigation.SettingsRoute
+import io.github.sharveshar.spendly.ui.navigation.ResetRoute
+import io.github.sharveshar.spendly.ui.navigation.ShortcutsRoute
 import io.github.sharveshar.spendly.ui.navigation.ThemesRoute
 import io.github.sharveshar.spendly.ui.navigation.TransactionDetailRoute
 import io.github.sharveshar.spendly.ui.navigation.TransactionsRoute
@@ -152,6 +159,9 @@ import io.github.sharveshar.spendly.ui.settings.CategoriesScreen
 import io.github.sharveshar.spendly.ui.settings.CategoriesViewModel
 import io.github.sharveshar.spendly.ui.settings.SettingsScreen
 import io.github.sharveshar.spendly.ui.settings.SettingsViewModel
+import io.github.sharveshar.spendly.ui.settings.ResetScreen
+import io.github.sharveshar.spendly.ui.settings.ResetViewModel
+import io.github.sharveshar.spendly.ui.settings.ShortcutsScreen
 import io.github.sharveshar.spendly.ui.settings.ThemesScreen
 import io.github.sharveshar.spendly.ui.start.RecoveryScreen
 import io.github.sharveshar.spendly.ui.start.SplashScreen
@@ -224,6 +234,9 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>) {
     val tabPadding = PaddingValues(top = statusInset, bottom = bandHeight + Space.md)
     val context = LocalContext.current
     val sheetMotion = remember { SheetMotion() }
+    val snackbar = remember { SnackbarHostState() }
+    val shellScope = rememberCoroutineScope()
+    val messages = remember { AppMessages(snackbar, shellScope) }
 
     fun openQuickAdd(route: EntryRoute) {
         // One Quick Add at a time: repeated taps or launches never stack sheets.
@@ -236,7 +249,7 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>) {
     }
 
     SharedTransitionLayout(Modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalSharedTransitionScope provides this, LocalSheetMotion provides sheetMotion) {
+        CompositionLocalProvider(LocalSharedTransitionScope provides this, LocalSheetMotion provides sheetMotion, LocalAppMessages provides messages) {
             val background = MaterialTheme.colorScheme.background
             Box(Modifier.fillMaxSize().background(Color.Black)) {
                 // The app recedes slightly while Quick Add is open (driven by the sheet's own motion).
@@ -347,14 +360,25 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>) {
                                 viewModel = spendlyViewModel { c, _ -> SettingsViewModel(c.repositories, c.preferences, context.contentResolver) },
                                 onBack = { nav.popBackStack() },
                                 onThemes = { nav.navigate(ThemesRoute) },
+                                onShortcuts = { nav.navigate(ShortcutsRoute) },
                                 onCategories = { nav.navigate(CategoriesRoute) },
                                 onAbout = { nav.navigate(AboutRoute) },
+                                onReset = { nav.navigate(ResetRoute) },
                             )
                         }
                         composable<CategoriesRoute> {
                             CategoriesScreen(spendlyViewModel { c, _ -> CategoriesViewModel(c.repositories) }, onBack = { nav.popBackStack() })
                         }
                         composable<AboutRoute> { AboutScreen(onBack = { nav.popBackStack() }) }
+                        composable<ShortcutsRoute> {
+                            ShortcutsScreen(
+                                viewModel = spendlyViewModel { c, _ -> SettingsViewModel(c.repositories, c.preferences, context.contentResolver) },
+                                onBack = { nav.popBackStack() },
+                            )
+                        }
+                        composable<ResetRoute> {
+                            ResetScreen(viewModel = spendlyViewModel { c, _ -> ResetViewModel(c) }, onBack = { nav.popBackStack() })
+                        }
                         composable<ThemesRoute> {
                             ThemesScreen(
                                 viewModel = spendlyViewModel { c, _ -> SettingsViewModel(c.repositories, c.preferences, context.contentResolver) },
@@ -363,6 +387,12 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>) {
                         }
                     }
 
+                    SnackbarHost(
+                        snackbar,
+                        Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(bottom = if (topLevel) bandHeight + Space.sm else navInset + Space.sm),
+                    )
                     // Content fades out under the dock instead of being cut off by it.
                     AnimatedVisibility(
                         visible = topLevel,

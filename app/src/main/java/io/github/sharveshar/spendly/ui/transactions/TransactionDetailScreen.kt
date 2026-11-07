@@ -48,7 +48,12 @@ import androidx.navigation.toRoute
 import io.github.sharveshar.spendly.Repositories
 import io.github.sharveshar.spendly.core.money.Money
 import io.github.sharveshar.spendly.data.db.TransactionRow
+import io.github.sharveshar.spendly.appContainer
+import io.github.sharveshar.spendly.data.db.TransactionEntity
 import io.github.sharveshar.spendly.data.repo.DeleteResult
+import io.github.sharveshar.spendly.ui.components.LocalAppMessages
+import io.github.sharveshar.spendly.ui.navigation.LocalAppContainer
+import androidx.compose.ui.platform.LocalContext
 import io.github.sharveshar.spendly.domain.model.TransactionType
 import io.github.sharveshar.spendly.ui.common.Formats
 import io.github.sharveshar.spendly.ui.components.CategoryIcons
@@ -88,7 +93,7 @@ data class DetailUiState(
 class TransactionDetailViewModel(private val repos: Repositories, handle: SavedStateHandle) : ViewModel() {
     val id = handle.toRoute<TransactionDetailRoute>().id
     private val message = MutableStateFlow<String?>(null)
-    private val _deleted = Channel<Unit>(Channel.CONFLATED)
+    private val _deleted = Channel<TransactionEntity?>(Channel.CONFLATED)
     val deleted = _deleted.receiveAsFlow()
 
     val state: StateFlow<DetailUiState> = combine(
@@ -100,8 +105,9 @@ class TransactionDetailViewModel(private val repos: Repositories, handle: SavedS
 
     fun delete() {
         viewModelScope.launch {
-            when (val r = repos.transactions.delete(id)) {
-                DeleteResult.Deleted, DeleteResult.NotFound -> _deleted.send(Unit)
+            val (r, removed) = repos.transactions.deleteForUndo(id)
+            when (r) {
+                DeleteResult.Deleted, DeleteResult.NotFound -> _deleted.send(removed)
                 is DeleteResult.HasRefunds -> message.value = "Delete the ${r.count} refund${if (r.count > 1) "s" else ""} linked to this expense first."
             }
         }
@@ -120,10 +126,19 @@ fun TransactionDetailScreen(
     val haptics = LocalHapticFeedback.current
     var confirmDelete by rememberSaveable { mutableStateOf(false) }
     val deleteAnchor = rememberOriginAnchor()
+    val messages = LocalAppMessages.current
+    val container = LocalAppContainer.current ?: LocalContext.current.appContainer
     LaunchedEffect(Unit) {
-        viewModel.deleted.collect {
+        viewModel.deleted.collect { removed ->
             haptics.performHapticFeedback(HapticFeedbackType.Confirm)
             onBack()
+            if (removed != null && messages != null) {
+                // Undo runs in the shell's scope: this screen (and its ViewModel) is already gone.
+                messages.showUndo("Transaction deleted") {
+                    val ok = container.repositories.transactions.restoreDeleted(removed)
+                    if (!ok) messages.show("Couldn't restore it. An account it used no longer exists.")
+                }
+            }
         }
     }
 
@@ -232,7 +247,7 @@ fun TransactionDetailScreen(
             Text("Delete this transaction?", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(Space.md))
             Text(
-                row?.let { "${it.type.label} of ${Money.format(it.amountPaise)} will be removed and balances will be recalculated. This can't be undone." }.orEmpty(),
+                row?.let { "${it.type.label} of ${Money.format(it.amountPaise)} will be removed and balances will be recalculated. You can undo this for a few seconds afterwards." }.orEmpty(),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Spendly.colors.muted,
             )

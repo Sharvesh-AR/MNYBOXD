@@ -39,12 +39,24 @@ class ButtonShortcutService : AccessibilityService() {
         )
         handler = shortcutHandler
         scope?.cancel()
+        val prefs = appContainer.preferences
         scope = MainScope().apply {
             launch {
-                appContainer.preferences.preferences
-                    .map { it.buttonShortcut }
+                // Being connected means the user just switched the service on in Android's
+                // settings. Record that first, so the watcher below never sees a stale "off".
+                prefs.setShortcutActive(true)
+                launch {
+                    prefs.preferences
+                        .map { it.buttonShortcut }
+                        .distinctUntilChanged()
+                        .collect { shortcutHandler.shortcut = it }
+                }
+                // "Turn off" in Spendly's settings: switch this service off entirely. Android then
+                // unbinds it, so it stops receiving key events until it's switched on again.
+                prefs.preferences
+                    .map { it.buttonShortcutActive }
                     .distinctUntilChanged()
-                    .collect { shortcutHandler.shortcut = it }
+                    .collect { active -> if (!active) disableSelf() }
             }
         }
     }

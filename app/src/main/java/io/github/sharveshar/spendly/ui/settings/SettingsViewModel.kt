@@ -65,6 +65,9 @@ class SettingsViewModel(
     fun setSecureScreen(enabled: Boolean) = viewModelScope.launch { prefs.setSecureScreen(enabled) }
     fun setShortcutButton(button: ShortcutButton) = viewModelScope.launch { prefs.setShortcutButton(button) }
     fun setShortcutPresses(presses: Int) = viewModelScope.launch { prefs.setShortcutPresses(presses) }
+
+    /** Asks the running volume-button service to switch itself off (it calls disableSelf). */
+    fun turnOffButtonShortcut() = viewModelScope.launch { prefs.setShortcutActive(false) }
     fun consumeMessage() { _message.value = null }
 
     fun holdPassword(password: CharArray) {

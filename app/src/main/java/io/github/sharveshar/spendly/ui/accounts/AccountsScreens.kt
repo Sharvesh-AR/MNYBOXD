@@ -55,6 +55,8 @@ import io.github.sharveshar.spendly.ui.common.AccountUi
 import io.github.sharveshar.spendly.ui.components.BudgetBar
 import io.github.sharveshar.spendly.ui.components.EmptyState
 import io.github.sharveshar.spendly.ui.components.IconBadge
+import io.github.sharveshar.spendly.ui.components.AnimatedMoney
+import io.github.sharveshar.spendly.ui.components.LabeledAmount
 import io.github.sharveshar.spendly.ui.components.LabeledValue
 import io.github.sharveshar.spendly.ui.components.MoneyText
 import io.github.sharveshar.spendly.ui.components.SectionHeader
@@ -105,8 +107,8 @@ fun AccountsScreen(viewModel: AccountsViewModel, contentPadding: PaddingValues, 
                 MoneyText(nw.netPaise, MaterialTheme.typography.displayMedium, color = if (nw.netPaise < 0) Spendly.colors.negative else MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(Space.md))
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.xxl)) {
-                    LabeledValue("Assets", Money.format(nw.assetsPaise))
-                    LabeledValue("Owed on cards", Money.format(nw.liabilitiesPaise), valueColor = if (nw.liabilitiesPaise > 0) Spendly.colors.negative else MaterialTheme.colorScheme.onSurface)
+                    LabeledAmount("Assets", nw.assetsPaise)
+                    LabeledAmount("Owed on cards", nw.liabilitiesPaise, valueColor = if (nw.liabilitiesPaise > 0) Spendly.colors.negative else MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -140,7 +142,6 @@ fun AccountsScreen(viewModel: AccountsViewModel, contentPadding: PaddingValues, 
             }
             if (showArchived) items(state.archived, key = { it.id }) { a -> AccountRow(a, onClick = { onOpen(a.id) }, modifier = Modifier.animateItem()) }
         }
-        item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
     }
 }
 
@@ -172,7 +173,7 @@ private fun AccountRow(a: AccountUi, onClick: () -> Unit, modifier: Modifier = M
         }
         if (value.isNotEmpty()) {
             Column(horizontalAlignment = Alignment.End) {
-                Text(value, style = AmountStyle.row, color = valueColor, maxLines = 1)
+                AnimatedMoney(if (a.type == AccountType.CREDIT_CARD) a.outstandingPaise else a.balancePaise, AmountStyle.row, color = valueColor)
                 if (label.isNotEmpty()) Text(label, style = MaterialTheme.typography.labelSmall, color = Spendly.colors.muted)
             }
         }

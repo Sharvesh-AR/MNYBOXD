@@ -230,7 +230,6 @@ fun BudgetsScreen(viewModel: BudgetsViewModel, contentPadding: PaddingValues) {
                 }
             }
         }
-        item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
     }
 
     target?.let { t ->

@@ -11,6 +11,7 @@ import io.github.sharveshar.spendly.data.repo.AccountRepository
 import io.github.sharveshar.spendly.data.repo.BudgetRepository
 import io.github.sharveshar.spendly.data.repo.CategoryRepository
 import io.github.sharveshar.spendly.data.repo.TransactionRepository
+import io.github.sharveshar.spendly.shortcut.ShortcutSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +28,7 @@ class Repositories(db: SpendlyDatabase) {
 
 /** Minimal manual dependency container; avoids a DI framework dependency. */
 class AppContainer(context: Context) {
+    private val appContext = context.applicationContext
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val databaseManager = DatabaseManager(context.applicationContext)
     val preferences = PreferencesRepository(context.applicationContext)
@@ -41,6 +43,22 @@ class AppContainer(context: Context) {
             cached?.let { if (it.first === db) return it.second }
             return Repositories(db).also { cached = db to it }
         }
+
+    /**
+     * Settings → Data management → Reset Spendly. Deletes all financial data (one atomic database
+     * transaction that also restores the default categories and Cash wallet), then the extras
+     * Spendly created on the phone, and finally every preference, which returns the app to its
+     * first-run screen. Only called after the two-step confirmation.
+     */
+    suspend fun resetEverything(now: Long = System.currentTimeMillis()) {
+        repositories.backup.resetToDefaults(now)
+        runCatching { ShortcutSettings.setAppIconOn(appContext, false) }
+        onDataReset?.invoke(appContext)
+        preferences.clearAll()
+    }
+
+    /** Hook for components that keep copies of what's shown (home-screen widgets). */
+    var onDataReset: ((Context) -> Unit)? = null
 
     fun start() {
         appScope.launch { databaseManager.open() }

@@ -24,7 +24,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material.icons.rounded.GridView
+import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.sharveshar.spendly.ui.components.SubScreen
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -65,6 +71,7 @@ internal fun ShortcutsSection(
     shortcut: ButtonShortcut,
     onButtonChange: (ShortcutButton) -> Unit,
     onPressesChange: (Int) -> Unit,
+    onTurnOff: () -> Unit = {},
 ) {
     val context = LocalContext.current
     // Both states live in Android, not in Spendly: re-read whenever the user comes back.
@@ -78,8 +85,21 @@ internal fun ShortcutsSection(
         onPauseOrDispose { }
     }
 
-    Group("Shortcuts")
+    // Turning off happens in the service itself (disableSelf); re-check once it has had a moment.
+    var turningOff by remember { mutableStateOf(false) }
+    LaunchedEffect(turningOff) {
+        if (turningOff) {
+            repeat(10) {
+                kotlinx.coroutines.delay(200)
+                serviceOn = ShortcutSettings.isButtonShortcutOn(context)
+                if (!serviceOn) return@LaunchedEffect
+            }
+            turningOff = false
+        }
+    }
+
     if (ShortcutSettings.isButtonShortcutAvailable) {
+        Group("Volume-button shortcut (optional)")
         Row(
             Modifier
                 .fillMaxWidth()
@@ -94,8 +114,8 @@ internal fun ShortcutsSection(
             Column(Modifier.weight(1f)) {
                 Text("Volume button shortcut", style = MaterialTheme.typography.bodyLarge)
                 Text(
-                    if (serviceOn) "${shortcut.describe()} on any screen to add an expense"
-                    else "Open Quick Add from any screen with a volume button. Tap to set up.",
+                    if (serviceOn) "${shortcut.describe()} on any screen to open the Quick Add pop-up"
+                    else "Open the Quick Add pop-up from any screen with a volume button. Tap to set up.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Spendly.colors.muted,
                 )
@@ -127,6 +147,7 @@ internal fun ShortcutsSection(
             Spacer(Modifier.height(Space.sm))
         }
     }
+    Group("Phone gestures")
     Row(
         Modifier
             .fillMaxWidth()
@@ -158,7 +179,7 @@ internal fun ShortcutsSection(
                 Spacer(Modifier.height(Space.md))
                 Text(
                     if (serviceOn) {
-                        "${shortcut.describe()} quickly, on any screen, to open Quick Add. To turn it off, open Accessibility settings and switch off “Spendly volume shortcut”."
+                        "${shortcut.describe()} quickly, on any screen, to open the Quick Add pop-up. Turn it off here at any time: Spendly then stops receiving button presses until you switch it on again in Accessibility settings."
                     } else {
                         "${shortcut.describe()} quickly, on any screen, to open Quick Add. On the lock screen you’ll be asked to unlock first.\n\n" +
                             "Android only lets apps notice button presses outside their own screens through Accessibility settings. " +
@@ -186,14 +207,25 @@ internal fun ShortcutsSection(
                 }
                 Spacer(Modifier.height(Space.xl))
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    if (!serviceOn) {
+                    if (serviceOn) {
+                        TextButton(onClick = {
+                            explain = false
+                            context.launch(ShortcutSettings.accessibilitySettingsIntent())
+                        }) { Text("Accessibility settings") }
+                        Spacer(Modifier.width(Space.sm))
+                        Button(onClick = {
+                            explain = false
+                            onTurnOff()
+                            turningOff = true
+                        }) { Text("Turn off") }
+                    } else {
                         TextButton(onClick = { context.launch(ShortcutSettings.appInfoIntent(context)) }) { Text("App info") }
                         Spacer(Modifier.width(Space.sm))
+                        Button(onClick = {
+                            explain = false
+                            context.launch(ShortcutSettings.accessibilitySettingsIntent())
+                        }) { Text("Accessibility settings") }
                     }
-                    Button(onClick = {
-                        explain = false
-                        context.launch(ShortcutSettings.accessibilitySettingsIntent())
-                    }) { Text("Accessibility settings") }
                 }
             }
         }
@@ -215,5 +247,50 @@ private fun Context.launch(intent: Intent) {
         startActivity(intent)
     } catch (_: ActivityNotFoundException) {
         // Heavily customised builds can lack these settings screens; nothing else to open.
+    }
+}
+
+/** Settings → Shortcut settings: every way to open Quick Add without opening the app first. */
+@Composable
+fun ShortcutsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
+    val prefs by viewModel.preferences.collectAsStateWithLifecycle()
+    SubScreen("Shortcut settings", onBack) {
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+            ShortcutsSection(
+                shortcut = prefs.buttonShortcut,
+                onButtonChange = viewModel::setShortcutButton,
+                onPressesChange = viewModel::setShortcutPresses,
+                onTurnOff = viewModel::turnOffButtonShortcut,
+            )
+            Group("Always available")
+            InfoRow(
+                Icons.Rounded.GridView,
+                "Quick Settings tile",
+                "Swipe down twice from the top of the screen, tap the pencil (Edit) and drag “Add expense” into your tiles.",
+            )
+            InfoRow(
+                Icons.Rounded.TouchApp,
+                "App shortcuts",
+                "Touch and hold the Spendly icon for Add expense and Voice expense. You can drag either one to your home screen.",
+            )
+            InfoRow(
+                Icons.Rounded.Widgets,
+                "Home-screen widgets",
+                "Touch and hold an empty part of your home screen, tap Widgets and find Spendly.",
+            )
+            Spacer(Modifier.height(Space.xxxl))
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String) {
+    Row(Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = Space.md), verticalAlignment = Alignment.Top) {
+        Icon(icon, contentDescription = null, tint = Spendly.colors.muted, modifier = Modifier.padding(top = 2.dp))
+        Spacer(Modifier.width(Space.lg))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(body, style = MaterialTheme.typography.bodySmall, color = Spendly.colors.muted)
+        }
     }
 }

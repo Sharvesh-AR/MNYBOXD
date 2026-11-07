@@ -43,6 +43,7 @@ import io.github.sharveshar.spendly.core.money.Money
 import io.github.sharveshar.spendly.domain.model.AccountType
 import io.github.sharveshar.spendly.ui.common.AccountUi
 import io.github.sharveshar.spendly.ui.common.Today
+import io.github.sharveshar.spendly.ui.components.AnimatedMoney
 import io.github.sharveshar.spendly.ui.components.BarChart
 import io.github.sharveshar.spendly.ui.components.BudgetBar
 import io.github.sharveshar.spendly.ui.components.CategoryIcons
@@ -87,11 +88,11 @@ fun HomeScreen(
             Column(Modifier.padding(horizontal = Space.gutter, vertical = Space.lg)) {
                 Text("Spent in ${state.monthLabel}", style = MaterialTheme.typography.labelLarge, color = Spendly.colors.muted)
                 Spacer(Modifier.height(Space.xs))
-                MoneyText(state.spentThisMonth, MaterialTheme.typography.displayLarge)
+                MoneyText(state.spentThisMonth, MaterialTheme.typography.displayLarge, countUpOnFirstShow = !state.loading)
                 Spacer(Modifier.height(Space.md))
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.xl)) {
-                    MiniStat("Today", Money.format(state.spentToday))
-                    MiniStat("Income", Money.format(state.incomeThisMonth), Spendly.colors.positive)
+                    MiniStat("Today", state.spentToday)
+                    MiniStat("Income", state.incomeThisMonth, Spendly.colors.positive)
                 }
                 Spacer(Modifier.height(Space.lg))
                 val budget = state.budget
@@ -192,10 +193,10 @@ fun HomeScreen(
 }
 
 @Composable
-private fun MiniStat(label: String, value: String, color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface) {
+private fun MiniStat(label: String, paise: Long, color: androidx.compose.ui.graphics.Color = MaterialTheme.colorScheme.onSurface) {
     Column {
         Text(label, style = MaterialTheme.typography.labelMedium, color = Spendly.colors.muted)
-        Text(value, style = AmountStyle.row, color = color, maxLines = 1)
+        AnimatedMoney(paise, AmountStyle.row, color = color)
     }
 }
 
@@ -208,15 +209,14 @@ fun AccountChipCard(a: AccountUi, onClick: () -> Unit) {
         IconBadge(a.type.icon(), color, size = 32.dp)
         Spacer(Modifier.height(Space.md))
         Text(a.name, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(
-            if (isCard) Money.format(a.outstandingPaise) else Money.format(a.balancePaise),
+        AnimatedMoney(
+            if (isCard) a.outstandingPaise else a.balancePaise,
             style = AmountStyle.summary,
             color = when {
                 isCard && a.outstandingPaise > 0 -> Spendly.colors.negative
                 !isCard && a.balancePaise < 0 -> Spendly.colors.negative
                 else -> MaterialTheme.colorScheme.onSurface
             },
-            maxLines = 1,
             modifier = Modifier.semantics(mergeDescendants = true) {},
         )
         Text(if (isCard) "Outstanding" else a.type.label, style = MaterialTheme.typography.labelSmall, color = Spendly.colors.muted, maxLines = 1)

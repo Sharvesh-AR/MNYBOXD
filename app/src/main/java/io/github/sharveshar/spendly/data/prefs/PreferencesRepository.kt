@@ -35,6 +35,12 @@ data class UserPreferences(
     val lastProvider: PaymentProvider? = null,
     /** Volume-button pattern that opens Quick Add (only acts once the user enables the service). */
     val buttonShortcut: ButtonShortcut = ButtonShortcut(),
+    /**
+     * False after the user taps "Turn off" in Spendly: the running volume-button service then
+     * switches itself off (AccessibilityService.disableSelf). Set back to true whenever the
+     * service is switched on again in Android's Accessibility settings.
+     */
+    val buttonShortcutActive: Boolean = true,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "spendly_prefs")
@@ -59,6 +65,7 @@ class PreferencesRepository(private val context: Context) {
         val lastProvider = stringPreferencesKey("last_provider")
         val shortcutButton = stringPreferencesKey("shortcut_button")
         val shortcutPresses = intPreferencesKey("shortcut_presses")
+        val shortcutActive = booleanPreferencesKey("shortcut_active")
     }
 
     val preferences: Flow<UserPreferences> = context.dataStore.data
@@ -76,6 +83,7 @@ class PreferencesRepository(private val context: Context) {
                     button = p[Keys.shortcutButton]?.let { runCatching { ShortcutButton.valueOf(it) }.getOrNull() } ?: ShortcutButton.VOLUME_DOWN,
                     presses = p[Keys.shortcutPresses]?.takeIf { it in ButtonShortcut.PRESS_CHOICES } ?: ButtonShortcut.DEFAULT_PRESSES,
                 ),
+                buttonShortcutActive = p[Keys.shortcutActive] ?: true,
             )
         }
 
@@ -101,6 +109,8 @@ class PreferencesRepository(private val context: Context) {
 
     // Button and press count are saved separately so quick changes to both can't overwrite each other.
     suspend fun setShortcutButton(button: ShortcutButton) = context.dataStore.edit { it[Keys.shortcutButton] = button.name }
+    suspend fun setShortcutActive(active: Boolean) = context.dataStore.edit { it[Keys.shortcutActive] = active }
+
     suspend fun setShortcutPresses(presses: Int) {
         require(presses in ButtonShortcut.PRESS_CHOICES) { "Unsupported press count $presses" }
         context.dataStore.edit { it[Keys.shortcutPresses] = presses }

@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -296,5 +297,64 @@ class RepositoryTest {
         } catch (e: android.database.SQLException) {
             // expected
         }
+    }
+
+    @Test fun `reset deletes all financial data and restores exactly the first-run defaults`() = runTest {
+        val expense = save(draft(TransactionType.EXPENSE, 500_00, hdfcId, category = foodId, channel = PaymentChannel.UPI))
+        save(draft(TransactionType.REFUND, 100_00, hdfcId, category = foodId, refundOf = expense, channel = PaymentChannel.UPI))
+        save(draft(TransactionType.TRANSFER, 1_000_00, hdfcId, to = ccId))
+        save(draft(TransactionType.EXPENSE, 300_00, debitId, category = shoppingId))
+        ok(budgets.setLimit(null, 20_000_00))
+        ok(budgets.setLimit(foodId, 5_000_00))
+        val custom = io.github.sharveshar.spendly.data.repo.CategoryRepository(db)
+        ok(custom.create("Pets", io.github.sharveshar.spendly.domain.model.CategoryKind.EXPENSE, "other", 3))
+
+        io.github.sharveshar.spendly.data.backup.BackupRepository(db).resetToDefaults(now)
+
+        assertTrue(db.transactionDao().getAll().isEmpty())
+        assertTrue(db.budgetDao().getAll().isEmpty())
+        val accountsLeft = db.accountDao().getAll()
+        assertEquals(listOf("Cash"), accountsLeft.map { it.name })
+        assertEquals(AccountType.CASH, accountsLeft.single().type)
+        assertEquals(0L, balances().values.single())
+        val cats = db.categoryDao().getAll()
+        assertEquals(io.github.sharveshar.spendly.data.db.SeedData.categories.map { it.key }.toSet(), cats.map { it.key }.toSet())
+        assertTrue(cats.none { it.archived })
+        assertTrue(cats.none { it.name == "Pets" })
+    }
+
+    @Test fun `reset can run twice and still leaves one clean set of defaults`() = runTest {
+        val backup = io.github.sharveshar.spendly.data.backup.BackupRepository(db)
+        backup.resetToDefaults(now)
+        backup.resetToDefaults(now)
+        assertEquals(1, db.accountDao().getAll().size)
+        assertEquals(io.github.sharveshar.spendly.data.db.SeedData.categories.size, db.categoryDao().getAll().size)
+    }
+
+    @Test fun `undoing a delete restores the exact transaction and every balance`() = runTest {
+        val id = save(draft(TransactionType.EXPENSE, 1_234_56, hdfcId, category = foodId, channel = PaymentChannel.UPI, provider = PaymentProvider.PHONEPE))
+        save(draft(TransactionType.TRANSFER, 2_000_00, hdfcId, to = ccId))
+        val before = balances()
+        val original = db.transactionDao().getById(id)!!
+
+        val (result, removed) = txs.deleteForUndo(id)
+        assertEquals(DeleteResult.Deleted, result)
+        assertEquals(before[hdfcId]!! + 1_234_56, balances()[hdfcId])
+
+        assertTrue(txs.restoreDeleted(removed!!))
+        assertEquals(before, balances())
+        assertEquals(original, db.transactionDao().getById(id))
+        // A second undo of the same row does nothing.
+        assertFalse(txs.restoreDeleted(removed))
+        assertEquals(2, db.transactionDao().getAll().size)
+    }
+
+    @Test fun `an expense with refunds can't be deleted for undo either`() = runTest {
+        val id = save(draft(TransactionType.EXPENSE, 500_00, hdfcId, category = foodId, channel = PaymentChannel.UPI))
+        save(draft(TransactionType.REFUND, 100_00, hdfcId, category = foodId, refundOf = id, channel = PaymentChannel.UPI))
+        val (result, removed) = txs.deleteForUndo(id)
+        assertTrue(result is DeleteResult.HasRefunds)
+        assertEquals(null, removed)
+        assertEquals(2, db.transactionDao().getAll().size)
     }
 }

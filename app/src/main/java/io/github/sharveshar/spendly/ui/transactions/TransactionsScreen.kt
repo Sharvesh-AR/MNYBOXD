@@ -141,7 +141,6 @@ fun TransactionsScreen(viewModel: TransactionsViewModel, contentPadding: Padding
                 )
             }
         }
-        item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
     }
 
     OptionPopup(popup == FilterPopup.TYPE, typeAnchor, "Type", { popup = FilterPopup.NONE },

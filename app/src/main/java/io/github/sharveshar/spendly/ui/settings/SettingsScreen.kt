@@ -26,7 +26,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.DeleteForever
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Palette
@@ -71,6 +73,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.sharveshar.spendly.data.backup.BackupCodec
+import io.github.sharveshar.spendly.shortcut.ShortcutSettings
 import io.github.sharveshar.spendly.ui.common.Formats
 import io.github.sharveshar.spendly.ui.components.OriginAnchor
 import io.github.sharveshar.spendly.ui.components.OriginPopup
@@ -82,10 +85,18 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
-private enum class SettingsPopup { NONE, EXPORT_PASSWORD, IMPORT_PASSWORD, CSV_WARNING }
+private enum class SettingsPopup { NONE, EXPORT_PASSWORD, IMPORT_PASSWORD, CSV_WARNING, RESET_WARNING }
 
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onThemes: () -> Unit, onCategories: () -> Unit, onAbout: () -> Unit) {
+fun SettingsScreen(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+    onThemes: () -> Unit,
+    onShortcuts: () -> Unit,
+    onCategories: () -> Unit,
+    onAbout: () -> Unit,
+    onReset: () -> Unit,
+) {
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
     val flow by viewModel.flow.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
@@ -94,6 +105,7 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onThemes: (
     val exportAnchor = rememberOriginAnchor()
     val importAnchor = rememberOriginAnchor()
     val csvAnchor = rememberOriginAnchor()
+    val resetAnchor = rememberOriginAnchor()
     val restoreAnchor = importAnchor
 
     LaunchedEffect(message) {
@@ -123,10 +135,14 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onThemes: (
                 Group("Appearance")
                 SettingRow(Icons.Rounded.Palette, "Themes", prefs.theme.describe(Spendly.colors.palette.theme), chevron = true, onClick = onThemes)
 
-                ShortcutsSection(
-                    shortcut = prefs.buttonShortcut,
-                    onButtonChange = viewModel::setShortcutButton,
-                    onPressesChange = viewModel::setShortcutPresses,
+                Group("Shortcuts")
+                SettingRow(
+                    Icons.Rounded.TouchApp,
+                    "Shortcut settings",
+                    if (ShortcutSettings.isButtonShortcutAvailable) "Volume-button shortcut, Add expense icon, Quick Settings tile"
+                    else "Add expense icon, Quick Settings tile, app shortcuts",
+                    chevron = true,
+                    onClick = onShortcuts,
                 )
 
                 Group("Privacy")
@@ -148,10 +164,17 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onThemes: (
                     "Encrypted on-device database. No account, no internet permission, no ads or trackers. Android cloud backup is turned off for Spendly; use encrypted backups below.",
                 )
 
-                Group("Backup & export")
+                Group("Data management")
                 SettingRow(Icons.Rounded.Download, "Create encrypted backup", "Password-protected file you save where you choose", Modifier.originAnchor(exportAnchor)) { popup = SettingsPopup.EXPORT_PASSWORD }
                 SettingRow(Icons.Rounded.Restore, "Restore from backup", "Replaces everything here after you confirm", Modifier.originAnchor(importAnchor)) { popup = SettingsPopup.IMPORT_PASSWORD }
                 SettingRow(Icons.Rounded.TableChart, "Export as CSV", "Unencrypted spreadsheet of all transactions", Modifier.originAnchor(csvAnchor)) { popup = SettingsPopup.CSV_WARNING }
+                SettingRow(
+                    Icons.Rounded.DeleteForever,
+                    "Reset Spendly",
+                    "Permanently delete all data on this phone and start again",
+                    Modifier.originAnchor(resetAnchor),
+                    destructive = true,
+                ) { popup = SettingsPopup.RESET_WARNING }
 
                 Group("Organise")
                 SettingRow(Icons.Rounded.Category, "Categories", "Add, rename or archive categories", chevron = true, onClick = onCategories)
@@ -227,6 +250,33 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onThemes: (
             }
         }
     }
+    // Reset, step 1 of 2: what will be deleted, and a nudge to back up first. Step 2 is ResetScreen.
+    OriginPopup(visible = popup == SettingsPopup.RESET_WARNING, anchor = resetAnchor, onDismissRequest = { popup = SettingsPopup.NONE }) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(Space.xxl)) {
+            Text("Reset Spendly?", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(Space.md))
+            Text("This deletes everything Spendly stores on this phone:", style = MaterialTheme.typography.bodyMedium, color = Spendly.colors.muted)
+            Spacer(Modifier.height(Space.sm))
+            RESET_DELETES.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 2.dp)) }
+            Spacer(Modifier.height(Space.md))
+            Text(
+                "This can't be undone. Create an encrypted backup first if you might want this data again.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Spendly.colors.warning,
+            )
+            Spacer(Modifier.height(Space.xl))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { popup = SettingsPopup.EXPORT_PASSWORD }) { Text("Back up first") }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { popup = SettingsPopup.NONE }) { Text("Cancel") }
+                Button(
+                    onClick = { popup = SettingsPopup.NONE; onReset() },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Spendly.colors.negative, contentColor = Spendly.colors.background),
+                ) { Text("Continue") }
+            }
+        }
+    }
+
     val confirm = flow as? BackupFlow.ConfirmRestore
     var lastConfirm by remember { mutableStateOf<BackupFlow.ConfirmRestore?>(null) }
     if (confirm != null) lastConfirm = confirm
@@ -275,6 +325,7 @@ private fun SettingRow(
     subtitle: String,
     modifier: Modifier = Modifier,
     chevron: Boolean = false,
+    destructive: Boolean = false,
     onClick: (() -> Unit)? = null,
 ) {
     Row(
@@ -285,10 +336,10 @@ private fun SettingRow(
             .padding(horizontal = Space.gutter, vertical = Space.md),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, contentDescription = null, tint = Spendly.colors.muted)
+        Icon(icon, contentDescription = null, tint = if (destructive) Spendly.colors.negative else Spendly.colors.muted)
         Spacer(Modifier.width(Space.lg))
         Column(Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = if (destructive) Spendly.colors.negative else MaterialTheme.colorScheme.onSurface)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Spendly.colors.muted)
         }
         if (chevron) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = Spendly.colors.muted)
