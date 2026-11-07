@@ -117,11 +117,14 @@ class ButtonShortcutHandlerTest {
     @Test fun `chosen pattern is saved in preferences`() = runBlocking {
         val prefs = PreferencesRepository(context)
         try {
-            assertEquals(ButtonShortcut(ShortcutButton.VOLUME_DOWN, 3), prefs.preferences.first().buttonShortcut)
-            prefs.setButtonShortcut(ButtonShortcut(ShortcutButton.VOLUME_UP, 2))
+            prefs.setShortcutButton(ShortcutButton.VOLUME_UP)
+            prefs.setShortcutPresses(2)
             assertEquals(ButtonShortcut(ShortcutButton.VOLUME_UP, 2), prefs.preferences.first().buttonShortcut)
+            prefs.setShortcutButton(ShortcutButton.VOLUME_DOWN)
+            assertEquals(ButtonShortcut(ShortcutButton.VOLUME_DOWN, 2), prefs.preferences.first().buttonShortcut)
         } finally {
-            prefs.setButtonShortcut(ButtonShortcut())
+            // DataStore is one instance per JVM, shared with later test classes.
+            prefs.setShortcutPresses(ButtonShortcut.DEFAULT_PRESSES)
         }
     }
 }

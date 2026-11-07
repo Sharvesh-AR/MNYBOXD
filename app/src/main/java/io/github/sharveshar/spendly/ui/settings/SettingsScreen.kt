@@ -132,7 +132,11 @@ fun SettingsScreen(viewModel: SettingsViewModel, onBack: () -> Unit, onCategorie
                 )
                 Spacer(Modifier.height(Space.md))
 
-                ShortcutsSection(prefs.buttonShortcut, onShortcutChange = viewModel::setButtonShortcut)
+                ShortcutsSection(
+                    shortcut = prefs.buttonShortcut,
+                    onButtonChange = viewModel::setShortcutButton,
+                    onPressesChange = viewModel::setShortcutPresses,
+                )
 
                 Group("Privacy")
                 Row(

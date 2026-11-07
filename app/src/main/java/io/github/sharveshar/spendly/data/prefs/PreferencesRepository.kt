@@ -71,9 +71,12 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setOnboardingDone() = context.dataStore.edit { it[Keys.onboarding] = true }
     suspend fun setVoiceDisclosureAccepted() = context.dataStore.edit { it[Keys.voiceDisclosure] = true }
     suspend fun setSecureScreen(enabled: Boolean) = context.dataStore.edit { it[Keys.secureScreen] = enabled }
-    suspend fun setButtonShortcut(shortcut: ButtonShortcut) = context.dataStore.edit {
-        it[Keys.shortcutButton] = shortcut.button.name
-        it[Keys.shortcutPresses] = shortcut.presses
+
+    // Button and press count are saved separately so quick changes to both can't overwrite each other.
+    suspend fun setShortcutButton(button: ShortcutButton) = context.dataStore.edit { it[Keys.shortcutButton] = button.name }
+    suspend fun setShortcutPresses(presses: Int) {
+        require(presses in ButtonShortcut.PRESS_CHOICES) { "Unsupported press count $presses" }
+        context.dataStore.edit { it[Keys.shortcutPresses] = presses }
     }
 
     suspend fun rememberPaymentChoice(accountId: Long, channel: PaymentChannel?, provider: PaymentProvider?) =

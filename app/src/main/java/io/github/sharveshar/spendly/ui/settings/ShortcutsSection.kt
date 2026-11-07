@@ -60,7 +60,11 @@ internal fun ButtonShortcut.describe(): String {
  * and an optional "Add expense" app-list entry for the phone's own gestures.
  */
 @Composable
-internal fun ShortcutsSection(shortcut: ButtonShortcut, onShortcutChange: (ButtonShortcut) -> Unit) {
+internal fun ShortcutsSection(
+    shortcut: ButtonShortcut,
+    onButtonChange: (ShortcutButton) -> Unit,
+    onPressesChange: (Int) -> Unit,
+) {
     val context = LocalContext.current
     // Both states live in Android, not in Spendly: re-read whenever the user comes back.
     var serviceOn by remember { mutableStateOf(ShortcutSettings.isButtonShortcutOn(context)) }
@@ -107,7 +111,7 @@ internal fun ShortcutsSection(shortcut: ButtonShortcut, onShortcutChange: (Butto
             options = ShortcutButton.entries,
             selected = shortcut.button,
             label = { if (it == ShortcutButton.VOLUME_DOWN) "Volume down" else "Volume up" },
-            onSelect = { onShortcutChange(shortcut.copy(button = it)) },
+            onSelect = onButtonChange,
             modifier = Modifier.fillMaxWidth(),
         )
         Caption("Presses")
@@ -115,7 +119,7 @@ internal fun ShortcutsSection(shortcut: ButtonShortcut, onShortcutChange: (Butto
             options = ButtonShortcut.PRESS_CHOICES,
             selected = shortcut.presses,
             label = { if (it == 2) "Twice" else "$it times" },
-            onSelect = { onShortcutChange(shortcut.copy(presses = it)) },
+            onSelect = onPressesChange,
             modifier = Modifier.fillMaxWidth(),
         )
         Spacer(Modifier.height(Space.sm))
