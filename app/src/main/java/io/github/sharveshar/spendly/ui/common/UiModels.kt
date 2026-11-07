@@ -88,3 +88,11 @@ object Formats {
         else -> if (date.year == today.year) date.format(dayHeader) else date.format(dayHeaderYear)
     }
 }
+
+/**
+ * Net worth across [this] accounts: what's in them minus what's owed on cards. Debit cards share
+ * their bank's balance, so they're left out to avoid counting it twice. Home's balance and the
+ * Accounts tab both use this, so they always agree.
+ */
+fun List<AccountUi>.netWorth(): io.github.sharveshar.spendly.domain.ledger.NetWorth =
+    BalanceCalculator.netWorth(filter { it.type.holdsBalance }.map { it.balancePaise })

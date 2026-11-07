@@ -134,6 +134,7 @@ fun PrimaryButton(
     enabled: Boolean = true,
     loading: Boolean = false,
     destructive: Boolean = false,
+    trailingIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
 ) {
     val c = Spendly.colors
     val interaction = remember { MutableInteractionSource() }
@@ -172,13 +173,13 @@ fun PrimaryButton(
             }
         }
         val busy by animateFloatAsState(if (showBusy) 1f else 0f, tween(150), label = "btnBusy")
-        Text(
-            text,
-            style = MaterialTheme.typography.titleMedium,
-            color = content,
-            maxLines = 1,
-            modifier = Modifier.graphicsLayer { this.alpha = 1f - busy },
-        )
+        Row(Modifier.graphicsLayer { this.alpha = 1f - busy }, verticalAlignment = Alignment.CenterVertically) {
+            Text(text, style = MaterialTheme.typography.titleMedium, color = content, maxLines = 1)
+            if (trailingIcon != null) {
+                Spacer(Modifier.width(Space.sm))
+                Icon(trailingIcon, contentDescription = null, tint = content, modifier = Modifier.size(20.dp))
+            }
+        }
         if (busy > 0f) {
             CircularProgressIndicator(Modifier.size(22.dp).graphicsLayer { this.alpha = busy }, color = content, strokeWidth = 2.dp)
         }

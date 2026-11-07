@@ -10,7 +10,8 @@ import androidx.compose.ui.graphics.lerp
  * were removed are mapped to the closest one by [parse].
  */
 enum class AppTheme(val label: String, val tagline: String) {
-    MIDNIGHT_EMERALD("Midnight", "Deep charcoal and emerald. Spendly's signature look."),
+    MONO("Mono", "Matte black and white. Calm, minimal, Spendly's signature look."),
+    MIDNIGHT_EMERALD("Midnight", "Deep charcoal with an emerald accent."),
     LIGHT("Light", "Clean off-white with emerald accents."),
     PURE_AMOLED("AMOLED", "True black for OLED screens and night use."),
     OCEAN_BLUE("Ocean", "Deep navy with soft blue accents."),
@@ -31,20 +32,21 @@ enum class AppTheme(val label: String, val tagline: String) {
 
 /**
  * What the user picked in Settings → Appearance → Themes. [SYSTEM] follows Android's dark mode,
- * switching between Midnight and Light.
+ * switching between Mono and Light.
  */
 enum class ThemeChoice(val theme: AppTheme?) {
     SYSTEM(null),
+    MONO(AppTheme.MONO),
     MIDNIGHT_EMERALD(AppTheme.MIDNIGHT_EMERALD),
     LIGHT(AppTheme.LIGHT),
     PURE_AMOLED(AppTheme.PURE_AMOLED),
     OCEAN_BLUE(AppTheme.OCEAN_BLUE);
 
     fun resolve(systemDark: Boolean): AppTheme =
-        theme ?: if (systemDark) AppTheme.MIDNIGHT_EMERALD else AppTheme.LIGHT
+        theme ?: if (systemDark) AppTheme.MONO else AppTheme.LIGHT
 
     companion object {
-        val DEFAULT = MIDNIGHT_EMERALD
+        val DEFAULT = MONO
 
         fun of(theme: AppTheme): ThemeChoice = entries.first { it.theme == theme }
 
@@ -88,7 +90,16 @@ data class SpendlyPalette(
     val track: Color,
     /** Ten category colours, chosen to read well on this theme's surfaces. */
     val categories: List<Color>,
+    /**
+     * Selected segments and tiles are shown inverted (a light fill with dark content) rather
+     * than as a slightly raised surface. The monochrome look uses this.
+     */
+    val invertSelection: Boolean = false,
 ) {
+    /** Fill and content colour for a selected segment or tile. */
+    val selectedFill: Color get() = if (invertSelection) text else surfaceElevated
+    val onSelectedFill: Color get() = if (invertSelection) background else text
+
     /** Top highlight for layered surfaces: a faint light edge that gives cards depth. */
     val edgeHighlight: Color get() = if (isDark) Color.White.copy(alpha = 0.06f) else Color.White.copy(alpha = 0.9f)
 
@@ -100,6 +111,12 @@ data class SpendlyPalette(
 
     val scrim: Color get() = if (isDark) Color.Black.copy(alpha = 0.6f) else Color(0xFF101614).copy(alpha = 0.4f)
 }
+
+/** Quiet, nearly neutral tints: categories stay tellable apart without colouring the screen. */
+private val MonoCategories = listOf(
+    Color(0xFFD9D9DE), Color(0xFFA9B6C2), Color(0xFFBFB2A3), Color(0xFFA3B5A9), Color(0xFFB7A9BC),
+    Color(0xFFCEC5AB), Color(0xFF8F99A6), Color(0xFFA6A6AC), Color(0xFFC1CBD4), Color(0xFF80878F),
+)
 
 private val PastelCategories = listOf(
     Color(0xFF9BBDA9), Color(0xFF7FB3AE), Color(0xFF8FA9C9), Color(0xFFCDB38B), Color(0xFFC79A88),
@@ -117,6 +134,21 @@ private val EarthCategories = listOf(
 )
 
 object Palettes {
+    val Mono = SpendlyPalette(
+        theme = AppTheme.MONO, isDark = true,
+        // Matte black (not pure black), charcoal layers, white type and soft Apple-like greys.
+        background = Color(0xFF0B0B0C), surface = Color(0xFF151517), surfaceElevated = Color(0xFF1F1F22),
+        surfaceHighest = Color(0xFF232326), hairline = Color(0xFF242427),
+        text = Color(0xFFF5F5F7), textMuted = Color(0xFF8E8E93),
+        accent = Color(0xFFF5F5F7), onAccent = Color(0xFF0B0B0C),
+        accentContainer = Color(0xFF2A2A2D), onAccentContainer = Color(0xFFF5F5F7),
+        secondary = Color(0xFFA1A1A6),
+        // Colour only where it carries meaning, and softly.
+        positive = Color(0xFF86D3A3), negative = Color(0xFFEE8E8E), warning = Color(0xFFD8BA7A),
+        track = Color(0xFF2A2A2E), categories = MonoCategories,
+        invertSelection = true,
+    )
+
     val MidnightEmerald = SpendlyPalette(
         theme = AppTheme.MIDNIGHT_EMERALD, isDark = true,
         background = Color(0xFF0D1117), surface = Color(0xFF151B23), surfaceElevated = Color(0xFF1D2630),
@@ -166,9 +198,9 @@ object Palettes {
         track = Color(0xFF22304A), categories = CoolCategories,
     )
 
-    val all: List<SpendlyPalette> = listOf(MidnightEmerald, Light, PureAmoled, OceanBlue)
+    val all: List<SpendlyPalette> = listOf(Mono, MidnightEmerald, Light, PureAmoled, OceanBlue)
 
     fun of(theme: AppTheme): SpendlyPalette = all.first { it.theme == theme }
 
-    val Default = MidnightEmerald
+    val Default = Mono
 }

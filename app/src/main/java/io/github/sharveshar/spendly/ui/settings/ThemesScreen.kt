@@ -109,7 +109,7 @@ private fun FollowSystemRow(on: Boolean, onChange: (Boolean) -> Unit) {
         Column(Modifier.weight(1f)) {
             Text("Match system", style = MaterialTheme.typography.bodyLarge)
             Text(
-                "Midnight when your phone is in dark mode, Light when it's light",
+                "Mono when your phone is in dark mode, Light when it's light",
                 style = MaterialTheme.typography.bodySmall,
                 color = Spendly.colors.muted,
             )
@@ -234,6 +234,6 @@ private fun MiniChip(label: String, bg: Color, fg: Color) {
     }
 }
 
-/** "Midnight" or "Match system · Light" for the Settings row. */
+/** "Mono" or "Match system · Light" for the Settings row. */
 fun ThemeChoice.describe(resolved: AppTheme): String =
     if (this == ThemeChoice.SYSTEM) "Match system · ${resolved.label}" else resolved.label

@@ -49,7 +49,7 @@ data class UserPreferences(
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "spendly_prefs")
 
-/** Dark → Midnight, Light → Light, System stays System. Missing → the default. */
+/** Dark → the default (Mono), Light → Light, System stays System. Missing → the default. */
 internal fun legacyTheme(name: String?): ThemeChoice =
     when (name?.let { n -> LegacyThemeMode.entries.firstOrNull { it.name == n } }) {
         LegacyThemeMode.LIGHT -> ThemeChoice.LIGHT

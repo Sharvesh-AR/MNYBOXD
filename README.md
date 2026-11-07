@@ -40,10 +40,11 @@ builds (`ScreenshotTest`).</sub>
 ## Features
 
 **Fast entry**
-* **Quick Add**: a sheet that slides up over whatever you were looking at. A big amount and a
-  custom keypad, Expense / Income / Transfer, recently used categories first, and the account and
-  payment method you used last. Note and payment app sit under *More details*, folded away until
-  you need them; date and time are one tap away. One tap to save; double-taps can't create
+* **Quick Add**: a sheet that slides up over whatever you were looking at and opens straight
+  into the amount. Big digits that appear as you type, Expense / Income / Transfer, category
+  tiles with your most used first (*More* for the rest), and the account you used last. Payment
+  method, app and note sit under *More details*, folded away until you need them; date and time
+  are one tap away. *Add expense* sits right above the keypad. Double-taps can't create
   duplicates.
 * **Voice entry**: say *"Spent 500 on petrol using PhonePe from SBI"*, *"120 rupees lunch"*,
   *"1500 shopping on ICICI credit card"* or *"80 coffee cash"*. A deterministic on-device parser
@@ -81,8 +82,10 @@ builds (`ScreenshotTest`).</sub>
   amounts, and atomic transactions.
 
 **Understand your spending**
-* **Home**: spent this month, today, income, remaining budget, 7-day chart, accounts, top
-  categories, recent activity.
+* **Home**: where you stand in two seconds. Your balance (everything in your accounts minus
+  what you owe on cards, the same figure as Accounts) in large type, what you spent today, the
+  last 7 days as a quiet line, *Add expense* and *Voice*, your monthly budget, and your latest
+  transactions. Tap the balance for the breakdown.
 * **Activity**: search notes, categories, accounts or amounts; filter by type, category,
   account and date; grouped by day with daily totals. Swipe a transaction left to delete it,
   with *Undo*.
@@ -104,18 +107,22 @@ builds (`ScreenshotTest`).</sub>
 * Optional screenshot blocking (*Hide app contents*).
 
 **Themes**
-* Four themes, each styling every screen, sheet, dialog, chart, the dock and the widgets:
-  **Midnight** (default: charcoal and emerald), **Light** (off-white and emerald), **AMOLED**
-  (true black, restrained accents) and **Ocean** (deep navy, soft blue). Or *Match system*
-  (Midnight in dark mode, Light otherwise). Applied instantly and remembered.
+* **Mono** (default): matte black, white type, soft greys and charcoal surfaces, with colour only
+  where it means something (money in, money over budget).
+* Also **Midnight** (charcoal and emerald), **Light** (off-white and emerald), **AMOLED** (true
+  black, restrained accents) and **Ocean** (deep navy, soft blue), or *Match system* (Mono in
+  dark mode, Light otherwise). Each styles every screen, sheet, dialog, chart, the dock and the
+  widgets. Applied instantly and remembered.
 
 **Design and accessibility**
 * **Your dock, your order**: touch and hold a tab in the bottom dock, slide it along and let go.
   The other tabs move aside and Spendly remembers the order. A tap still just opens the tab.
-* **Spendly coins**: after a save, a small coin tumbles from the amount to the account it
-  affects (spending arcs over the top; income swoops up from below; transfers fly from one
-  account to the other) and the balances count to their new values. It plays only after the
-  transaction is stored, and never holds you up.
+* **Money moments**: after you save an expense, a small silver ₹ coin turns about its axis as
+  it eases into place and a check appears; income rises in with a small arrow; a transfer runs
+  a line of dots from one account to the other. Back on Home the balance then rolls to its new
+  value like a fine mechanical counter (only the digits that changed move), the budget bar
+  follows, and the new transaction slides into the list. All of it plays only after the
+  transaction is stored, takes about a second, and is skipped when animations are off.
 * Origin-aware motion: accounts and transactions morph into their detail screens; dialogs
   expand from the control that opened them and collapse back into it; charts glide to new
   values. Everything respects Android's *Remove animations* setting.

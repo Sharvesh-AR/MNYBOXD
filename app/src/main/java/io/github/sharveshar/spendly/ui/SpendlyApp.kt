@@ -107,6 +107,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccountBalanceWallet
@@ -344,7 +345,6 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
                                     onVoice = { openQuickAdd(EntryRoute(startVoice = true)) },
                                     onOpenTransaction = { nav.navigate(TransactionDetailRoute(it)) },
                                     onSeeAllTransactions = { nav.switchTab(TransactionsRoute) },
-                                    onOpenAccount = { nav.navigate(AccountDetailRoute(it)) },
                                     onSeeAccounts = { nav.switchTab(AccountsRoute) },
                                     onBudgets = { nav.switchTab(BudgetsRoute) },
                                     onSettings = { nav.navigate(SettingsRoute) },
@@ -545,7 +545,7 @@ private fun QuickAddFab(motion: SheetMotion, onClick: () -> Unit) {
     val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
     var lastTap by remember { mutableLongStateOf(Long.MIN_VALUE / 2) }
-    val shape = RoundedCornerShape(22.dp)
+    val shape = CircleShape
     Box(
         Modifier
             .size(DockHeight)

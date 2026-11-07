@@ -7,6 +7,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.semantics.Role
 import io.github.sharveshar.spendly.AppTab
 import io.github.sharveshar.spendly.data.prefs.PreferencesRepository
@@ -112,6 +113,9 @@ class UiTest {
             waited += 50
         }
     }
+
+    /** A button in the Quick Add sheet; Home, underneath it, has an "Add expense" button too. */
+    private fun sheetButton(label: String) = compose.onAllNodesWithText(label).onLast()
 
     /** A tab in the bottom dock (other text on screen can share its label). */
     private fun dockTab(label: String) = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
@@ -223,11 +227,12 @@ class UiTest {
         compose.onNodeWithContentDescription("5").performClick()
         compose.onNodeWithText("Food & Dining").performClick()
         // Step the clock by hand: an auto-advancing clock would play the whole save animation
-        // (coin, confirmation, sheet closing) inside a single wait and never show "Saved".
+        // (coin, confirmation, sheet closing) inside a single wait and never show the confirmation.
         compose.mainClock.autoAdvance = false
-        compose.onNodeWithText("Save expense").performClick()
-        // "Saved" shows only after the transaction is committed (and the coin has landed).
-        stepUntil(5_000) { compose.onAllNodesWithText("Saved").fetchSemanticsNodes().isNotEmpty() }
+        sheetButton("Add expense").performClick()
+        // The confirmation shows only after the transaction is committed, worded from what was saved.
+        stepUntil(5_000) { compose.onAllNodes(hasContentDescription("Expense added", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(compose.onAllNodes(hasContentDescription("₹120.50 on Food & Dining. from Cash", substring = true)).fetchSemanticsNodes().isNotEmpty())
         compose.mainClock.autoAdvance = true
         val saved = runBlocking { db.transactionDao().getAll() }.single()
         assertEquals(TransactionType.EXPENSE, saved.type)
@@ -242,10 +247,10 @@ class UiTest {
         launchApp()
         compose.onNodeWithContentDescription("Quick add").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Save expense").performClick()
+        sheetButton("Add expense").performClick()
         compose.waitUntil(3_000) { compose.onAllNodesWithText("Enter an amount").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("5").performClick()
-        compose.onNodeWithText("Save expense").performClick()
+        sheetButton("Add expense").performClick()
         compose.waitUntil(3_000) { compose.onAllNodesWithText("Choose a category").fetchSemanticsNodes().isNotEmpty() }
         assertTrue(runBlocking { db.transactionDao().getAll() }.isEmpty())
     }

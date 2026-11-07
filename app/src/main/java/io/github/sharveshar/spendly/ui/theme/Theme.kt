@@ -45,6 +45,9 @@ data class SpendlyColors(
     val edgeHighlight: Color,
     val shadow: Color,
     val scrim: Color,
+    /** Selected segment or tile: inverted (white on black) in Mono, a raised surface elsewhere. */
+    val selectedFill: Color,
+    val onSelectedFill: Color,
     val palette: SpendlyPalette,
 )
 
@@ -68,6 +71,8 @@ fun SpendlyPalette.toColors() = SpendlyColors(
     edgeHighlight = edgeHighlight,
     shadow = shadow,
     scrim = scrim,
+    selectedFill = selectedFill,
+    onSelectedFill = onSelectedFill,
     palette = this,
 )
 
@@ -176,10 +181,10 @@ fun SpendlyTheme(palette: SpendlyPalette = Palettes.Default, content: @Composabl
     }
 }
 
-/** Light/dark shorthand used by tests and previews: Midnight or Light. */
+/** Light/dark shorthand used by tests and previews: Mono or Light. */
 @Composable
 fun SpendlyTheme(dark: Boolean, content: @Composable () -> Unit) =
-    SpendlyTheme(if (dark) Palettes.MidnightEmerald else Palettes.Light, content)
+    SpendlyTheme(if (dark) Palettes.Mono else Palettes.Light, content)
 
 object Spendly {
     val colors: SpendlyColors

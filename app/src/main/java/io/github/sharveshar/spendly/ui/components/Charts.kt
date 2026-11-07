@@ -32,7 +32,9 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -91,6 +93,43 @@ private fun rememberChartMorph(targets: List<Float>, keys: List<Any> = targets.i
 }
 
 private fun List<Long>.fractionsOf(max: Long): List<Float> = map { if (it <= 0) 0f else it.toFloat() / max }
+
+/**
+ * A quiet line for recent spending: a smooth curve with a soft fade beneath it and a dot for the
+ * latest day, no axes or labels (the description carries the figures). Glides to new values like
+ * the other charts.
+ */
+@Composable
+fun Sparkline(values: List<Long>, description: String, modifier: Modifier = Modifier, height: Dp = 56.dp) {
+    val max = (values.maxOrNull() ?: 0L).coerceAtLeast(1L)
+    val morph = rememberChartMorph(values.fractionsOf(max))
+    val line = Spendly.colors.accent
+    Canvas(modifier.fillMaxWidth().height(height).clearAndSetSemantics { contentDescription = description }) {
+        val n = values.size
+        if (n < 2) return@Canvas
+        val pad = 4.dp.toPx()
+        val usable = size.height - pad * 2
+        val points = (0 until n).map { i -> Offset(size.width * i / (n - 1), pad + usable * (1f - morph.at(i).coerceIn(0f, 1f))) }
+        val curve = Path().apply {
+            moveTo(points[0].x, points[0].y)
+            for (i in 1 until n) {
+                val a = points[i - 1]
+                val b = points[i]
+                val mid = (a.x + b.x) / 2f
+                cubicTo(mid, a.y, mid, b.y, b.x, b.y)
+            }
+        }
+        val under = Path().apply {
+            addPath(curve)
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        drawPath(under, Brush.verticalGradient(listOf(line.copy(alpha = 0.10f), Color.Transparent)))
+        drawPath(curve, Brush.horizontalGradient(listOf(line.copy(alpha = 0.12f), line.copy(alpha = 0.85f))), style = Stroke(width = 1.75.dp.toPx(), cap = StrokeCap.Round))
+        drawCircle(line, 3.dp.toPx(), points.last())
+    }
+}
 
 /**
  * Simple vertical bars. Negative values (net refunds) are drawn as empty. [highlight] marks one

@@ -1,5 +1,6 @@
 package io.github.sharveshar.spendly.ui.accounts
 
+import io.github.sharveshar.spendly.ui.common.netWorth
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -81,7 +82,7 @@ data class AccountsUiState(val loading: Boolean = true, val accounts: List<Accou
     val cards get() = active.filter { it.type == AccountType.CREDIT_CARD || it.type == AccountType.DEBIT_CARD }
     val archived get() = accounts.filter { it.archived }
     /** Debit cards share their bank's balance, so they are excluded to avoid double counting. */
-    val netWorth get() = BalanceCalculator.netWorth(accounts.filter { it.type.holdsBalance }.map { it.balancePaise })
+    val netWorth get() = accounts.netWorth()
 }
 
 class AccountsViewModel(repos: Repositories) : ViewModel() {

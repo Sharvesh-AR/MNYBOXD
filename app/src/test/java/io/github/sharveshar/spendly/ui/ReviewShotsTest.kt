@@ -106,8 +106,8 @@ class ReviewShotsTest {
         runBlocking(kotlinx.coroutines.Dispatchers.IO) { kotlinx.coroutines.withTimeout(5_000) { container.preferences.setDockOrder(io.github.sharveshar.spendly.ui.navigation.DockOrder.DEFAULT) } }
         settle()
 
-        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Accounts"))
-        settle(); save("b-home-accounts")
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Recent"))
+        settle(); save("b-home-recent")
 
         // Quick Add opening, frame by frame.
         compose.mainClock.autoAdvance = false
@@ -156,7 +156,7 @@ class ReviewShotsTest {
         }
         val vm = io.github.sharveshar.spendly.ui.entry.EntryViewModel(container.repositories, container.preferences, androidx.lifecycle.SavedStateHandle())
         var showSheet by androidx.compose.runtime.mutableStateOf(false)
-        var palette by androidx.compose.runtime.mutableStateOf(io.github.sharveshar.spendly.ui.theme.Palettes.MidnightEmerald)
+        var palette by androidx.compose.runtime.mutableStateOf(io.github.sharveshar.spendly.ui.theme.Palettes.Mono)
         compose.setContent {
             CompositionLocalProvider(LocalAppContainer provides container, LocalRippleConfiguration provides null) {
                 SpendlyTheme(palette) {
@@ -192,17 +192,20 @@ class ReviewShotsTest {
             repeat(8) { compose.mainClock.advanceTimeBy(100); ShadowLooper.idleMainLooper() }
             save("t-sheet-${p.theme.name.lowercase()}")
         }
-        palette = io.github.sharveshar.spendly.ui.theme.Palettes.MidnightEmerald
+        palette = io.github.sharveshar.spendly.ui.theme.Palettes.Mono
         compose.mainClock.advanceTimeBy(500)
-        // Save and watch the coin fly.
-        compose.onNodeWithText("Save expense").performClick()
+        // Save, then the money moment frame by frame.
+        compose.onAllNodesWithText("Add expense").onLast().performClick()
         var waited = 0L
-        while (compose.onAllNodesWithText("Saved").fetchSemanticsNodes().isEmpty() && waited < 400) {
-            compose.mainClock.advanceTimeBy(20); ShadowLooper.idleMainLooper(); waited += 20
-            if (waited % 100 == 0L) save("u-coin-%03d".format(waited))
+        while (compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Expense added", substring = true)).fetchSemanticsNodes().isEmpty() && waited < 2_000) {
+            compose.mainClock.advanceTimeBy(16); ShadowLooper.idleMainLooper(); waited += 16
         }
-        compose.mainClock.advanceTimeBy(300)
-        save("u-saved")
+        var since = 0L
+        for (step in listOf(120L, 280L, 420L, 560L, 720L, 880L)) {
+            compose.mainClock.advanceTimeBy(step - since); since = step
+            ShadowLooper.idleMainLooper()
+            save("u-coin-%03d".format(step))
+        }
         db.close()
     }
 
@@ -248,7 +251,7 @@ class ReviewShotsTest {
         runBlocking { DebugTools.loadSampleData(container.repositories) }
         val data = runBlocking { io.github.sharveshar.spendly.widget.WidgetSnapshot.load(container.repositories) }
         val density = context.resources.displayMetrics.density
-        for (palette in listOf(io.github.sharveshar.spendly.ui.theme.Palettes.MidnightEmerald, io.github.sharveshar.spendly.ui.theme.Palettes.Light, io.github.sharveshar.spendly.ui.theme.Palettes.OceanBlue)) {
+        for (palette in listOf(io.github.sharveshar.spendly.ui.theme.Palettes.Mono, io.github.sharveshar.spendly.ui.theme.Palettes.Light, io.github.sharveshar.spendly.ui.theme.Palettes.OceanBlue)) {
             for (kind in io.github.sharveshar.spendly.widget.WidgetKind.entries) {
                 for (bp in io.github.sharveshar.spendly.widget.WidgetRenderer.sizesFor(kind, context, 3)) {
                     // Render at a typical launcher cell size for this breakpoint.

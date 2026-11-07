@@ -8,6 +8,14 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.ui.semantics.heading
+import io.github.sharveshar.spendly.ui.common.CategoryUi
+import io.github.sharveshar.spendly.ui.components.TypingAmount
+import io.github.sharveshar.spendly.ui.components.momentFor
+import io.github.sharveshar.spendly.ui.components.MomentSpec
+import io.github.sharveshar.spendly.ui.components.MoneyMoment
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
@@ -28,10 +36,7 @@ import io.github.sharveshar.spendly.core.time.SelectableRange
 import io.github.sharveshar.spendly.ui.common.AccountUi
 import io.github.sharveshar.spendly.ui.components.AnimatedMoney
 import io.github.sharveshar.spendly.ui.components.CalendarPicker
-import io.github.sharveshar.spendly.ui.components.CoinFlightOverlay
-import io.github.sharveshar.spendly.ui.components.CoinFlightSpec
 import io.github.sharveshar.spendly.ui.components.PrimaryButton
-import io.github.sharveshar.spendly.ui.components.trackBounds
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
@@ -182,16 +187,11 @@ fun EntryScreen(
 
     var popup by rememberSaveable { mutableStateOf(Popup.NONE) }
     var saved by remember { mutableStateOf<EntryEvent.Saved?>(null) }
-    var flight by remember { mutableStateOf<CoinFlightSpec?>(null) }
-    var landed by remember { mutableStateOf(false) }
+    var moment by remember { mutableStateOf<MomentSpec?>(null) }
+    var momentDone by remember { mutableStateOf(false) }
     val micAnchor = rememberOriginAnchor()
     val categoryAnchor = rememberOriginAnchor()
     val dateAnchor = rememberOriginAnchor()
-    // Where things are on screen, for the coin that flies after a save.
-    var amountBounds by remember { mutableStateOf<Rect?>(null) }
-    var saveBounds by remember { mutableStateOf<Rect?>(null) }
-    val fromBounds = remember { mutableStateMapOf<Long, Rect>() }
-    val toBounds = remember { mutableStateMapOf<Long, Rect>() }
 
     val recognizer = remember { VoiceRecognizer(context.applicationContext) }
     DisposableEffect(Unit) { onDispose { recognizer.destroy() } }
@@ -246,25 +246,25 @@ fun EntryScreen(
         LaunchedEffect(Unit) {
             viewModel.events.collect { e ->
                 if (e is EntryEvent.Saved) {
-                    // The transaction is committed. Everything below is presentation only.
+                    // The transaction is committed. Everything below is presentation only, worded
+                    // from what was saved.
+                    val now = state
                     saved = e
-                    val start = (if (e.type == TransactionType.TRANSFER) fromBounds[e.accountId] else null) ?: amountBounds
-                    val target = (if (e.type == TransactionType.TRANSFER) toBounds[e.toAccountId] else fromBounds[e.accountId]) ?: saveBounds
-                    if (start != null && target != null) {
-                        val incoming = e.type == TransactionType.INCOME || e.type == TransactionType.REFUND
-                        val sign = when (e.type) { TransactionType.EXPENSE -> "−"; TransactionType.TRANSFER -> ""; else -> "+" }
-                        flight = CoinFlightSpec(start, target, sign + Money.format(e.amountPaise), incoming)
-                    } else {
-                        landed = true
-                    }
+                    moment = momentFor(
+                        type = e.type,
+                        wasEdit = e.wasEdit,
+                        amountPaise = e.amountPaise,
+                        category = now.categories.firstOrNull { it.id == now.form.categoryId }?.name?.takeIf { e.type != TransactionType.TRANSFER },
+                        account = now.accounts.firstOrNull { it.id == e.accountId }?.name,
+                        toAccount = now.accounts.firstOrNull { it.id == e.toAccountId }?.name,
+                    )
                 }
             }
         }
-        LaunchedEffect(landed) {
-            if (landed) {
-                // The confirmation lands with the coin; budget alerts get time to be read.
-                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                delay(if (saved?.alert != null) 1_600 else 480)
+        LaunchedEffect(momentDone) {
+            if (momentDone) {
+                // Budget alerts get time to be read; otherwise straight back.
+                delay(if (saved?.alert != null) 1_200 else 120)
                 sheet.close()
             }
         }
@@ -275,22 +275,38 @@ fun EntryScreen(
                 // --- Header ----------------------------------------------------------------------
                 Row(Modifier.fillMaxWidth().padding(horizontal = Space.xs), verticalAlignment = Alignment.CenterVertically) {
                     IconButton(onClick = sheet::close) { Icon(Icons.Rounded.Close, contentDescription = "Close without saving") }
-                    Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                        when {
-                            state.isRefund -> Text("Record refund", style = MaterialTheme.typography.titleMedium)
-                            state.isEdit -> Text("Edit transaction", style = MaterialTheme.typography.titleMedium)
-                            else -> SegmentedSelector(
-                                options = listOf(TransactionType.EXPENSE, TransactionType.INCOME, TransactionType.TRANSFER),
-                                selected = f.type,
-                                label = { it.label },
-                                onSelect = viewModel::setType,
-                                modifier = Modifier.widthIn(max = 300.dp).fillMaxWidth(),
-                            )
-                        }
+                    val title = when {
+                        state.isRefund -> "Record refund"
+                        state.isEdit -> "Edit transaction"
+                        f.type == TransactionType.INCOME -> "New income"
+                        f.type == TransactionType.TRANSFER -> "New transfer"
+                        else -> "New expense"
+                    }
+                    AnimatedContent(
+                        title,
+                        modifier = Modifier.weight(1f),
+                        transitionSpec = { fadeIn(tween(160)).togetherWith(fadeOut(tween(100))) },
+                        contentAlignment = Alignment.Center,
+                        label = "entryTitle",
+                    ) { t ->
+                        Text(t, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().semantics { heading() })
                     }
                     IconButton(onClick = ::startVoiceFlow, modifier = Modifier.originAnchor(micAnchor)) {
                         Icon(Icons.Rounded.Mic, contentDescription = "Enter by voice", tint = MaterialTheme.colorScheme.primary)
                     }
+                }
+                if (!state.isRefund && !state.isEdit) {
+                    SegmentedSelector(
+                        options = listOf(TransactionType.EXPENSE, TransactionType.INCOME, TransactionType.TRANSFER),
+                        selected = f.type,
+                        label = { it.label },
+                        onSelect = viewModel::setType,
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(horizontal = Space.gutter, vertical = Space.xs)
+                            .widthIn(max = 360.dp)
+                            .fillMaxWidth(),
+                    )
                 }
 
                 if (state.loadFailed) {
@@ -307,7 +323,6 @@ fun EntryScreen(
                     f.amount.text.isEmpty(),
                     f.type,
                     compact = compact,
-                    modifier = Modifier.trackBounds { amountBounds = it },
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                     val zone = ZoneId.systemDefault()
@@ -364,28 +379,13 @@ fun EntryScreen(
 
                     if (f.type != TransactionType.TRANSFER) {
                         FieldLabel("Category")
-                        LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                            item(key = "all") {
-                                SelectChip(
-                                    selected = false,
-                                    label = "All",
-                                    icon = Icons.Rounded.Apps,
-                                    onClick = { popup = Popup.CATEGORIES },
-                                    modifier = Modifier.originAnchor(categoryAnchor),
-                                )
-                            }
-                            items(state.categories, key = { it.id }) { c ->
-                                val color = Spendly.colors.categoryPalette[c.colorIndex.coerceIn(0, 9)]
-                                SelectChip(
-                                    selected = c.id == f.categoryId,
-                                    label = c.name,
-                                    icon = CategoryIcons.forKey(c.iconKey),
-                                    accent = color,
-                                    onClick = { viewModel.setCategory(c.id) },
-                                    modifier = Modifier.animateItem(),
-                                )
-                            }
-                        }
+                        CategoryTiles(
+                            categories = state.categories,
+                            selectedId = f.categoryId,
+                            onSelect = viewModel::setCategory,
+                            onMore = { popup = Popup.CATEGORIES },
+                            moreAnchor = categoryAnchor,
+                        )
                     }
 
                     FieldLabel(
@@ -396,17 +396,11 @@ fun EntryScreen(
                             TransactionType.REFUND -> "Refunded to"
                         },
                     )
-                    AccountChips(
-                        state, selectedId = f.accountId, exclude = null, onSelect = viewModel::setAccount, onAddAccount = onAddAccount,
-                        holdBalances = flight != null && !landed, onBounds = { id, r -> fromBounds[id] = r },
-                    )
+                    AccountChips(state, selectedId = f.accountId, exclude = null, onSelect = viewModel::setAccount, onAddAccount = onAddAccount)
 
                     if (f.type == TransactionType.TRANSFER) {
                         FieldLabel("To")
-                        AccountChips(
-                            state, selectedId = f.toAccountId, exclude = f.accountId, onSelect = viewModel::setToAccount, onAddAccount = onAddAccount,
-                            allowDebitCards = false, holdBalances = flight != null && !landed, onBounds = { id, r -> toBounds[id] = r },
-                        )
+                        AccountChips(state, selectedId = f.toAccountId, exclude = f.accountId, onSelect = viewModel::setToAccount, onAddAccount = onAddAccount, allowDebitCards = false)
                         Text(
                             "Transfers move money between your accounts. Paying a credit card bill is a transfer to the card.",
                             style = MaterialTheme.typography.bodySmall,
@@ -415,26 +409,29 @@ fun EntryScreen(
                         )
                     }
 
-                    if (state.channels.size > 1) {
-                        FieldLabel("Method")
-                        LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                            items(state.channels, key = { it.name }) { ch ->
-                                SelectChip(selected = f.channel == ch, label = ch.label, onClick = { viewModel.setChannel(ch) })
-                            }
-                        }
-                    }
                     // Optional details stay folded away; the row shows what's set, so nothing is hidden.
+                    // The payment method has a sensible default (the one used last), so it lives here too.
+                    val methods = state.channels.size > 1
                     MoreDetailsRow(
                         expanded = moreDetails,
                         summary = listOfNotNull(
+                            f.channel?.takeIf { methods }?.label,
                             f.provider?.takeIf { state.showProviders }?.label,
                             f.note.takeIf { it.isNotBlank() }?.let { "“${it.trim()}”" },
                         ).joinToString(" · "),
-                        hint = if (state.showProviders) "Note or payment app" else "Add a note",
+                        hint = if (methods || state.showProviders) "Method, app or note" else "Add a note",
                         onToggle = { moreDetails = !moreDetails },
                     )
                     AnimatedVisibility(moreState, enter = fadeIn(tween(180)) + expandVertically(spring(dampingRatio = 0.9f, stiffness = 500f)), exit = fadeOut(tween(120)) + shrinkVertically(spring(dampingRatio = 1f, stiffness = 600f))) {
                         Column(verticalArrangement = Arrangement.spacedBy(Space.sm + Space.xxs)) {
+                            if (methods) {
+                                FieldLabel("Method")
+                                LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                                    items(state.channels, key = { it.name }) { ch ->
+                                        SelectChip(selected = f.channel == ch, label = ch.label, onClick = { viewModel.setChannel(ch) })
+                                    }
+                                }
+                            }
                             AnimatedVisibility(state.showProviders, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
                                 Column(verticalArrangement = Arrangement.spacedBy(Space.sm + Space.xxs)) {
                                     FieldLabel("App (optional)")
@@ -459,37 +456,53 @@ fun EntryScreen(
                     Spacer(Modifier.height(Space.xs))
                 }
 
-                // --- Keypad + Save -------------------------------------------------------------------
+                // --- Add + keypad: the main action sits right above the keys ---------------------------
+                PrimaryButton(
+                    text = when {
+                        state.isEdit -> "Save changes"
+                        state.isRefund -> "Save refund"
+                        f.type == TransactionType.TRANSFER -> "Add transfer"
+                        f.type == TransactionType.INCOME -> "Add income"
+                        else -> "Add expense"
+                    },
+                    onClick = viewModel::save,
+                    enabled = saved == null && !state.loadFailed,
+                    loading = state.saving,
+                    trailingIcon = Icons.AutoMirrored.Rounded.ArrowForward,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Space.gutter, vertical = Space.sm),
+                )
                 AnimatedVisibility(!WindowInsets.isImeVisible, enter = fadeIn(tween(160)), exit = fadeOut(tween(90))) {
                     Keypad(
-                        keyHeight = if (compact) 46.dp else 54.dp,
+                        keyHeight = if (compact) 44.dp else 52.dp,
                         onDigit = viewModel::digit,
                         onDecimal = viewModel::decimal,
                         onBackspace = viewModel::backspace,
                         onClear = viewModel::clearAmount,
                     )
                 }
-                PrimaryButton(
-                    text = when {
-                        state.isEdit -> "Save changes"
-                        f.type == TransactionType.TRANSFER -> "Save transfer"
-                        state.isRefund -> "Save refund"
-                        f.type == TransactionType.INCOME -> "Save income"
-                        else -> "Save expense"
-                    },
-                    onClick = viewModel::save,
-                    enabled = saved == null && !state.loadFailed,
-                    loading = state.saving,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = Space.gutter, vertical = Space.md)
-                        .trackBounds { saveBounds = it },
-                )
+                Spacer(Modifier.height(Space.sm))
             }
 
-            CoinFlightOverlay(flight, onLanded = { landed = true })
-            androidx.compose.animation.AnimatedVisibility(visible = landed, enter = fadeIn(tween(180)), exit = fadeOut()) {
-                SuccessOverlay(saved)
+            // After a save: the money moment, over the whole sheet, then back to where you were.
+            androidx.compose.animation.AnimatedVisibility(visible = moment != null, enter = fadeIn(tween(160)), exit = fadeOut()) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        // Nothing behind it can be tapped while it plays.
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                ) {
+                    moment?.let { m ->
+                        MoneyMoment(
+                            spec = m,
+                            onCheck = { haptics.performHapticFeedback(HapticFeedbackType.Confirm) },
+                            onDone = { momentDone = true },
+                            alert = saved?.alert?.let { a -> { BudgetAlertText(a) } },
+                        )
+                    }
+                }
             }
         }
     }
@@ -626,6 +639,69 @@ private fun MoreDetailsRow(expanded: Boolean, summary: String, hint: String, onT
     }
 }
 
+/**
+ * Categories as tiles, most used first, with "More" at the end for the full list. A category
+ * picked from "More" joins the front of the row so the choice is always visible.
+ */
+@Composable
+private fun CategoryTiles(categories: List<CategoryUi>, selectedId: Long?, onSelect: (Long) -> Unit, onMore: () -> Unit, moreAnchor: OriginAnchor) {
+    // Wait for the categories, or the row would stay anchored to "More" as they arrive before it.
+    if (categories.isEmpty()) {
+        Spacer(Modifier.height(68.dp))
+        return
+    }
+    val shown = remember(categories, selectedId) {
+        val top = categories.take(7)
+        val picked = categories.firstOrNull { it.id == selectedId }
+        if (picked != null && picked !in top) listOf(picked) + top.take(6) else top
+    }
+    LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+        items(shown, key = { it.id }) { c ->
+            CategoryTile(CategoryIcons.forKey(c.iconKey), c.name, selected = c.id == selectedId, onClick = { onSelect(c.id) }, modifier = Modifier.animateItem())
+        }
+        item(key = "more") {
+            CategoryTile(Icons.Rounded.MoreHoriz, "More", selected = false, onClick = onMore, modifier = Modifier.originAnchor(moreAnchor), isMore = true)
+        }
+    }
+}
+
+@Composable
+private fun CategoryTile(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, isMore: Boolean = false) {
+    val c = Spendly.colors
+    val haptics = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
+    val bg by animateColorAsState(if (selected) c.selectedFill else c.card, spring(stiffness = 700f), label = "tileBg")
+    val fg by animateColorAsState(if (selected) c.onSelectedFill else MaterialTheme.colorScheme.onSurface, spring(stiffness = 700f), label = "tileFg")
+    val shape = RoundedCornerShape(18.dp)
+    // Themes without inverted selection mark the chosen tile with an accent outline as well.
+    val outline = selected && !c.palette.invertSelection
+    Column(
+        modifier
+            .pressScale(interaction, 0.94f)
+            .size(width = 74.dp, height = 68.dp)
+            .clip(shape)
+            .background(bg)
+            .then(if (outline) Modifier.border(1.5.dp, c.accent, shape) else Modifier)
+            .then(
+                if (isMore) {
+                    Modifier.clickable(interactionSource = interaction, indication = ripple(), role = Role.Button, onClickLabel = "Show all categories", onClick = onClick)
+                } else {
+                    Modifier.selectable(selected = selected, interactionSource = interaction, indication = ripple(), role = Role.RadioButton) {
+                        if (!selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        onClick()
+                    }
+                },
+            )
+            .padding(horizontal = Space.xs, vertical = Space.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.height(Space.xs))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
 @Composable
 private fun FieldLabel(text: String) {
     Text(text, style = MaterialTheme.typography.labelMedium, color = Spendly.colors.muted, modifier = Modifier.padding(horizontal = Space.gutter))
@@ -654,9 +730,9 @@ private fun AmountDisplay(text: String, empty: Boolean, type: TransactionType, c
                 liveRegion = LiveRegionMode.Polite
             },
         ) {
-            Text("₹", style = style.copy(fontSize = size * 0.6f), color = Spendly.colors.muted)
+            Text("₹", style = style.copy(fontSize = size * 0.7f), color = if (empty) Spendly.colors.muted else color)
             Spacer(Modifier.width(Space.xs))
-            RollingText(text, style, color)
+            TypingAmount(text, empty = empty, style = style, color = color, caretColor = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -669,8 +745,6 @@ private fun AccountChips(
     onSelect: (Long) -> Unit,
     onAddAccount: () -> Unit,
     allowDebitCards: Boolean = true,
-    holdBalances: Boolean = false,
-    onBounds: (Long, Rect) -> Unit = { _, _ -> },
 ) {
     val accounts = state.accounts.filter { it.id != exclude && (allowDebitCards || it.type != AccountType.DEBIT_CARD) && (!it.archived || it.id == selectedId) }
     // Wait for accounts to load so the list isn't anchored to the trailing "New account" chip.
@@ -688,18 +762,15 @@ private fun AccountChips(
     }
     LazyRow(state = listState, contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
         items(accounts, key = { it.id }) { a ->
-            AccountChip(a, selected = a.id == selectedId, hold = holdBalances, onClick = { onSelect(a.id) }, modifier = Modifier.trackBounds { onBounds(a.id, it) })
+            AccountChip(a, selected = a.id == selectedId, onClick = { onSelect(a.id) })
         }
         item(key = "add") { SelectChip(selected = false, label = "New account", onClick = onAddAccount) }
     }
 }
 
-/**
- * An account to pay from or into, with its live balance. The balance counts to its new value
- * after a save (held while the coin is still in the air).
- */
+/** An account to pay from or into, with its live balance, which counts to its new value. */
 @Composable
-private fun AccountChip(a: AccountUi, selected: Boolean, hold: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun AccountChip(a: AccountUi, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val c = Spendly.colors
     val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
@@ -732,7 +803,6 @@ private fun AccountChip(a: AccountUi, selected: Boolean, hold: Boolean, onClick:
                     !isCard && a.balancePaise < 0 -> c.negative
                     else -> c.muted
                 },
-                hold = hold,
                 format = { if (isCard) Money.format(it) + " owed" else Money.format(it) },
             )
         }
@@ -755,6 +825,7 @@ private fun Keypad(keyHeight: androidx.compose.ui.unit.Dp, onDigit: (Char) -> Un
                                 .height(keyHeight)
                                 .pressScale(interaction, 0.92f)
                                 .clip(RoundedCornerShape(16.dp))
+                                .background(Spendly.colors.card)
                                 .combinedClickable(
                                     interactionSource = interaction,
                                     indication = ripple(),
@@ -809,32 +880,16 @@ private fun VoiceBanner(transcript: String, issues: List<String>, onDismiss: () 
     }
 }
 
+/** "Food & Dining budget is 85% used", shown with the confirmation when a save crosses a limit. */
 @Composable
-private fun SuccessOverlay(saved: EntryEvent.Saved?) {
-    val reduced = LocalReducedMotion.current
-    val scale by animateFloatAsState(if (saved != null) 1f else 0.6f, spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMediumLow), label = "ok")
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background.copy(alpha = 0.94f)), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(Space.xxl).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Assertive }) {
-            Icon(
-                Icons.Rounded.CheckCircle,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(72.dp).scale(if (reduced) 1f else scale),
-            )
-            Spacer(Modifier.height(Space.md))
-            Text(if (saved?.wasEdit == true) "Updated" else "Saved", style = MaterialTheme.typography.titleLarge)
-            saved?.alert?.let { a ->
-                Spacer(Modifier.height(Space.sm))
-                val who = a.categoryName?.let { "$it budget" } ?: "Monthly budget"
-                Text(
-                    if (a.level == BudgetLevel.EXCEEDED) "$who is used up (${a.percentUsed}%)" else "$who is ${a.percentUsed}% used",
-                    color = if (a.level == BudgetLevel.EXCEEDED) Spendly.colors.negative else Spendly.colors.warning,
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
-    }
+private fun BudgetAlertText(a: io.github.sharveshar.spendly.data.repo.BudgetAlert) {
+    val who = a.categoryName?.let { "$it budget" } ?: "Monthly budget"
+    Text(
+        if (a.level == BudgetLevel.EXCEEDED) "$who is used up (${a.percentUsed}%)" else "$who is ${a.percentUsed}% used",
+        color = if (a.level == BudgetLevel.EXCEEDED) Spendly.colors.negative else Spendly.colors.warning,
+        style = MaterialTheme.typography.bodyMedium,
+        textAlign = TextAlign.Center,
+    )
 }
 
 @Composable

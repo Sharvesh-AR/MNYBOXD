@@ -117,11 +117,11 @@ fun <T> SegmentedSelector(
                 .width(segment)
                 .fillMaxHeight()
                 .clip(RoundedCornerShape(50))
-                .background(Spendly.colors.cardElevated),
+                .background(Spendly.colors.selectedFill),
         )
         Row(Modifier.fillMaxWidth()) {
             options.forEachIndexed { i, o ->
-                val color by animateColorAsState(if (i == index) MaterialTheme.colorScheme.onSurface else Spendly.colors.muted, label = "segText")
+                val color by animateColorAsState(if (i == index) Spendly.colors.onSelectedFill else Spendly.colors.muted, label = "segText")
                 Box(
                     Modifier
                         .width(segment)

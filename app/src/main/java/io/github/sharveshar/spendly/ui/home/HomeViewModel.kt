@@ -1,5 +1,6 @@
 package io.github.sharveshar.spendly.ui.home
 
+import io.github.sharveshar.spendly.ui.common.netWorth
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -9,7 +10,6 @@ import io.github.sharveshar.spendly.domain.insights.BudgetStatus
 import io.github.sharveshar.spendly.domain.insights.Insights
 import io.github.sharveshar.spendly.domain.insights.TimeRange
 import io.github.sharveshar.spendly.ui.common.AccountUi
-import io.github.sharveshar.spendly.ui.common.CategoryUi
 import io.github.sharveshar.spendly.ui.common.Formats
 import io.github.sharveshar.spendly.ui.common.Today
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,21 +21,22 @@ import kotlinx.coroutines.flow.stateIn
 import java.time.YearMonth
 import java.time.ZoneId
 
-@Immutable
-data class CategorySpend(val category: CategoryUi?, val amountPaise: Long)
-
+/** What Home shows: your position first (balance, today, budget), then recent activity. */
 @Immutable
 data class HomeUiState(
     val loading: Boolean = true,
     val monthLabel: String = "",
+    /**
+     * Everything in your accounts minus what you owe on cards: the same net figure as the
+     * Accounts tab. Debit cards share their bank's balance, so they aren't counted twice.
+     */
+    val balancePaise: Long = 0,
+    val hasAccounts: Boolean = false,
     val spentThisMonth: Long = 0,
     val spentToday: Long = 0,
-    val incomeThisMonth: Long = 0,
     val budget: BudgetStatus? = null,
     val week: List<Long> = List(7) { 0L },
     val weekLabels: List<String> = List(7) { "" },
-    val accounts: List<AccountUi> = emptyList(),
-    val topCategories: List<CategorySpend> = emptyList(),
     val recent: List<TransactionRow> = emptyList(),
     val transactionCount: Int = 0,
 )
@@ -52,27 +53,23 @@ class HomeViewModel(repos: Repositories, private val zone: () -> ZoneId = { Zone
         combine(
             repos.transactions.observeSpendRecords(TimeRange(start, end)),
             repos.accounts.observeWithBalances(),
-            repos.categories.observeAll(),
             repos.budgets.observeAll(),
-            combine(repos.transactions.observeRecent(6), repos.transactions.observeCount()) { r, c -> r to c },
-        ) { records, accounts, categories, budgets, (recent, count) ->
+            repos.transactions.observeRecent(5),
+            repos.transactions.observeCount(),
+        ) { records, accountRows, budgets, recent, count ->
             val monthRecords = records.filter { it.occurredAt in monthRange }
             val spent = Insights.netSpend(monthRecords)
-            val todayRange = TimeRange.day(today, zone())
-            val catById = categories.associateBy { it.id }
+            val accounts = AccountUi.from(accountRows)
             HomeUiState(
                 loading = false,
                 monthLabel = today.format(Formats.month),
+                balancePaise = accounts.netWorth().netPaise,
+                hasAccounts = accounts.any { !it.archived },
                 spentThisMonth = spent,
-                spentToday = Insights.netSpend(records.filter { it.occurredAt in todayRange }),
-                incomeThisMonth = Insights.income(monthRecords),
+                spentToday = Insights.netSpend(records.filter { it.occurredAt in TimeRange.day(today, zone()) }),
                 budget = budgets.firstOrNull { it.categoryId == null }?.let { BudgetStatus(it.amountPaise, spent) },
                 week = Insights.dailyNetSpend(records, weekStart, 7, zone()),
-                weekLabels = (0..6).map { weekStart.plusDays(it.toLong()).format(Formats.dayShort).take(1) },
-                accounts = AccountUi.from(accounts).filter { !it.archived && it.type != io.github.sharveshar.spendly.domain.model.AccountType.DEBIT_CARD },
-                topCategories = Insights.byCategory(monthRecords).take(5).map { (id, amt) ->
-                    CategorySpend(id?.let { catById[it] }?.let(CategoryUi::from), amt)
-                },
+                weekLabels = (0..6).map { weekStart.plusDays(it.toLong()).format(Formats.dayShort) },
                 recent = recent,
                 transactionCount = count,
             )

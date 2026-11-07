@@ -34,15 +34,15 @@ class AnimatedMoneyTest {
     }
 
     @Test fun `old Dark, Light and System settings map to the new themes`() {
-        assertEquals(ThemeChoice.MIDNIGHT_EMERALD, legacyTheme("DARK"))
+        assertEquals(ThemeChoice.DEFAULT, legacyTheme("DARK"))
         assertEquals(ThemeChoice.LIGHT, legacyTheme("LIGHT"))
         assertEquals(ThemeChoice.SYSTEM, legacyTheme("SYSTEM"))
         assertEquals(ThemeChoice.DEFAULT, legacyTheme(null))
         assertEquals(ThemeChoice.DEFAULT, legacyTheme("SOMETHING_ELSE"))
     }
 
-    @Test fun `match system resolves to Midnight at night and Light by day`() {
-        assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.MIDNIGHT_EMERALD, ThemeChoice.SYSTEM.resolve(systemDark = true))
+    @Test fun `match system resolves to Mono at night and Light by day`() {
+        assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.MONO, ThemeChoice.SYSTEM.resolve(systemDark = true))
         assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.LIGHT, ThemeChoice.SYSTEM.resolve(systemDark = false))
         assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.OCEAN_BLUE, ThemeChoice.OCEAN_BLUE.resolve(systemDark = false))
     }
@@ -58,6 +58,9 @@ class AnimatedMoneyTest {
         // Widget theme settings are stored as theme names too.
         assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.LIGHT, io.github.sharveshar.spendly.ui.theme.AppTheme.parse("WARM_SAND"))
         assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.PURE_AMOLED, io.github.sharveshar.spendly.ui.theme.AppTheme.parse("OBSIDIAN"))
-        assertEquals(4, io.github.sharveshar.spendly.ui.theme.Palettes.all.size)
+        assertEquals(5, io.github.sharveshar.spendly.ui.theme.Palettes.all.size)
+        // Monochrome is the default look; a theme someone picked is kept.
+        assertEquals(ThemeChoice.MONO, ThemeChoice.DEFAULT)
+        assertEquals(ThemeChoice.MIDNIGHT_EMERALD, ThemeChoice.parse("MIDNIGHT_EMERALD"))
     }
 }
