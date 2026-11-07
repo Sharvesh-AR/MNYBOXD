@@ -17,6 +17,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import io.github.sharveshar.spendly.AppContainer
+import io.github.sharveshar.spendly.BuildConfig
 import io.github.sharveshar.spendly.HangWatchdog
 import io.github.sharveshar.spendly.data.db.SpendlyDatabase
 import io.github.sharveshar.spendly.data.testDatabase
@@ -38,6 +39,8 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeFalse
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -161,7 +164,31 @@ class UiTest {
         }
     }
 
-    @Test fun `settings sets up the button shortcut and the add-expense app icon`() {
+    @Test fun `settings switches the add-expense app icon on and off`() {
+        launchApp()
+        compose.onNodeWithContentDescription("Settings").performClick()
+        shown("\u201CAdd expense\u201D app icon")
+
+        assertFalse(ShortcutSettings.isAppIconOn(context))
+        compose.onNodeWithText("\u201CAdd expense\u201D app icon").performScrollTo().performClick()
+        compose.waitForIdle()
+        assertTrue(ShortcutSettings.isAppIconOn(context))
+        compose.onNodeWithText("\u201CAdd expense\u201D app icon").performClick()
+        compose.waitForIdle()
+        assertFalse(ShortcutSettings.isAppIconOn(context))
+    }
+
+    @Test fun `the standard build offers no volume-button shortcut`() {
+        assumeFalse("volumeShortcut build", BuildConfig.VOLUME_SHORTCUT)
+        launchApp()
+        compose.onNodeWithContentDescription("Settings").performClick()
+        shown("\u201CAdd expense\u201D app icon")
+        assertTrue(compose.onAllNodesWithText("Volume button shortcut").fetchSemanticsNodes().isEmpty())
+        assertFalse(ShortcutSettings.isButtonShortcutOn(context))
+    }
+
+    @Test fun `settings sets up the volume-button shortcut`() {
+        assumeTrue("standard build", BuildConfig.VOLUME_SHORTCUT)
         // DataStore is one instance per JVM: start from the default pattern. Only block on it
         // here, before any UI exists; UI writes resume on the main thread, which runBlocking would hold.
         runBlocking {
@@ -174,14 +201,6 @@ class UiTest {
 
         compose.onNodeWithText("Volume up").performScrollTo().performClick()
         compose.onNodeWithText("Twice").performScrollTo().performClick()
-
-        assertFalse(ShortcutSettings.isAppIconOn(context))
-        compose.onNodeWithText("\u201CAdd expense\u201D app icon").performScrollTo().performClick()
-        compose.waitForIdle()
-        assertTrue(ShortcutSettings.isAppIconOn(context))
-        compose.onNodeWithText("\u201CAdd expense\u201D app icon").performClick()
-        compose.waitForIdle()
-        assertFalse(ShortcutSettings.isAppIconOn(context))
 
         // Not switched on in Android yet: the row explains, using the saved pattern, and links to settings.
         compose.onNodeWithText("Volume button shortcut").performScrollTo().performClick()

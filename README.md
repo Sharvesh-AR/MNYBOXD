@@ -47,7 +47,8 @@ builds (`ScreenshotTest`).</sub>
   extracts amount, description, category, payment method, app and account. **You always review
   the result before it is saved.**
 * **Quick Settings tile** and **launcher shortcuts** (*Add expense*, *Voice expense*).
-* **Volume-button shortcut** (optional): press volume down (or up) two or three times on any
+* **Volume-button shortcut** (optional, **separate build**: see
+  [Volume-button shortcut build](#volume-button-shortcut-build)): press volume down (or up) two or three times on any
   screen to open Quick Add. Your volume buttons keep working normally, and the volume is put
   back afterwards. Off by default; pick the button and *Twice* or *3 times* (the default) in
   *Settings → Shortcuts*, then switch on *Spendly volume shortcut* in Android's Accessibility
@@ -113,7 +114,26 @@ builds (`ScreenshotTest`).</sub>
 Requires Android 8.0 (API 26) or newer.
 
 To install from a computer instead: enable *Developer options → USB debugging*, connect the
-phone and run `adb install app-release.apk`.
+phone and run `adb install Spendly.apk`.
+
+`Spendly.apk` declares no accessibility service, notification listener or SMS permission, so
+Google Play Protect does not block it when you install it from your browser or file manager.
+
+### Volume-button shortcut build
+
+The volume-button shortcut needs an Android accessibility service. In some countries (India among
+them) Google Play Protect's
+[enhanced fraud protection](https://developers.google.com/android/play-protect/warning-dev-guidance)
+blocks **any** app that declares one from being installed from a browser, messaging app or file
+manager. You see *"App blocked to protect your device"*. It doesn't matter how little the
+service can do. So the shortcut ships in a separate build, `Spendly-volume-shortcut.apk`. It has
+the same app, version and signing key, so either build installs as an update over the other and
+keeps your data. Install it one of these ways:
+
+* from a computer: `adb install -r Spendly-volume-shortcut.apk` (USB debugging on), or
+* through Google Play, if the app is published there (for example on an internal testing track).
+
+Downloading it on the phone works only where that protection isn't active.
 
 > **Back up regularly.** Spendly has no cloud sync. If you uninstall the app or reset your phone,
 > your records are gone unless you made an encrypted backup (Settings → Backup & export).
@@ -127,14 +147,21 @@ build-tools 36.0.0. The Gradle wrapper downloads Gradle 9.9.0 and verifies its c
 git clone <this repository>
 cd spendly
 echo "sdk.dir=$ANDROID_HOME" > local.properties     # if ANDROID_HOME isn't set for Gradle
-./gradlew clean test lint lintRelease assembleRelease
+./gradlew clean test lintStandardDebug lintVolumeShortcutDebug lintStandardRelease lintVolumeShortcutRelease assembleRelease
 ```
 
+There are two builds (*product flavors*, see `app/build.gradle.kts`): **standard** (published as
+`Spendly.apk`) and **volumeShortcut** (adds the volume-button accessibility service from
+`app/src/volumeShortcut/`; published as `Spendly-volume-shortcut.apk`).
+
 * Debug build (installs side by side as "io.github.sharveshar.spendly.debug"):
-  `./gradlew installDebug`
-* Signed release APK: `app/build/outputs/apk/release/app-release.apk`
-  (if signing isn't configured, Gradle produces `app-release-unsigned.apk` instead).
-* Screenshots: `SPENDLY_SCREENSHOT_DIR=$PWD/docs/screenshots ./gradlew testDebugUnitTest --tests '*ScreenshotTest*'`
+  `./gradlew installStandardDebug` or `./gradlew installVolumeShortcutDebug`
+* Signed release APKs: `app/build/outputs/apk/standard/release/app-standard-release.apk` and
+  `app/build/outputs/apk/volumeShortcut/release/app-volumeShortcut-release.apk`
+  (if signing isn't configured, Gradle produces `…-release-unsigned.apk` instead).
+* Google Play bundle: `./gradlew bundleVolumeShortcutRelease` (or `bundleStandardRelease`) →
+  `app/build/outputs/bundle/<flavor>Release/`.
+* Screenshots: `SPENDLY_SCREENSHOT_DIR=$PWD/docs/screenshots ./gradlew testStandardDebugUnitTest --tests '*ScreenshotTest*'`
 
 ### Release signing
 
@@ -160,8 +187,8 @@ chmod 600 ~/spendly-release.p12
 ### Publish a release on GitHub
 
 The workflow in `.github/workflows/android.yml` tests, lints and (when secrets exist) builds and
-verifies a signed APK on every push. Pushing a tag `vX.Y.Z` that matches `versionName` publishes
-a GitHub Release with `Spendly.apk` and its SHA-256. The asset name never changes, so the
+verifies signed APKs on every push. Pushing a tag `vX.Y.Z` that matches `versionName` publishes
+a GitHub Release with `Spendly.apk`, `Spendly-volume-shortcut.apk` and their SHA-256 sums. The asset name never changes, so the
 README badge (`releases/latest/download/Spendly.apk`) always downloads the newest version.
 
 1. Add repository secrets (Settings → Secrets and variables → Actions):
@@ -172,17 +199,26 @@ README badge (`releases/latest/download/Spendly.apk`) always downloads the newes
 
 Without signing secrets the workflow still tests and lints, but never creates a release.
 
-Prefer to publish manually? Build locally, then
-`cp app/build/outputs/apk/release/app-release.apk Spendly.apk && gh release create v1.0.0 Spendly.apk --generate-notes`.
+Prefer to publish manually? Build locally, then:
+
+```bash
+cp app/build/outputs/apk/standard/release/app-standard-release.apk Spendly.apk
+cp app/build/outputs/apk/volumeShortcut/release/app-volumeShortcut-release.apk Spendly-volume-shortcut.apk
+sha256sum Spendly.apk Spendly-volume-shortcut.apk > SHA256SUMS.txt
+gh release create vX.Y.Z Spendly.apk Spendly-volume-shortcut.apk SHA256SUMS.txt --generate-notes
+```
 
 ### Before publishing a release: device check
 
-Automated tests run on the JVM (Robolectric). Before each public release, install the signed APK
-on a real phone and check: first launch and onboarding; adding an expense, income, transfer and
+Automated tests run on the JVM (Robolectric). Before each public release, download `Spendly.apk`
+on a real phone and install it from the browser or file manager (this is the path Play Protect
+checks), then check: first launch and onboarding; adding an expense, income, transfer and
 refund; balances on Accounts; voice entry (allow and deny the microphone); creating and restoring
-an encrypted backup; the Quick Settings tile; the volume-button shortcut (in another app, on the
-lock screen, during a call, and that the volume returns to where it was); the "Add expense" app
-icon; light/dark theme; and a large font size.
+an encrypted backup; the Quick Settings tile; the "Add expense" app icon; light/dark theme; and a
+large font size. Then install `Spendly-volume-shortcut.apk` over it with `adb install -r`, confirm
+your data is still there, and check the volume-button shortcut (in another app, on the lock
+screen, during a call, that the volume returns to where it was, and that it stops once switched
+off in Accessibility settings).
 
 ## Technology
 
@@ -197,17 +233,20 @@ app/src/main/java/io/github/sharveshar/spendly/
 ├── domain/            Pure Kotlin rules: ledger & validation, insights & budgets, voice parser
 ├── data/              Room entities/DAOs, SQLCipher key manager, repositories, backup, prefs
 ├── ui/                Compose screens, components, motion, theme, navigation
-├── shortcut/          Volume-button shortcut service, optional "Add expense" launcher entry
+├── shortcut/          Shortcut settings, volume-pattern detection, optional "Add expense" launcher entry
 ├── MainActivity.kt    Single activity, intent allow-list, shortcuts
 └── QuickAddTileService.kt
+
+app/src/volumeShortcut/  The volume-button accessibility service (volumeShortcut build only)
 ```
 
-Testing: 108 automated tests (plus an opt-in screenshot test) covering balance rules (including a randomized property test that
+Testing: 114 automated tests (plus an opt-in screenshot test; each build runs 113, since one Settings test is build-specific) covering balance rules (including a randomized property test that
 checks SQL balances against a reference calculator), validation, paise precision, duplicate
 prevention, voice parsing, insights and budgets, database constraints and triggers, migrations,
 encrypted backup round-trip and tamper detection, CSV injection, the Quick Add form logic (voice pre-fill, edit, refund, process-death restore),
 the volume-button shortcut (press patterns, holding vs. pressing, volume restore, calls and ringing),
-and Compose UI flows (navigation, Quick Add, validation, empty states, accessibility labels, Settings → Shortcuts).
+and Compose UI flows (navigation, Quick Add, validation, empty states, accessibility labels, Settings → Shortcuts), and each build's merged manifest (no SMS permission or notification listener in either build, and an accessibility
+service only in the volumeShortcut build). `./gradlew test` runs the suite for both builds.
 Each Robolectric test has a 2-minute limit and the test task a 15-minute one, so a hang fails fast in CI.
 
 See [`DEPENDENCIES.md`](DEPENDENCIES.md) for every library, version and licence.

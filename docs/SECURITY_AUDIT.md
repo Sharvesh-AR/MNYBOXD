@@ -12,7 +12,8 @@
 > (`ButtonShortcutService`, an accessibility service limited to key-event filtering) and an
 > optional, disabled-by-default "Add expense" launcher entry (`QuickAddLauncherActivity`).
 > Neither is covered by the results below; see [SECURITY.md](../SECURITY.md#optional-accessibility-service-volume-button-shortcut)
-> for their design. The permission set is unchanged (`RECORD_AUDIO` only).
+> for their design. The permission set is unchanged (`RECORD_AUDIO` only). Since 1.1.1 the
+> accessibility service is only in the separate `volumeShortcut` build; `Spendly.apk` declares none.
 
 ## Checks performed and results
 

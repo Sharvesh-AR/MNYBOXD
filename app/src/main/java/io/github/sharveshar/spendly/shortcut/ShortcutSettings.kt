@@ -8,17 +8,27 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
+import io.github.sharveshar.spendly.BuildConfig
 
 /** System-side state of the Quick Add shortcuts. Read fresh whenever Settings is shown. */
 object ShortcutSettings {
 
-    /** True when the user has switched [ButtonShortcutService] on in Accessibility settings. */
+    /**
+     * The volume-button accessibility service. Its class and manifest entry exist only in the
+     * volumeShortcut build (src/volumeShortcut), so it is named here instead of referenced.
+     */
+    const val BUTTON_SERVICE = "io.github.sharveshar.spendly.shortcut.ButtonShortcutService"
+
+    /** Whether this build includes the volume-button shortcut at all (see app/build.gradle.kts). */
+    val isButtonShortcutAvailable: Boolean get() = BuildConfig.VOLUME_SHORTCUT
+
+    /** True when the user has switched the volume-button service on in Accessibility settings. */
     fun isButtonShortcutOn(context: Context): Boolean {
+        if (!isButtonShortcutAvailable) return false
         val manager = context.getSystemService(AccessibilityManager::class.java) ?: return false
-        val ours = ComponentName(context, ButtonShortcutService::class.java)
         return manager.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).any { info ->
             val service = info.resolveInfo?.serviceInfo
-            service?.packageName == ours.packageName && service.name == ours.className
+            service?.packageName == context.packageName && service.name == BUTTON_SERVICE
         }
     }
 

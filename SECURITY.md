@@ -100,6 +100,16 @@ overlay, device-admin or any background permission.
 
 ### Optional accessibility service (volume-button shortcut)
 
+**Only in the `volumeShortcut` build** (`Spendly-volume-shortcut.apk`, source in
+`app/src/volumeShortcut/`). The standard build (`Spendly.apk`) declares no accessibility service.
+Google Play Protect's
+[enhanced fraud protection](https://developers.google.com/android/play-protect/warning-dev-guidance)
+blocks installing any app that declares an accessibility service, a notification listener,
+`RECEIVE_SMS` or `READ_SMS` from a browser, messaging app or file manager in the markets where it
+is active, India among them ("App blocked to protect your device"). The check looks only at the
+declaration, not at what the service can do. `ManifestPolicyTest` checks each build's merged
+manifest so the standard build can't pick up any of the four by accident, including from a library.
+
 `ButtonShortcutService` lets the user open Quick Add from any screen by pressing a volume button
 two or three times. It is **off by default** and does nothing until the user switches it on in
 Android's Accessibility settings, after an in-app explanation. Android requires an accessibility
@@ -111,7 +121,9 @@ Its configuration (`res/xml/button_shortcut_service.xml`) is as narrow as Androi
   **`canRetrieveWindowContent="false"`**: it cannot read what is on screen or which app is open.
 * The only capability is **key-event filtering**. The service reads the key code, action, repeat
   count and timestamp of each key press, compares them with the chosen volume-button pattern and
-  stores nothing. Every other key is ignored.
+  stores nothing. Every other key is ignored. Android can't limit a key filter to particular
+  keys, so with a hardware keyboard connected, its key presses also pass through `onKeyEvent`.
+  They are discarded straight away: nothing about them is kept, logged or forwarded.
 * It **never consumes** an event (`onKeyEvent` always returns `false`), so volume buttons, camera
   shutters and other key uses keep working unchanged and without delay. When the pattern matches,
   it restores the media and ringer volume to their levels from before the first press.
@@ -129,7 +141,7 @@ Turning it off: Android Settings → Accessibility → *Spendly volume shortcut*
 |---|---|---|
 | `MainActivity` | Yes (launcher) | Only two fixed custom actions are honoured (open Quick Add / voice entry). Extras and data are ignored. Nothing is ever saved without user confirmation. |
 | `QuickAddTileService` | Yes | Requires `BIND_QUICK_SETTINGS_TILE` (system only). Uses an immutable `PendingIntent`. |
-| `ButtonShortcutService` | Yes | Requires `BIND_ACCESSIBILITY_SERVICE` (system only). Inactive unless the user enables it in Accessibility settings. See above. |
+| `ButtonShortcutService` (volumeShortcut build only) | Yes | Requires `BIND_ACCESSIBILITY_SERVICE` (system only). Inactive unless the user enables it in Accessibility settings. See above. |
 | `QuickAddLauncherActivity` | Yes (launcher), **disabled by default** | Optional "Add expense" app-list entry the user can switch on in Settings. No UI; ignores its intent and opens Quick Add. Own empty task affinity. |
 | `androidx.profileinstaller.ProfileInstallReceiver` | Yes (library) | Requires `android.permission.DUMP` (system/shell only). |
 | Room `MultiInstanceInvalidationService`, AndroidX Startup provider | No | Not exported. |
@@ -169,15 +181,16 @@ the URL to the user's browser with a standard `ACTION_VIEW` intent; Spendly itse
    `./gradlew :app:dependencies --configuration releaseRuntimeClasspath` and query the OSV batch
    API (or run `osv-scanner`). Native code bundled in SQLCipher is checked separately
    (SQLite version via the library's strings).
-5. Run Android Lint on debug and release (`./gradlew lint lintRelease`); the build fails on lint
-   errors.
-6. Inspect the release APK: signature (`apksigner verify`), merged manifest, permissions,
-   exported components, and that it is not debuggable.
+5. Run Android Lint on debug and release builds of both flavors (`./gradlew lintStandardDebug
+   lintVolumeShortcutDebug lintStandardRelease lintVolumeShortcutRelease`); the build fails on lint errors.
+6. Inspect both release APKs: signature (`apksigner verify`), merged manifest, permissions,
+   exported components, and that they are not debuggable. `Spendly.apk` must declare no
+   `BIND_ACCESSIBILITY_SERVICE` or `BIND_NOTIFICATION_LISTENER_SERVICE` service and no SMS permission.
 7. CI pins every GitHub Action to a full commit SHA and runs with read-only permissions, except
    the tag-triggered release job.
 
 When updating dependencies, regenerate checksums with
-`./gradlew --write-verification-metadata sha256 clean test lint lintRelease assembleRelease`
+`./gradlew --write-verification-metadata sha256 clean test lintStandardDebug lintVolumeShortcutDebug lintStandardRelease lintVolumeShortcutRelease assembleRelease bundleRelease`
 and review the diff before committing.
 
 ## Known limitations
