@@ -21,6 +21,13 @@ import kotlinx.serialization.Serializable
 @Serializable object SettingsRoute
 @Serializable object CategoriesRoute
 @Serializable object AboutRoute
+@Serializable object ThemesRoute
+@Serializable object ShortcutsRoute
+@Serializable object ResetRoute
+@Serializable object WidgetsRoute
+
+/** Empty, transparent start screen of QuickAddActivity; Quick Add opens on top of it. */
+@Serializable object PopupBaseRoute
 
 /**
  * Quick Add / edit form.
@@ -44,6 +51,9 @@ data class EntryRoute(
 @Serializable data class TransactionDetailRoute(val id: Long)
 @Serializable data class AccountDetailRoute(val id: Long)
 @Serializable data class AccountEditRoute(val id: Long = 0L)
+
+/** The account editor opened from inside Quick Add: a full-screen dialog stacked on the sheet. */
+@Serializable data class AccountEditSheetRoute(val id: Long = 0L)
 
 /** Lets tests supply a container backed by an in-memory database. Production uses the Application's. */
 val LocalAppContainer = staticCompositionLocalOf<AppContainer?> { null }

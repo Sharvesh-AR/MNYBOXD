@@ -4,19 +4,34 @@ import android.app.Application
 import android.content.Context
 import android.provider.Settings
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.semantics.Role
+import io.github.sharveshar.spendly.AppTab
+import io.github.sharveshar.spendly.data.prefs.PreferencesRepository
+import io.github.sharveshar.spendly.ui.navigation.DockOrder
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.performTextReplacement
+import androidx.compose.ui.test.hasSetTextAction
+import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasClickAction
+import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.test.core.app.ApplicationProvider
 import io.github.sharveshar.spendly.AppContainer
+import io.github.sharveshar.spendly.BuildConfig
 import io.github.sharveshar.spendly.HangWatchdog
 import io.github.sharveshar.spendly.data.db.SpendlyDatabase
 import io.github.sharveshar.spendly.data.testDatabase
@@ -38,12 +53,15 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeFalse
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.shadows.ShadowLooper
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -85,6 +103,30 @@ class UiTest {
      */
     private fun savedPreferences() = runBlocking(Dispatchers.IO) { withTimeout(5_000) { container.preferences.preferences.first() } }
 
+    /** Advances the paused test clock in small steps until [condition] holds. */
+    private fun stepUntil(timeoutMs: Long, condition: () -> Boolean) {
+        var waited = 0L
+        while (!condition()) {
+            check(waited < timeoutMs) { "Condition not met within $timeoutMs ms" }
+            compose.mainClock.advanceTimeBy(50)
+            ShadowLooper.idleMainLooper()
+            waited += 50
+        }
+    }
+
+    /** A button in the Quick Add sheet; Home, underneath it, has an "Add expense" button too. */
+    private fun sheetButton(label: String) = compose.onAllNodesWithText(label).onLast()
+
+    /** A tab in the bottom dock (other text on screen can share its label). */
+    private fun dockTab(label: String) = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
+
+    private fun openShortcutSettings() {
+        compose.onNodeWithContentDescription("Settings").performClick()
+        shown("Shortcut settings")
+        compose.onNodeWithText("Shortcut settings").performClick()
+        compose.waitForIdle()
+    }
+
     private fun launchApp() {
         compose.setContent {
             CompositionLocalProvider(LocalAppContainer provides container) {
@@ -109,6 +151,61 @@ class UiTest {
         shown("Spendly")
     }
 
+    @Test fun `holding a dock tab and dragging it moves it, without opening it, and the order is kept`() {
+        launchApp()
+        shown("Spendly")
+        fun x(label: String) = compose.onNode(dockTab(label)).fetchSemanticsNode().boundsInRoot.center.x
+        try {
+            assertTrue(x("Home") < x("Activity") && x("Budgets") < x("Insights"))
+            // Hold Insights (the last tab), then drag it four slots left, onto Home's place.
+            compose.onNode(dockTab("Insights")).performTouchInput {
+                down(center)
+                advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+                repeat(24) { moveBy(Offset(-4f * width / 24, 0f)) }
+                up()
+            }
+            compose.waitForIdle()
+            stepUntil(5_000) { savedPreferences().dockOrder == listOf(AppTab.INSIGHTS, AppTab.HOME, AppTab.ACTIVITY, AppTab.ACCOUNTS, AppTab.BUDGETS) }
+            compose.mainClock.advanceTimeBy(1_000)
+            // Insights now sits first and Home second; holding it never navigated anywhere.
+            assertTrue(x("Insights") < x("Home") && x("Home") < x("Activity") && x("Accounts") < x("Budgets"))
+            shown("Spendly")
+            assertTrue(compose.onAllNodesWithText("Income vs spending").fetchSemanticsNodes().isEmpty())
+            // A fresh read (as after restarting the app) gives the same order.
+            assertEquals(listOf(AppTab.INSIGHTS, AppTab.HOME, AppTab.ACTIVITY, AppTab.ACCOUNTS, AppTab.BUDGETS), runBlocking(Dispatchers.IO) { withTimeout(5_000) { PreferencesRepository(context).preferences.first().dockOrder } })
+            // A plain tap still navigates straight away.
+            compose.onNode(dockTab("Insights")).performClick()
+            shown("Income vs spending")
+        } finally {
+            // DataStore is one instance per JVM, shared with later tests.
+            runBlocking(Dispatchers.IO) { withTimeout(5_000) { container.preferences.setDockOrder(DockOrder.DEFAULT) } }
+        }
+    }
+
+    @Test fun `a short hold that ends before the long-press time is a tap, and a drag released in place changes nothing`() {
+        launchApp()
+        shown("Spendly")
+        try {
+            compose.onNode(dockTab("Budgets")).performTouchInput {
+                down(center)
+                advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+                moveBy(Offset(width * 0.3f, 0f)) // less than half a slot
+                up()
+            }
+            compose.mainClock.advanceTimeBy(1_000)
+            assertEquals(DockOrder.DEFAULT, savedPreferences().dockOrder)
+            assertTrue(compose.onAllNodesWithText("Monthly budget").fetchSemanticsNodes().isEmpty())
+            compose.onNode(dockTab("Budgets")).performTouchInput {
+                down(center)
+                advanceEventTime(120)
+                up()
+            }
+            shown("Monthly budget")
+        } finally {
+            runBlocking(Dispatchers.IO) { withTimeout(5_000) { container.preferences.setDockOrder(DockOrder.DEFAULT) } }
+        }
+    }
+
     @Test fun `empty states are shown on a fresh install`() {
         launchApp()
         shown("Nothing recorded yet")
@@ -129,23 +226,31 @@ class UiTest {
         compose.onNodeWithContentDescription("Decimal point").performClick()
         compose.onNodeWithContentDescription("5").performClick()
         compose.onNodeWithText("Food & Dining").performClick()
-        compose.onNodeWithText("Save expense").performClick()
-        compose.waitUntil(5_000) { runBlocking { db.transactionDao().getAll().isNotEmpty() } }
+        // Step the clock by hand: an auto-advancing clock would play the whole save animation
+        // (coin, confirmation, sheet closing) inside a single wait and never show the confirmation.
+        compose.mainClock.autoAdvance = false
+        sheetButton("Add expense").performClick()
+        // The confirmation shows only after the transaction is committed, worded from what was saved.
+        stepUntil(5_000) { compose.onAllNodes(hasContentDescription("Expense added", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(compose.onAllNodes(hasContentDescription("₹120.50 on Food & Dining. from Cash", substring = true)).fetchSemanticsNodes().isNotEmpty())
+        compose.mainClock.autoAdvance = true
         val saved = runBlocking { db.transactionDao().getAll() }.single()
         assertEquals(TransactionType.EXPENSE, saved.type)
         assertEquals(12_050L, saved.amountPaise)
         assertEquals("Cash", runBlocking { db.accountDao().getById(saved.accountId)!!.name })
-        compose.waitUntil(5_000) { compose.onAllNodesWithText("Saved").fetchSemanticsNodes().isNotEmpty() }
+        // Then Quick Add closes by itself and the dashboard is back, with no second sheet.
+        compose.waitUntil(5_000) { compose.onAllNodes(isRoot()).fetchSemanticsNodes().size == 1 }
+        shown("Spendly")
     }
 
     @Test fun `quick add validation blocks empty and categoryless entries`() {
         launchApp()
         compose.onNodeWithContentDescription("Quick add").performClick()
         compose.waitForIdle()
-        compose.onNodeWithText("Save expense").performClick()
+        sheetButton("Add expense").performClick()
         compose.waitUntil(3_000) { compose.onAllNodesWithText("Enter an amount").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("5").performClick()
-        compose.onNodeWithText("Save expense").performClick()
+        sheetButton("Add expense").performClick()
         compose.waitUntil(3_000) { compose.onAllNodesWithText("Choose a category").fetchSemanticsNodes().isNotEmpty() }
         assertTrue(runBlocking { db.transactionDao().getAll() }.isEmpty())
     }
@@ -161,19 +266,10 @@ class UiTest {
         }
     }
 
-    @Test fun `settings sets up the button shortcut and the add-expense app icon`() {
-        // DataStore is one instance per JVM: start from the default pattern. Only block on it
-        // here, before any UI exists; UI writes resume on the main thread, which runBlocking would hold.
-        runBlocking {
-            container.preferences.setShortcutButton(ShortcutButton.VOLUME_DOWN)
-            container.preferences.setShortcutPresses(ButtonShortcut.DEFAULT_PRESSES)
-        }
+    @Test fun `settings switches the add-expense app icon on and off`() {
         launchApp()
-        compose.onNodeWithContentDescription("Settings").performClick()
-        shown("Volume button shortcut")
-
-        compose.onNodeWithText("Volume up").performScrollTo().performClick()
-        compose.onNodeWithText("Twice").performScrollTo().performClick()
+        openShortcutSettings()
+        shown("\u201CAdd expense\u201D app icon")
 
         assertFalse(ShortcutSettings.isAppIconOn(context))
         compose.onNodeWithText("\u201CAdd expense\u201D app icon").performScrollTo().performClick()
@@ -182,6 +278,31 @@ class UiTest {
         compose.onNodeWithText("\u201CAdd expense\u201D app icon").performClick()
         compose.waitForIdle()
         assertFalse(ShortcutSettings.isAppIconOn(context))
+    }
+
+    @Test fun `the standard build offers no volume-button shortcut`() {
+        assumeFalse("volumeShortcut build", BuildConfig.VOLUME_SHORTCUT)
+        launchApp()
+        openShortcutSettings()
+        shown("\u201CAdd expense\u201D app icon")
+        assertTrue(compose.onAllNodesWithText("Volume button shortcut").fetchSemanticsNodes().isEmpty())
+        assertFalse(ShortcutSettings.isButtonShortcutOn(context))
+    }
+
+    @Test fun `settings sets up the volume-button shortcut`() {
+        assumeTrue("standard build", BuildConfig.VOLUME_SHORTCUT)
+        // DataStore is one instance per JVM: start from the default pattern. Only block on it
+        // here, before any UI exists; UI writes resume on the main thread, which runBlocking would hold.
+        runBlocking {
+            container.preferences.setShortcutButton(ShortcutButton.VOLUME_DOWN)
+            container.preferences.setShortcutPresses(ButtonShortcut.DEFAULT_PRESSES)
+        }
+        launchApp()
+        openShortcutSettings()
+        shown("Volume button shortcut")
+
+        compose.onNodeWithText("Volume up").performScrollTo().performClick()
+        compose.onNodeWithText("Twice").performScrollTo().performClick()
 
         // Not switched on in Android yet: the row explains, using the saved pattern, and links to settings.
         compose.onNodeWithText("Volume button shortcut").performScrollTo().performClick()
@@ -220,5 +341,75 @@ class UiTest {
                 n.config.getOrNull(SemanticsProperties.ContentDescription)?.isNotEmpty() == true ||
                 n.children.any(::walk)
         walk(node)
+    }
+
+    @Test fun `reset needs two confirmations and the exact phrase, then starts fresh`() {
+        runBlocking { io.github.sharveshar.spendly.DebugTools.loadSampleData(container.repositories) }
+        fun txCount() = runBlocking { db.transactionDao().getAll().size }
+        val before = txCount()
+        assertTrue(before > 0)
+        launchApp()
+        compose.onNodeWithContentDescription("Settings").performClick()
+        shown("Reset Spendly")
+
+        // Step 1, cancelled: nothing happens.
+        compose.onNodeWithText("Reset Spendly").performClick()
+        shown("Reset Spendly?", scroll = false)
+        compose.onNodeWithText("Cancel").performClick()
+        compose.waitForIdle()
+        assertEquals(before, txCount())
+
+        // Step 1, continued: the separate confirmation screen.
+        compose.onNodeWithText("Reset Spendly").performScrollTo().performClick()
+        shown("Reset Spendly?", scroll = false)
+        compose.onNodeWithText("Continue").performClick()
+        shown("This will permanently delete all your Spendly data.")
+        val delete = compose.onNodeWithText("Delete everything permanently")
+        delete.assertIsNotEnabled()
+
+        // Anything but the exact phrase keeps the button disabled and deletes nothing.
+        val field = compose.onNode(hasSetTextAction())
+        for (wrong in listOf("delete everything", "DELETE  EVERYTHING", "DELETE EVERYTHIN", "DELETE EVERYTHING ")) {
+            field.performTextReplacement(wrong)
+            compose.waitForIdle()
+            delete.assertIsNotEnabled()
+        }
+        delete.performClick()
+        compose.waitForIdle()
+        assertEquals(before, txCount())
+
+        // The exact phrase enables it; deleting returns to first run with only the defaults.
+        field.performTextReplacement("DELETE EVERYTHING")
+        compose.waitForIdle()
+        delete.assertIsEnabled()
+        delete.performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Get started").fetchSemanticsNodes().isNotEmpty() }
+        assertEquals(0, txCount())
+        assertEquals(listOf("Cash"), runBlocking { db.accountDao().getAll() }.map { it.name })
+        assertFalse(savedPreferences().onboardingDone)
+    }
+
+    @Test fun `deleting a transaction offers undo, and undo brings it back`() {
+        runBlocking {
+            val cash = db.accountDao().getAll().single().id
+            val food = db.categoryDao().getAll().first { it.key == "food" }.id
+            container.repositories.transactions.save(
+                io.github.sharveshar.spendly.domain.ledger.TransactionDraft(TransactionType.EXPENSE, 250_00, cash, null, food, null, null, null, "Lunch", System.currentTimeMillis()),
+                "undo-test", null,
+            )
+        }
+        launchApp()
+        compose.onNodeWithText("Activity").performClick()
+        shown("Lunch")
+        compose.onNodeWithText("Lunch").performClick()
+        compose.waitForIdle()
+        compose.onNodeWithContentDescription("Delete transaction").performClick()
+        shown("Delete this transaction?", scroll = false)
+        compose.onAllNodesWithText("Delete").onLast().performClick()
+        compose.waitUntil(5_000) { runBlocking { db.transactionDao().getAll().isEmpty() } }
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Undo").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Undo").performClick()
+        compose.waitUntil(5_000) { runBlocking { db.transactionDao().getAll().size == 1 } }
+        assertEquals(250_00L, runBlocking { db.transactionDao().getAll().single().amountPaise })
     }
 }

@@ -40,26 +40,34 @@ builds (`ScreenshotTest`).</sub>
 ## Features
 
 **Fast entry**
-* **Quick Add**: a custom amount keypad, recently used categories first, remembered account and
-  payment method, note, date and time. One tap to save; double-taps can't create duplicates.
+* **Quick Add**: a sheet that slides up over whatever you were looking at and opens straight
+  into the amount. Big digits that appear as you type, Expense / Income / Transfer, category
+  tiles with your most used first (*More* for the rest), and the account you used last. Payment
+  method, app and note sit under *More details*, folded away until you need them; date and time
+  are one tap away. *Add expense* sits right above the keypad. Double-taps can't create
+  duplicates.
 * **Voice entry**: say *"Spent 500 on petrol using PhonePe from SBI"*, *"120 rupees lunch"*,
   *"1500 shopping on ICICI credit card"* or *"80 coffee cash"*. A deterministic on-device parser
   extracts amount, description, category, payment method, app and account. **You always review
   the result before it is saved.**
-* **Quick Settings tile** and **launcher shortcuts** (*Add expense*, *Voice expense*).
-* **Volume-button shortcut** (optional): press volume down (or up) two or three times on any
-  screen to open Quick Add. Your volume buttons keep working normally, and the volume is put
-  back afterwards. Off by default; pick the button and *Twice* or *3 times* (the default) in
-  *Settings → Shortcuts*, then switch on *Spendly volume shortcut* in Android's Accessibility
-  settings (Spendly links there). It uses a minimal, opt-in accessibility service that only
-  notices button presses (see [SECURITY.md](SECURITY.md#optional-accessibility-service-volume-button-shortcut)).
-  It works while the screen is on, stays out of the way during calls, and asks you to unlock
-  first on the lock screen. If Android says *Restricted setting* (Android 13+ does this for
-  apps installed outside an app store), open *App info → ⋮ → Allow restricted settings* and try
-  again. *Twice* is quicker but can fire when you just turn the volume down fast.
+* **Shortcut Pop-up (optional)**: from outside the app (the Quick Settings tile, home-screen
+  widgets, the launcher shortcuts *Add expense* and *Voice expense*, the "Add expense" icon and
+  the volume-button shortcut) Quick Add opens as a pop-up over the app you're in. Save or close
+  it and you're straight back where you were.
+* **Volume-button shortcut (optional)**: press volume down (or up) two or three times on any
+  screen to open Quick Add. Your volume buttons keep working normally and the volume is put
+  back afterwards. It ships in a separate build; see
+  [Volume-button shortcut (optional)](#volume-button-shortcut-optional) for how to switch it on
+  and what its accessibility permission can and can't do.
 * **"Add expense" app icon** (optional): a second icon that opens Quick Add directly, so your
   phone's own gestures can launch it, such as back tap (Pixel *Quick Tap*) or double-pressing
   the side key (Samsung).
+* **Home-screen widgets**: *Quick Add* (add or speak an expense), *Monthly overview* (spent this
+  month, budget used and left, progress bar, last 7 days), *Account balance* (all accounts, or
+  one account you pick; tap an account to open it), plus *Spending trend* and *Quick stats*.
+  Each adapts to its size (touch and hold to resize), follows the app theme or one you choose,
+  and updates when your data changes and just after midnight, without polling. Preview them and
+  add them from *Settings → Widgets*.
 
 **Accurate money**
 * All amounts are integer paise (`Long`); floating point is never used for money.
@@ -74,10 +82,13 @@ builds (`ScreenshotTest`).</sub>
   amounts, and atomic transactions.
 
 **Understand your spending**
-* **Home**: spent this month, today, income, remaining budget, 7-day chart, accounts, top
-  categories, recent activity.
+* **Home**: where you stand in two seconds. Your balance (everything in your accounts minus
+  what you owe on cards, the same figure as Accounts) in large type, what you spent today, the
+  last 7 days as a quiet line, *Add expense* and *Voice*, your monthly budget, and your latest
+  transactions. Tap the balance for the breakdown.
 * **Activity**: search notes, categories, accounts or amounts; filter by type, category,
-  account and date; grouped by day with daily totals.
+  account and date; grouped by day with daily totals. Swipe a transaction left to delete it,
+  with *Undo*.
 * **Accounts**: savings, current, cash, wallets, debit and credit cards; net worth, assets and
   card dues; credit limit usage; archive or delete.
 * **Budgets**: monthly overall and per-category limits with 80% and 100% warnings (also shown
@@ -90,15 +101,35 @@ builds (`ScreenshotTest`).</sub>
 * Encrypted database (SQLCipher, key protected by Android Keystore).
 * Password-encrypted backups and restore (validated, previewed, confirmed, all-or-nothing).
 * CSV export for spreadsheets (with a clear "this file is unencrypted" warning).
-* Dark theme by default, light and system themes, optional screenshot blocking.
+* **Reset Spendly** (*Settings → Data management*): deletes every transaction, account, budget,
+  custom category and setting on the phone. Two separate confirmations: a warning that
+  suggests a backup first, then a screen where you type `DELETE EVERYTHING` exactly.
+* Optional screenshot blocking (*Hide app contents*).
+
+**Themes**
+* **Mono** (default): matte black, white type, soft greys and charcoal surfaces, with colour only
+  where it means something (money in, money over budget).
+* Also **Midnight** (charcoal and emerald), **Light** (off-white and emerald), **AMOLED** (true
+  black, restrained accents) and **Ocean** (deep navy, soft blue), or *Match system* (Mono in
+  dark mode, Light otherwise). Each styles every screen, sheet, dialog, chart, the dock and the
+  widgets. Applied instantly and remembered.
 
 **Design and accessibility**
-* Origin-aware motion: Quick Add grows out of the button you pressed; accounts and transactions
-  morph into their detail screens; dialogs expand from the control that opened them and
-  collapse back into it. Respects Android's *Remove animations* setting.
-* Haptics on keypad, selection, save and errors.
-* Screen reader labels for amounts, keypad, charts and rows; large touch targets; tabular
-  figures for aligned amounts.
+* **Your dock, your order**: touch and hold a tab in the bottom dock, slide it along and let go.
+  The other tabs move aside and Spendly remembers the order. A tap still just opens the tab.
+* **Money moments**: after you save an expense, a small silver ₹ coin turns about its axis as
+  it eases into place and a check appears; income rises in with a small arrow; a transfer runs
+  a line of dots from one account to the other. Back on Home the balance then rolls to its new
+  value like a fine mechanical counter (only the digits that changed move), the budget bar
+  follows, and the new transaction slides into the list. All of it plays only after the
+  transaction is stored, takes about a second, and is skipped when animations are off.
+* Origin-aware motion: accounts and transactions morph into their detail screens; dialogs
+  expand from the control that opened them and collapse back into it; charts glide to new
+  values. Everything respects Android's *Remove animations* setting.
+* Haptics on keypad, selection, save, dock moves and errors.
+* Screen reader labels for amounts, keypad, charts and rows; dock tabs can be moved with
+  screen-reader actions (*Move before / after*); large touch targets; tabular figures for
+  aligned amounts.
 
 ## Install on your phone
 
@@ -110,13 +141,67 @@ builds (`ScreenshotTest`).</sub>
 3. Tap **Install**, then **Open**.
 4. You can switch the "install unknown apps" permission off again afterwards.
 
-Requires Android 8.0 (API 26) or newer.
+Requires Android 8.0 (API 26) or newer. Everything works offline. A few things depend on the
+phone:
+
+| Feature | Needs |
+|---|---|
+| Voice entry | A speech recognition service (for example Google's). On-device recognition is used when the phone has it. |
+| Widgets that reshape as you resize them | Android 12 or newer. Older versions pick the closest layout when you resize. |
+| *Add to home screen* button in *Settings → Widgets* | A launcher that supports pinning widgets (most do). Otherwise add them from the launcher's widget list. |
+| Volume-button shortcut | The separate `Spendly-volume-shortcut.apk` build (below). |
+
+Updating keeps your data: every release is signed with the same key, so install the new
+`Spendly.apk` over the old one. Don't uninstall first, as that deletes your records.
 
 To install from a computer instead: enable *Developer options → USB debugging*, connect the
-phone and run `adb install app-release.apk`.
+phone and run `adb install Spendly.apk`.
+
+`Spendly.apk` declares no accessibility service, notification listener or SMS permission, so
+Google Play Protect does not block it when you install it from your browser or file manager.
+
+### Volume-button shortcut (optional)
+
+Press volume down (or up) two or three times on any screen to open Quick Add as a pop-up. It's
+off until you switch it on:
+
+1. Install `Spendly-volume-shortcut.apk` (see below).
+2. In Spendly, open *Settings → Shortcut settings*, pick the button and *Twice* or *3 times*
+   (the default).
+3. Tap *Accessibility settings* and switch on **Spendly volume shortcut**. If Android says
+   *Restricted setting* (Android 13+ does this for apps installed outside an app store), open
+   *App info → ⋮ → Allow restricted settings* and try again.
+
+You can switch it off again in Spendly (*Shortcut settings → Turn off*) or in Android's
+Accessibility settings.
+
+**What the accessibility permission is used for.** Android only lets an app notice button
+presses made outside it through an accessibility service. Spendly's asks for one capability,
+filtering key events: it sees which hardware key was pressed and when. It can't read the screen
+or other apps, receives no accessibility events, never blocks or changes a key press, and with
+no internet permission nothing could leave the phone anyway. Your volume buttons keep working;
+the volume is put back right after the pattern. It ignores the buttons while the phone is
+ringing or on a call, and if the phone is locked it asks you to unlock before Quick Add opens.
+*Twice* is quicker but can fire when you turn the volume down fast. Details in
+[SECURITY.md](SECURITY.md#optional-accessibility-service-volume-button-shortcut).
+
+**Why a separate build.** The volume-button shortcut needs an Android accessibility service. In some countries (India among
+them) Google Play Protect's
+[enhanced fraud protection](https://developers.google.com/android/play-protect/warning-dev-guidance)
+blocks **any** app that declares one from being installed from a browser, messaging app or file
+manager. You see *"App blocked to protect your device"*. It doesn't matter how little the
+service can do. So the shortcut ships in a separate build, `Spendly-volume-shortcut.apk`. It has
+the same app, version and signing key, so either build installs as an update over the other and
+keeps your data. Install it one of these ways:
+
+* from a computer: `adb install -r Spendly-volume-shortcut.apk` (USB debugging on), or
+* through Google Play, if the app is published there (for example on an internal testing track).
+
+Downloading it on the phone works only where that protection isn't active.
 
 > **Back up regularly.** Spendly has no cloud sync. If you uninstall the app or reset your phone,
-> your records are gone unless you made an encrypted backup (Settings → Backup & export).
+> your records are gone unless you made an encrypted backup (*Settings → Data management →
+> Create encrypted backup*).
 
 ## Build from source
 
@@ -127,14 +212,21 @@ build-tools 36.0.0. The Gradle wrapper downloads Gradle 9.9.0 and verifies its c
 git clone <this repository>
 cd spendly
 echo "sdk.dir=$ANDROID_HOME" > local.properties     # if ANDROID_HOME isn't set for Gradle
-./gradlew clean test lint lintRelease assembleRelease
+./gradlew clean test lintStandardDebug lintVolumeShortcutDebug lintStandardRelease lintVolumeShortcutRelease assembleRelease
 ```
 
+There are two builds (*product flavors*, see `app/build.gradle.kts`): **standard** (published as
+`Spendly.apk`) and **volumeShortcut** (adds the volume-button accessibility service from
+`app/src/volumeShortcut/`; published as `Spendly-volume-shortcut.apk`).
+
 * Debug build (installs side by side as "io.github.sharveshar.spendly.debug"):
-  `./gradlew installDebug`
-* Signed release APK: `app/build/outputs/apk/release/app-release.apk`
-  (if signing isn't configured, Gradle produces `app-release-unsigned.apk` instead).
-* Screenshots: `SPENDLY_SCREENSHOT_DIR=$PWD/docs/screenshots ./gradlew testDebugUnitTest --tests '*ScreenshotTest*'`
+  `./gradlew installStandardDebug` or `./gradlew installVolumeShortcutDebug`
+* Signed release APKs: `app/build/outputs/apk/standard/release/app-standard-release.apk` and
+  `app/build/outputs/apk/volumeShortcut/release/app-volumeShortcut-release.apk`
+  (if signing isn't configured, Gradle produces `…-release-unsigned.apk` instead).
+* Google Play bundle: `./gradlew bundleVolumeShortcutRelease` (or `bundleStandardRelease`) →
+  `app/build/outputs/bundle/<flavor>Release/`.
+* Screenshots: `SPENDLY_SCREENSHOT_DIR=$PWD/docs/screenshots ./gradlew testStandardDebugUnitTest --tests '*ScreenshotTest*'`
 
 ### Release signing
 
@@ -160,8 +252,8 @@ chmod 600 ~/spendly-release.p12
 ### Publish a release on GitHub
 
 The workflow in `.github/workflows/android.yml` tests, lints and (when secrets exist) builds and
-verifies a signed APK on every push. Pushing a tag `vX.Y.Z` that matches `versionName` publishes
-a GitHub Release with `Spendly.apk` and its SHA-256. The asset name never changes, so the
+verifies signed APKs on every push. Pushing a tag `vX.Y.Z` that matches `versionName` publishes
+a GitHub Release with `Spendly.apk`, `Spendly-volume-shortcut.apk` and their SHA-256 sums. The asset name never changes, so the
 README badge (`releases/latest/download/Spendly.apk`) always downloads the newest version.
 
 1. Add repository secrets (Settings → Secrets and variables → Actions):
@@ -172,17 +264,28 @@ README badge (`releases/latest/download/Spendly.apk`) always downloads the newes
 
 Without signing secrets the workflow still tests and lints, but never creates a release.
 
-Prefer to publish manually? Build locally, then
-`cp app/build/outputs/apk/release/app-release.apk Spendly.apk && gh release create v1.0.0 Spendly.apk --generate-notes`.
+Prefer to publish manually? Build locally, then:
+
+```bash
+cp app/build/outputs/apk/standard/release/app-standard-release.apk Spendly.apk
+cp app/build/outputs/apk/volumeShortcut/release/app-volumeShortcut-release.apk Spendly-volume-shortcut.apk
+sha256sum Spendly.apk Spendly-volume-shortcut.apk > SHA256SUMS.txt
+gh release create vX.Y.Z Spendly.apk Spendly-volume-shortcut.apk SHA256SUMS.txt --generate-notes
+```
 
 ### Before publishing a release: device check
 
-Automated tests run on the JVM (Robolectric). Before each public release, install the signed APK
-on a real phone and check: first launch and onboarding; adding an expense, income, transfer and
-refund; balances on Accounts; voice entry (allow and deny the microphone); creating and restoring
-an encrypted backup; the Quick Settings tile; the volume-button shortcut (in another app, on the
-lock screen, during a call, and that the volume returns to where it was); the "Add expense" app
-icon; light/dark theme; and a large font size.
+Automated tests run on the JVM (Robolectric). Before each public release, download `Spendly.apk`
+on a real phone and install it from the browser or file manager (this is the path Play Protect
+checks), then check: first launch and onboarding; adding an expense, income, transfer and
+refund; the coin animation and balances on Accounts; voice entry (allow and deny the microphone);
+creating and restoring an encrypted backup; the Quick Settings tile; the "Add expense" app icon;
+dragging a dock tab to a new place and restarting the app; every theme; adding, resizing,
+tapping and removing each widget; opening and closing Quick Add repeatedly; rotating the phone;
+and a large font size. Then install `Spendly-volume-shortcut.apk` over it with `adb install -r`, confirm
+your data is still there, and check the volume-button shortcut (in another app, on the lock
+screen, during a call, that the volume returns to where it was, and that it stops once switched
+off in Accessibility settings).
 
 ## Technology
 
@@ -197,17 +300,20 @@ app/src/main/java/io/github/sharveshar/spendly/
 ├── domain/            Pure Kotlin rules: ledger & validation, insights & budgets, voice parser
 ├── data/              Room entities/DAOs, SQLCipher key manager, repositories, backup, prefs
 ├── ui/                Compose screens, components, motion, theme, navigation
-├── shortcut/          Volume-button shortcut service, optional "Add expense" launcher entry
+├── shortcut/          Shortcut settings, volume-pattern detection, optional "Add expense" launcher entry
 ├── MainActivity.kt    Single activity, intent allow-list, shortcuts
 └── QuickAddTileService.kt
+
+app/src/volumeShortcut/  The volume-button accessibility service (volumeShortcut build only)
 ```
 
-Testing: 108 automated tests (plus an opt-in screenshot test) covering balance rules (including a randomized property test that
+Testing: 114 automated tests (plus an opt-in screenshot test; each build runs 113, since one Settings test is build-specific) covering balance rules (including a randomized property test that
 checks SQL balances against a reference calculator), validation, paise precision, duplicate
 prevention, voice parsing, insights and budgets, database constraints and triggers, migrations,
 encrypted backup round-trip and tamper detection, CSV injection, the Quick Add form logic (voice pre-fill, edit, refund, process-death restore),
 the volume-button shortcut (press patterns, holding vs. pressing, volume restore, calls and ringing),
-and Compose UI flows (navigation, Quick Add, validation, empty states, accessibility labels, Settings → Shortcuts).
+and Compose UI flows (navigation, Quick Add, validation, empty states, accessibility labels, Settings → Shortcuts), and each build's merged manifest (no SMS permission or notification listener in either build, and an accessibility
+service only in the volumeShortcut build). `./gradlew test` runs the suite for both builds.
 Each Robolectric test has a 2-minute limit and the test task a 15-minute one, so a hang fails fast in CI.
 
 See [`DEPENDENCIES.md`](DEPENDENCIES.md) for every library, version and licence.
@@ -229,7 +335,6 @@ Details and limitations: [`SECURITY.md`](SECURITY.md). Latest review:
 * Recurring transactions and bill reminders (local notifications)
 * Custom date range filter and export ranges
 * Multiple currencies
-* Home-screen widget
 * Translations (strings are currently English-only)
 * Bundled premium typeface (currently the system font with tabular figures)
 

@@ -35,6 +35,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -101,10 +103,39 @@ private fun Point(icon: ImageVector, title: String, body: String) {
     }
 }
 
-/** Shown while the encrypted database opens (normally a few milliseconds). */
+/**
+ * Shown while the encrypted database opens, normally a few milliseconds. The mark appears only if
+ * opening takes longer than a blink (so fast starts don't flash it) and sits where Android 12+'s
+ * own splash icon was, so the hand-over looks continuous. No artificial delay is ever added.
+ */
 @Composable
 fun SplashScreen() {
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background))
+    var show by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        kotlinx.coroutines.delay(180)
+        show = true
+    }
+    val c = Spendly.colors
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background), contentAlignment = Alignment.Center) {
+        AnimatedVisibility(show, enter = fadeIn(tween(260)) + androidx.compose.animation.scaleIn(tween(320), initialScale = 0.92f)) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                androidx.compose.foundation.Canvas(Modifier.size(72.dp)) {
+                    // Spendly's mark: three receding bars, as in the app icon.
+                    val unit = size.width / 9f
+                    listOf(Triple(0f, 9f, c.accent), Triple(2.4f, 6f, c.secondaryAccent), Triple(4.8f, 3f, c.secondaryAccent.copy(alpha = 0.55f))).forEach { (y, w, color) ->
+                        drawRoundRect(
+                            color,
+                            topLeft = androidx.compose.ui.geometry.Offset(0f, (y + 1.2f) * unit),
+                            size = androidx.compose.ui.geometry.Size(w * unit, 1.6f * unit),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(0.8f * unit),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(Space.lg))
+                Text("Spendly", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
+            }
+        }
+    }
 }
 
 /**

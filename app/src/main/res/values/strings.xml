@@ -2,6 +2,20 @@
 <resources>
     <string name="app_name">Spendly</string>
     <string name="tile_label">Add expense</string>
-    <string name="button_service_label">Spendly volume shortcut</string>
-    <string name="button_service_description">Opens Spendly\'s Quick Add when you press your chosen volume-button pattern (choose it in Spendly: Settings, Shortcuts). Spendly only checks whether a volume button was pressed and when. It can\'t see your screen, it ignores every other key, and it has no internet access. Your volume buttons keep working as usual.</string>
+    <string name="widget_quick_add_label">Quick Add</string>
+    <string name="widget_quick_add_description">Add an expense or speak it, straight from your home screen.</string>
+    <string name="widget_monthly_label">Monthly overview</string>
+    <string name="widget_monthly_description">This month\'s spending against your budget, with the last 7 days.</string>
+    <string name="widget_accounts_label">Account balance</string>
+    <string name="widget_accounts_description">Money available in your banks and cash, with card dues shown separately.</string>
+    <string name="widget_trend_label">Spending trend</string>
+    <string name="widget_trend_description">Your last 7 days of spending, day by day, and the highest day.</string>
+    <string name="widget_stats_label">Quick stats</string>
+    <string name="widget_stats_description">Today, this month, number of transactions and budget left.</string>
+    <string name="widget_text_add">Add</string>
+    <string name="widget_text_add_expense">Add expense</string>
+    <string name="widget_text_tagline">Record it while you remember</string>
+    <string name="widget_text_last_7_days">Last 7 days</string>
+    <string name="widget_text_available">Available</string>
+    <string name="widget_text_owed_on_cards">Owed on cards</string>
 </resources>

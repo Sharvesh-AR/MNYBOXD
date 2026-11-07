@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Strings for the volume-button accessibility service (volumeShortcut build only). -->
+<resources>
+    <string name="button_service_label">Spendly volume shortcut</string>
+    <string name="button_service_description">Opens Spendly\'s Quick Add when you press your chosen volume-button pattern (choose it in Spendly: Settings, Shortcuts). Spendly only checks whether a volume button was pressed and when. It can\'t see your screen, it ignores every other key, and it has no internet access. Your volume buttons keep working as usual.</string>
+</resources>

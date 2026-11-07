@@ -2,7 +2,7 @@ package io.github.sharveshar.spendly.shortcut
 
 import android.app.Activity
 import android.os.Bundle
-import io.github.sharveshar.spendly.MainActivity
+import io.github.sharveshar.spendly.QuickAddActivity
 
 /**
  * Optional second app-list entry, "Add expense", for phone gestures that can only open an app
@@ -12,7 +12,7 @@ import io.github.sharveshar.spendly.MainActivity
 class QuickAddLauncherActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        startActivity(MainActivity.launchIntent(this, MainActivity.ACTION_QUICK_ADD))
+        startActivity(QuickAddActivity.launchIntent(this))
         finish() // Theme.NoDisplay requires finishing before onResume.
     }
 }

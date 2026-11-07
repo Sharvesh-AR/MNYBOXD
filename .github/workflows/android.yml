@@ -63,9 +63,9 @@ jobs:
         timeout-minutes: 20
         run: ./gradlew test --stacktrace
 
-      - name: Android Lint (debug + release)
-        timeout-minutes: 15
-        run: ./gradlew lint lintRelease
+      - name: Android Lint (both builds, debug + release)
+        timeout-minutes: 20
+        run: ./gradlew lintStandardDebug lintVolumeShortcutDebug lintStandardRelease lintVolumeShortcutRelease
 
       - name: Upload test and lint reports
         if: always()
@@ -86,7 +86,7 @@ jobs:
           echo "$KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/spendly-release.p12"
           echo "SPENDLY_KEYSTORE_FILE=$RUNNER_TEMP/spendly-release.p12" >> "$GITHUB_ENV"
 
-      - name: Build signed release APK
+      - name: Build signed release APKs (standard + volumeShortcut)
         if: env.HAS_SIGNING == 'true'
         timeout-minutes: 15
         env:
@@ -95,15 +95,24 @@ jobs:
           SPENDLY_KEY_PASSWORD: ${{ secrets.SPENDLY_KEY_PASSWORD }}
         run: ./gradlew assembleRelease
 
-      - name: Verify release APK
+      - name: Verify release APKs
         if: env.HAS_SIGNING == 'true'
         run: |
-          APK=app/build/outputs/apk/release/app-release.apk
           BT="$ANDROID_HOME/build-tools/36.0.0"
-          test -f "$APK"
-          "$BT/apksigner" verify --verbose "$APK" | grep -E "Verified using v2 scheme.*: true"
-          if "$BT/aapt2" dump badging "$APK" | grep -q "application-debuggable"; then echo "Release APK is debuggable" >&2; exit 1; fi
-          if "$BT/aapt2" dump badging "$APK" | grep -q "android.permission.INTERNET"; then echo "Unexpected INTERNET permission" >&2; exit 1; fi
+          STANDARD=app/build/outputs/apk/standard/release/app-standard-release.apk
+          VOLUME=app/build/outputs/apk/volumeShortcut/release/app-volumeShortcut-release.apk
+          for APK in "$STANDARD" "$VOLUME"; do
+            test -f "$APK"
+            "$BT/apksigner" verify --verbose "$APK" | grep -E "Verified using v2 scheme.*: true"
+            if "$BT/aapt2" dump badging "$APK" | grep -q "application-debuggable"; then echo "$APK is debuggable" >&2; exit 1; fi
+            if "$BT/aapt2" dump badging "$APK" | grep -q "android.permission.INTERNET"; then echo "Unexpected INTERNET permission in $APK" >&2; exit 1; fi
+          done
+          # Play Protect blocks browser/file-manager installs of apps declaring any of these
+          # (developers.google.com/android/play-protect/warning-dev-guidance). Spendly.apk must declare none.
+          if "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$STANDARD" \
+              | grep -E "BIND_ACCESSIBILITY_SERVICE|BIND_NOTIFICATION_LISTENER_SERVICE|android.permission.(RECEIVE|READ)_SMS"; then
+            echo "Spendly.apk declares a permission that Play Protect blocks for sideloaded apps" >&2; exit 1
+          fi
 
       - name: Remove keystore
         if: always() && env.HAS_SIGNING == 'true'
@@ -117,12 +126,14 @@ jobs:
         id: signed
         run: echo "signed=$HAS_SIGNING" >> "$GITHUB_OUTPUT"
 
-      - name: Upload release APK
+      - name: Upload release APKs
         if: env.HAS_SIGNING == 'true'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: spendly-release-apk
-          path: app/build/outputs/apk/release/app-release.apk
+          path: |
+            app/build/outputs/apk/standard/release/app-standard-release.apk
+            app/build/outputs/apk/volumeShortcut/release/app-volumeShortcut-release.apk
           retention-days: 30
 
   release:
@@ -153,14 +164,20 @@ jobs:
             echo "Tag $GITHUB_REF_NAME does not match versionName $VERSION" >&2; exit 1
           fi
 
-      - name: Create release with APK and checksum
+      - name: Create release with APKs and checksums
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd dist
-          test -f app-release.apk || { echo "No signed APK was produced; refusing to publish a release." >&2; exit 1; }
-          # Fixed asset name so README's releases/latest/download/Spendly.apk always works.
-          mv app-release.apk Spendly.apk
-          sha256sum Spendly.apk > SHA256SUMS.txt
-          gh release create "$GITHUB_REF_NAME" Spendly.apk SHA256SUMS.txt \
+          # upload-artifact keeps paths below the common ancestor (app/build/outputs/apk/).
+          STANDARD=standard/release/app-standard-release.apk
+          VOLUME=volumeShortcut/release/app-volumeShortcut-release.apk
+          for APK in "$STANDARD" "$VOLUME"; do
+            test -f "$APK" || { echo "No signed $APK was produced; refusing to publish a release." >&2; exit 1; }
+          done
+          # Fixed asset names so README's releases/latest/download/Spendly.apk always works.
+          mv "$STANDARD" Spendly.apk
+          mv "$VOLUME" Spendly-volume-shortcut.apk
+          sha256sum Spendly.apk Spendly-volume-shortcut.apk > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" Spendly.apk Spendly-volume-shortcut.apk SHA256SUMS.txt \
             --repo "$GITHUB_REPOSITORY" --title "Spendly ${GITHUB_REF_NAME}" --generate-notes --verify-tag

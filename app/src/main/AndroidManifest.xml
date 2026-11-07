@@ -41,6 +41,21 @@
             </intent-filter>
         </activity>
 
+        <!--
+          Quick Add as a pop-up over the current app, for the volume-button shortcut, tile, widgets
+          and launcher shortcuts. Own task, not in recents, transparent; finishes when Quick Add
+          closes. Exported so launchers can start it from app shortcuts; it honours only the two
+          fixed Quick Add actions and ignores extras and data, like MainActivity.
+        -->
+        <activity
+            android:name=".QuickAddActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.Spendly.QuickAdd" />
+
         <!-- Only the system (holding BIND_QUICK_SETTINGS_TILE) can bind to this service. -->
         <service
             android:name=".QuickAddTileService"
@@ -76,21 +91,88 @@
         </activity>
 
         <!--
-          Optional volume-button shortcut. Inactive until the user switches it on in Android's
-          Accessibility settings; only the system (BIND_ACCESSIBILITY_SERVICE) can bind to it.
-          Capabilities are limited to key-event filtering (see res/xml/button_shortcut_service.xml).
+          No accessibility service, notification listener or SMS permission here: Google Play
+          Protect blocks apps that declare any of them from being installed from a browser,
+          messaging app or file manager in some markets. The optional volume-button shortcut (an
+          accessibility service) is declared only in the volumeShortcut build:
+          src/volumeShortcut/AndroidManifest.xml. ManifestPolicyTest guards this.
         -->
-        <service
-            android:name=".shortcut.ButtonShortcutService"
+
+        <!--
+          Home-screen widgets. Providers must be exported to receive APPWIDGET_UPDATE, which only the
+          system can send. They show data from the encrypted database; nothing is stored for them.
+        -->
+        <receiver
+            android:name=".widget.QuickAddWidget"
             android:exported="true"
-            android:label="@string/button_service_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            android:label="@string/widget_quick_add_label">
             <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/button_shortcut_service" />
-        </service>
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_quick_add_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.MonthlyWidget"
+            android:exported="true"
+            android:label="@string/widget_monthly_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_monthly_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.AccountsWidget"
+            android:exported="true"
+            android:label="@string/widget_accounts_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_accounts_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.TrendWidget"
+            android:exported="true"
+            android:label="@string/widget_trend_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_trend_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.StatsWidget"
+            android:exported="true"
+            android:label="@string/widget_stats_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_stats_info" />
+        </receiver>
+
+        <!-- Midnight refresh for widgets (inexact alarm, no permission). Only Spendly sends it. -->
+        <receiver android:name=".widget.WidgetRefreshReceiver" android:exported="false" />
+
+        <!--
+          Account widget setup. Exported because the launcher opens it; it only accepts ids of
+          Spendly's own Account widgets and only chooses which account that widget shows.
+        -->
+        <activity
+            android:name=".widget.AccountWidgetConfigActivity"
+            android:exported="true"
+            android:excludeFromRecents="true"
+            android:theme="@style/Theme.Spendly">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>

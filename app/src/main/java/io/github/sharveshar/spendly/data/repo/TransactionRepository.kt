@@ -164,6 +164,36 @@ class TransactionRepository(
         DeleteResult.Deleted
     }
 
+    /**
+     * Deletes like [delete] and also returns the removed row, so the UI can offer Undo. The row
+     * is held only in memory; nothing extra is stored.
+     */
+    suspend fun deleteForUndo(id: Long): Pair<DeleteResult, TransactionEntity?> = db.withTransaction {
+        val existing = dao.getById(id) ?: return@withTransaction DeleteResult.NotFound to null
+        val refunds = dao.countRefundsOf(id)
+        if (refunds > 0) return@withTransaction DeleteResult.HasRefunds(refunds) to null
+        dao.deleteById(id)
+        DeleteResult.Deleted to existing
+    }
+
+    /**
+     * Undo for [deleteForUndo]: puts the exact row back (same id, amount, accounts and dates), so
+     * every balance and total returns to what it was. Returns false if it can't be restored,
+     * e.g. an account it used was deleted in the meantime.
+     */
+    suspend fun restoreDeleted(row: TransactionEntity): Boolean = try {
+        db.withTransaction {
+            if (dao.getById(row.id) != null) return@withTransaction false
+            db.maintenanceDao().insertTransactions(listOf(row))
+            true
+        }
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e
+    } catch (e: RuntimeException) {
+        // A constraint failed (SQLite or SQLCipher exception): leave the data as it is.
+        false
+    }
+
     private fun affectsBudgets(type: TransactionType) = type == TransactionType.EXPENSE || type == TransactionType.REFUND
 
     /** Budget status keyed by category id (null = overall) for budgets that exist. */

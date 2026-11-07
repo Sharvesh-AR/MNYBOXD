@@ -5,6 +5,7 @@ import io.github.sharveshar.spendly.core.money.Money
 import io.github.sharveshar.spendly.data.db.AccountEntity
 import io.github.sharveshar.spendly.data.db.BudgetEntity
 import io.github.sharveshar.spendly.data.db.CategoryEntity
+import io.github.sharveshar.spendly.data.db.SeedData
 import io.github.sharveshar.spendly.data.db.SpendlyDatabase
 import io.github.sharveshar.spendly.data.db.TransactionEntity
 import io.github.sharveshar.spendly.data.db.TransactionRow
@@ -87,6 +88,24 @@ class BackupRepository(
             m.insertTransactions(txs.filter { it.refundOfId == null })
             m.insertTransactions(txs.filter { it.refundOfId != null })
             m.insertBudgets(s.budgets.map { BudgetEntity(it.id, it.categoryId, it.amountPaise, it.updatedAt) })
+        }
+    }
+
+    /**
+     * Deletes every transaction, budget, account and category and puts back the defaults a new
+     * install starts with (default categories and the Cash wallet), all in one database
+     * transaction: if anything fails, nothing is deleted. Part of Settings → Reset Spendly.
+     */
+    suspend fun resetToDefaults(now: Long) {
+        db.withTransaction {
+            val m = db.maintenanceDao()
+            m.deleteRefunds()
+            m.deleteTransactions()
+            m.deleteBudgets()
+            m.deleteLinkedAccounts()
+            m.deleteAccounts()
+            m.deleteCategories()
+            SeedData.insertDefaults(db.openHelper.writableDatabase, now)
         }
     }
 

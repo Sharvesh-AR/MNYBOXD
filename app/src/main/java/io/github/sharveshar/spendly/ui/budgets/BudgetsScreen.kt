@@ -70,6 +70,7 @@ import io.github.sharveshar.spendly.ui.components.budgetColor
 import io.github.sharveshar.spendly.ui.components.originAnchor
 import io.github.sharveshar.spendly.ui.components.rememberOriginAnchor
 import io.github.sharveshar.spendly.ui.theme.AmountStyle
+import io.github.sharveshar.spendly.ui.components.staggered
 import io.github.sharveshar.spendly.ui.theme.Space
 import io.github.sharveshar.spendly.ui.theme.Spendly
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -164,6 +165,7 @@ fun BudgetsScreen(viewModel: BudgetsViewModel, contentPadding: PaddingValues) {
     val addAnchor = rememberOriginAnchor()
     fun open(t: EditTarget) { target = t; shown = true }
 
+    val stagger = io.github.sharveshar.spendly.ui.components.rememberStagger()
     LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
         item(key = "title") {
             Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.xs, top = Space.lg), verticalAlignment = Alignment.CenterVertically) {
@@ -174,7 +176,7 @@ fun BudgetsScreen(viewModel: BudgetsViewModel, contentPadding: PaddingValues) {
         item(key = "overall") {
             val o = state.overall
             SectionCard(
-                Modifier.padding(horizontal = Space.gutter, vertical = Space.md).originAnchor(overallAnchor),
+                Modifier.staggered(stagger, 0).padding(horizontal = Space.gutter, vertical = Space.md).originAnchor(overallAnchor),
                 padding = Space.xl,
                 onClick = { open(EditTarget(null, state.overallId, o?.limitPaise, false, overallAnchor)) },
             ) {
@@ -230,7 +232,6 @@ fun BudgetsScreen(viewModel: BudgetsViewModel, contentPadding: PaddingValues) {
                 }
             }
         }
-        item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
     }
 
     target?.let { t ->

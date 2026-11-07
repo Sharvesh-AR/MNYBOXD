@@ -20,14 +20,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -44,14 +51,84 @@ import io.github.sharveshar.spendly.ui.theme.AmountStyle
 import io.github.sharveshar.spendly.ui.theme.Space
 import io.github.sharveshar.spendly.ui.theme.Spendly
 
-@Composable
-private fun rememberEntrance(key: Any?): Animatable<Float, *> {
-    val anim = remember { Animatable(0f) }
-    LaunchedEffect(key) {
-        anim.snapTo(0f)
-        anim.animateTo(1f, tween(650, easing = FastOutSlowInEasing))
+/**
+ * Chart values on screen. The first time, they grow from zero; after that, a data change morphs
+ * each bar or slice from what is currently drawn to its new value (matched by [keys]), so a chart
+ * never collapses and regrows when one transaction changes. With reduced motion values jump.
+ * Read [at] while drawing, so only the canvas redraws during the animation.
+ */
+@Stable
+private class ChartMorph(keys: List<Any>, targets: List<Float>) {
+    var keys by mutableStateOf(keys)
+    var from by mutableStateOf(List(targets.size) { 0f })
+    var to by mutableStateOf(targets)
+    val t = Animatable(0f)
+
+    fun at(i: Int): Float {
+        val a = from.getOrElse(i) { 0f }
+        return a + (to.getOrElse(i) { 0f } - a) * t.value
     }
-    return anim
+
+    /** Starts the next morph from exactly what is drawn now, even mid-animation. */
+    fun retarget(newKeys: List<Any>, newTargets: List<Float>) {
+        val drawn = keys.indices.associate { keys[it] to at(it) }
+        from = newKeys.map { drawn[it] ?: 0f }
+        keys = newKeys
+        to = newTargets
+    }
+}
+
+@Composable
+private fun rememberChartMorph(targets: List<Float>, keys: List<Any> = targets.indices.toList()): ChartMorph {
+    val reduced = LocalReducedMotion.current
+    val morph = remember { ChartMorph(keys, targets) }
+    LaunchedEffect(keys, targets) {
+        if (morph.keys != keys || morph.to != targets) {
+            morph.retarget(keys, targets)
+            morph.t.snapTo(0f)
+        }
+        if (reduced) morph.t.snapTo(1f) else morph.t.animateTo(1f, tween(650, easing = FastOutSlowInEasing))
+    }
+    return morph
+}
+
+private fun List<Long>.fractionsOf(max: Long): List<Float> = map { if (it <= 0) 0f else it.toFloat() / max }
+
+/**
+ * A quiet line for recent spending: a smooth curve with a soft fade beneath it and a dot for the
+ * latest day, no axes or labels (the description carries the figures). Glides to new values like
+ * the other charts.
+ */
+@Composable
+fun Sparkline(values: List<Long>, description: String, modifier: Modifier = Modifier, height: Dp = 56.dp) {
+    val max = (values.maxOrNull() ?: 0L).coerceAtLeast(1L)
+    val morph = rememberChartMorph(values.fractionsOf(max))
+    val line = Spendly.colors.accent
+    Canvas(modifier.fillMaxWidth().height(height).clearAndSetSemantics { contentDescription = description }) {
+        val n = values.size
+        if (n < 2) return@Canvas
+        val pad = 4.dp.toPx()
+        val usable = size.height - pad * 2
+        val points = (0 until n).map { i -> Offset(size.width * i / (n - 1), pad + usable * (1f - morph.at(i).coerceIn(0f, 1f))) }
+        val curve = Path().apply {
+            moveTo(points[0].x, points[0].y)
+            for (i in 1 until n) {
+                val a = points[i - 1]
+                val b = points[i]
+                val mid = (a.x + b.x) / 2f
+                cubicTo(mid, a.y, mid, b.y, b.x, b.y)
+            }
+        }
+        val under = Path().apply {
+            addPath(curve)
+            lineTo(size.width, size.height)
+            lineTo(0f, size.height)
+            close()
+        }
+        drawPath(under, Brush.verticalGradient(listOf(line.copy(alpha = 0.10f), Color.Transparent)))
+        drawPath(curve, Brush.horizontalGradient(listOf(line.copy(alpha = 0.12f), line.copy(alpha = 0.85f))), style = Stroke(width = 1.75.dp.toPx(), cap = StrokeCap.Round))
+        drawCircle(line, 3.dp.toPx(), points.last())
+    }
 }
 
 /**
@@ -72,17 +149,18 @@ fun BarChart(
     val accent = MaterialTheme.colorScheme.primary
     val muted = MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)
     val track = Spendly.colors.chartMuted.copy(alpha = 0.45f)
-    val progress = rememberEntrance(values)
+    val morph = rememberChartMorph(values.fractionsOf(max))
     Column(modifier.clearAndSetSemantics { contentDescription = description }) {
         Canvas(Modifier.fillMaxWidth().height(height)) {
             val n = values.size.coerceAtLeast(1)
             val slot = size.width / n
             val barW = (slot * 0.56f).coerceAtMost(28.dp.toPx())
             val radius = CornerRadius(barW / 2.4f)
-            values.forEachIndexed { i, v ->
+            values.indices.forEach { i ->
                 val x = slot * i + (slot - barW) / 2
                 drawRoundRect(track, Offset(x, 0f), Size(barW, size.height), radius)
-                val h = if (v <= 0) 0f else (v.toFloat() / max * size.height * progress.value).coerceAtLeast(3.dp.toPx())
+                val f = morph.at(i)
+                val h = if (f <= 0.0001f) 0f else (f * size.height).coerceAtLeast(3.dp.toPx())
                 if (h > 0f) drawRoundRect(if (i == highlight) accent else muted, Offset(x, size.height - h), Size(barW, h), radius)
             }
         }
@@ -92,7 +170,7 @@ fun BarChart(
             content = {
                 labels.forEachIndexed { i, l ->
                     Text(
-                        if (i == highlight || (i % showLabelEvery == 0 && (highlight == null || kotlin.math.abs(i - highlight) > 1))) l else "",
+                        if (i == highlight || (i % showLabelEvery == 0 && (highlight == null || showLabelEvery == 1 || kotlin.math.abs(i - highlight) > 1))) l else "",
                         style = MaterialTheme.typography.labelSmall,
                         color = if (i == highlight) MaterialTheme.colorScheme.onSurface else Spendly.colors.muted,
                         maxLines = 1,
@@ -127,23 +205,24 @@ fun PairedBarChart(
     val max = (spent + income).maxOrNull()?.coerceAtLeast(1L) ?: 1L
     val spendColor = Spendly.colors.negative.copy(alpha = 0.8f)
     val incomeColor = MaterialTheme.colorScheme.primary
-    val progress = rememberEntrance(spent to income)
+    val n = labels.size
+    val morph = rememberChartMorph(List(n) { spent.getOrElse(it) { 0L } }.fractionsOf(max) + List(n) { income.getOrElse(it) { 0L } }.fractionsOf(max))
+    val axis = Spendly.colors.hairline
     Column(modifier.clearAndSetSemantics { contentDescription = description }) {
         Canvas(Modifier.fillMaxWidth().height(height)) {
-            val n = labels.size.coerceAtLeast(1)
-            val slot = size.width / n
+            val slot = size.width / n.coerceAtLeast(1)
             val barW = (slot * 0.26f).coerceAtMost(16.dp.toPx())
             val gap = 3.dp.toPx()
             val radius = CornerRadius(barW / 2.4f)
             for (i in 0 until n) {
                 val cx = slot * i + slot / 2
-                listOf(spent.getOrElse(i) { 0 } to spendColor, income.getOrElse(i) { 0 } to incomeColor).forEachIndexed { j, (v, c) ->
-                    val h = if (v <= 0) 0f else (v.toFloat() / max * size.height * progress.value).coerceAtLeast(3.dp.toPx())
+                listOf(morph.at(i) to spendColor, morph.at(n + i) to incomeColor).forEachIndexed { j, (f, c) ->
+                    val h = if (f <= 0.0001f) 0f else (f * size.height).coerceAtLeast(3.dp.toPx())
                     val x = if (j == 0) cx - gap / 2 - barW else cx + gap / 2
                     if (h > 0) drawRoundRect(c, Offset(x, size.height - h), Size(barW, h), radius)
                 }
             }
-            drawLine(Color.Gray.copy(alpha = 0.2f), Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
+            drawLine(axis, Offset(0f, size.height), Offset(size.width, size.height), 1.dp.toPx())
         }
         Spacer(Modifier.height(Space.sm))
         Row(Modifier.fillMaxWidth()) {
@@ -174,7 +253,7 @@ data class Slice(val label: String, val value: Long, val color: Color)
 @Composable
 fun DonutChart(slices: List<Slice>, modifier: Modifier = Modifier, size: Dp = 148.dp, centerLabel: String, centerValue: String) {
     val total = slices.sumOf { it.value }.coerceAtLeast(1L)
-    val progress = rememberEntrance(slices.map { it.value })
+    val morph = rememberChartMorph(slices.map { it.value.toFloat() / total }, slices.map { it.label })
     val track = Spendly.colors.chartMuted.copy(alpha = 0.5f)
     Box(modifier.size(size).clearAndSetSemantics {
         contentDescription = "$centerLabel $centerValue. " + slices.joinToString { "${it.label} ${it.value * 100 / total} percent" }
@@ -186,8 +265,8 @@ fun DonutChart(slices: List<Slice>, modifier: Modifier = Modifier, size: Dp = 14
             drawArc(track, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
             var start = -90f
             val gapDeg = if (slices.size > 1) 3f else 0f
-            slices.forEach { s ->
-                val sweep = 360f * s.value / total * progress.value
+            slices.forEachIndexed { i, s ->
+                val sweep = 360f * morph.at(i)
                 if (sweep > gapDeg) {
                     drawArc(s.color, start + gapDeg / 2, sweep - gapDeg, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Butt))
                 }
@@ -212,7 +291,7 @@ fun ProportionRow(
     leading: (@Composable () -> Unit)? = null,
 ) {
     val fraction = if (total <= 0) 0f else (value.toFloat() / total).coerceIn(0f, 1f)
-    val progress = rememberEntrance(value)
+    val morph = rememberChartMorph(listOf(fraction))
     Row(modifier.fillMaxWidth().padding(vertical = Space.sm), verticalAlignment = Alignment.CenterVertically) {
         if (leading != null) {
             leading()
@@ -228,7 +307,15 @@ fun ProportionRow(
             }
             Spacer(Modifier.height(Space.xs + Space.xxs))
             Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(Spendly.colors.chartMuted.copy(alpha = 0.6f))) {
-                Box(Modifier.fillMaxWidth(fraction * progress.value).height(4.dp).clip(CircleShape).background(color))
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .drawBehind {
+                            val w = size.width * morph.at(0).coerceIn(0f, 1f)
+                            if (w > 0f) drawRoundRect(color, size = Size(w, size.height), cornerRadius = CornerRadius(size.height / 2))
+                        },
+                )
             }
         }
     }

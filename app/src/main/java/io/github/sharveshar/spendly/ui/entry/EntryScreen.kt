@@ -8,7 +8,37 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.ui.semantics.heading
+import io.github.sharveshar.spendly.ui.common.CategoryUi
+import io.github.sharveshar.spendly.ui.components.TypingAmount
+import io.github.sharveshar.spendly.ui.components.momentFor
+import io.github.sharveshar.spendly.ui.components.MomentSpec
+import io.github.sharveshar.spendly.ui.components.MoneyMoment
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import io.github.sharveshar.spendly.core.time.SelectableRange
+import io.github.sharveshar.spendly.ui.common.AccountUi
+import io.github.sharveshar.spendly.ui.components.AnimatedMoney
+import io.github.sharveshar.spendly.ui.components.CalendarPicker
+import io.github.sharveshar.spendly.ui.components.PrimaryButton
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -57,6 +87,7 @@ import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Button
@@ -156,6 +187,8 @@ fun EntryScreen(
 
     var popup by rememberSaveable { mutableStateOf(Popup.NONE) }
     var saved by remember { mutableStateOf<EntryEvent.Saved?>(null) }
+    var moment by remember { mutableStateOf<MomentSpec?>(null) }
+    var momentDone by remember { mutableStateOf(false) }
     val micAnchor = rememberOriginAnchor()
     val categoryAnchor = rememberOriginAnchor()
     val dateAnchor = rememberOriginAnchor()
@@ -205,160 +238,93 @@ fun EntryScreen(
         }
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.events.collect { e ->
-            if (e is EntryEvent.Saved) {
-                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                saved = e
-                delay(if (e.alert != null) 1_700 else 700)
-                onClose()
-            }
-        }
-    }
-
     LaunchedEffect(state.errors) {
         if (state.errors.isNotEmpty()) haptics.performHapticFeedback(HapticFeedbackType.Reject)
     }
 
-    Box(modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-        Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
-            // --- Top bar ---------------------------------------------------------------------
-            Row(Modifier.fillMaxWidth().padding(horizontal = Space.xs, vertical = Space.xs), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.Rounded.Close, contentDescription = "Close without saving") }
-                Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
-                    when {
-                        state.isRefund -> Text("Record refund", style = MaterialTheme.typography.titleMedium)
-                        else -> SegmentedSelector(
-                            options = listOf(TransactionType.EXPENSE, TransactionType.INCOME, TransactionType.TRANSFER),
-                            selected = f.type,
-                            label = { it.label },
-                            onSelect = viewModel::setType,
-                            modifier = Modifier.width(276.dp),
-                        )
-                    }
-                }
-                IconButton(onClick = ::startVoiceFlow, modifier = Modifier.originAnchor(micAnchor)) {
-                    Icon(Icons.Rounded.Mic, contentDescription = "Enter by voice", tint = MaterialTheme.colorScheme.primary)
-                }
-            }
-
-            if (state.loadFailed) {
-                Text(
-                    "This transaction is no longer available.",
-                    modifier = Modifier.fillMaxWidth().padding(Space.gutter),
-                    color = Spendly.colors.negative,
-                )
-            }
-
-            // --- Amount ------------------------------------------------------------------------
-            AmountDisplay(f.amount.display(), f.amount.text.isEmpty(), f.type)
-            val errorText = state.errors.firstOrNull()?.message
-            AnimatedVisibility(errorText != null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                Text(
-                    errorText.orEmpty(),
-                    color = Spendly.colors.negative,
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = Space.gutter).semantics { liveRegion = LiveRegionMode.Polite },
-                )
-            }
-            state.refundLimitPaise?.let { limit ->
-                Text(
-                    "Up to ${Money.format(limit)} can be refunded" + (state.refundOfLabel?.let { " · $it" } ?: ""),
-                    color = Spendly.colors.muted,
-                    style = MaterialTheme.typography.bodySmall,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
-                )
-            }
-
-            // --- Details -----------------------------------------------------------------------
-            Column(
-                Modifier.weight(1f).fillMaxWidth().verticalScroll(rememberScrollState()).padding(top = Space.md),
-                verticalArrangement = Arrangement.spacedBy(Space.md),
-            ) {
-                AnimatedVisibility(f.voiceTranscript != null) {
-                    VoiceBanner(f.voiceTranscript.orEmpty(), f.voiceIssues.map { it.message }, onDismiss = viewModel::dismissVoiceBanner)
-                }
-
-                if (f.type != TransactionType.TRANSFER) {
-                    FieldLabel("Category")
-                    LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                        item(key = "all") {
-                            SelectChip(
-                                selected = false,
-                                label = "All",
-                                icon = Icons.Rounded.Apps,
-                                onClick = { popup = Popup.CATEGORIES },
-                                modifier = Modifier.originAnchor(categoryAnchor),
-                            )
-                        }
-                        items(state.categories, key = { it.id }) { c ->
-                            val color = Spendly.colors.categoryPalette[c.colorIndex.coerceIn(0, 9)]
-                            SelectChip(
-                                selected = c.id == f.categoryId,
-                                label = c.name,
-                                icon = CategoryIcons.forKey(c.iconKey),
-                                accent = color,
-                                onClick = { viewModel.setCategory(c.id) },
-                                modifier = Modifier.animateItem(),
-                            )
-                        }
-                    }
-                }
-
-                FieldLabel(
-                    when (f.type) {
-                        TransactionType.EXPENSE -> "Paid with"
-                        TransactionType.INCOME -> "Received in"
-                        TransactionType.TRANSFER -> "From"
-                        TransactionType.REFUND -> "Refunded to"
-                    },
-                )
-                AccountChips(state, selectedId = f.accountId, exclude = null, onSelect = viewModel::setAccount, onAddAccount = onAddAccount)
-
-                if (f.type == TransactionType.TRANSFER) {
-                    FieldLabel("To")
-                    AccountChips(state, selectedId = f.toAccountId, exclude = f.accountId, onSelect = viewModel::setToAccount, onAddAccount = onAddAccount, allowDebitCards = false)
-                    Text(
-                        "Transfers move money between your accounts. Paying a credit card bill is a transfer to the card.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Spendly.colors.muted,
-                        modifier = Modifier.padding(horizontal = Space.gutter),
+    QuickAddSheet(onDismissed = onClose) { sheet ->
+        LaunchedEffect(Unit) {
+            viewModel.events.collect { e ->
+                if (e is EntryEvent.Saved) {
+                    // The transaction is committed. Everything below is presentation only, worded
+                    // from what was saved.
+                    val now = state
+                    saved = e
+                    moment = momentFor(
+                        type = e.type,
+                        wasEdit = e.wasEdit,
+                        amountPaise = e.amountPaise,
+                        category = now.categories.firstOrNull { it.id == now.form.categoryId }?.name?.takeIf { e.type != TransactionType.TRANSFER },
+                        account = now.accounts.firstOrNull { it.id == e.accountId }?.name,
+                        toAccount = now.accounts.firstOrNull { it.id == e.toAccountId }?.name,
                     )
                 }
+            }
+        }
+        LaunchedEffect(momentDone) {
+            if (momentDone) {
+                // Budget alerts get time to be read; otherwise straight back.
+                delay(if (saved?.alert != null) 1_200 else 120)
+                sheet.close()
+            }
+        }
 
-                if (state.channels.size > 1) {
-                    FieldLabel("Method")
-                    LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                        items(state.channels, key = { it.name }) { ch ->
-                            SelectChip(selected = f.channel == ch, label = ch.label, onClick = { viewModel.setChannel(ch) })
-                        }
+        BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+            val compact = maxHeight < 640.dp
+            Column(Modifier.fillMaxSize().navigationBarsPadding().imePadding()) {
+                // --- Header ----------------------------------------------------------------------
+                Row(Modifier.fillMaxWidth().padding(horizontal = Space.xs), verticalAlignment = Alignment.CenterVertically) {
+                    IconButton(onClick = sheet::close) { Icon(Icons.Rounded.Close, contentDescription = "Close without saving") }
+                    val title = when {
+                        state.isRefund -> "Record refund"
+                        state.isEdit -> "Edit transaction"
+                        f.type == TransactionType.INCOME -> "New income"
+                        f.type == TransactionType.TRANSFER -> "New transfer"
+                        else -> "New expense"
                     }
-                }
-                AnimatedVisibility(state.showProviders, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                    Column(verticalArrangement = Arrangement.spacedBy(Space.md)) {
-                        FieldLabel("App (optional)")
-                        LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                            items(PaymentProvider.entries, key = { it.name }) { p ->
-                                SelectChip(selected = f.provider == p, label = p.label, onClick = { viewModel.setProvider(p) })
-                            }
-                        }
-                    }
-                }
-
-                Row(Modifier.padding(horizontal = Space.gutter), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = f.note,
-                        onValueChange = viewModel::setNote,
-                        placeholder = { Text("Add a note") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                    AnimatedContent(
+                        title,
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(16.dp),
+                        transitionSpec = { fadeIn(tween(160)).togetherWith(fadeOut(tween(100))) },
+                        contentAlignment = Alignment.Center,
+                        label = "entryTitle",
+                    ) { t ->
+                        Text(t, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().semantics { heading() })
+                    }
+                    IconButton(onClick = ::startVoiceFlow, modifier = Modifier.originAnchor(micAnchor)) {
+                        Icon(Icons.Rounded.Mic, contentDescription = "Enter by voice", tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+                if (!state.isRefund && !state.isEdit) {
+                    SegmentedSelector(
+                        options = listOf(TransactionType.EXPENSE, TransactionType.INCOME, TransactionType.TRANSFER),
+                        selected = f.type,
+                        label = { it.label },
+                        onSelect = viewModel::setType,
+                        modifier = Modifier
+                            .align(Alignment.CenterHorizontally)
+                            .padding(horizontal = Space.gutter, vertical = Space.xs)
+                            .widthIn(max = 360.dp)
+                            .fillMaxWidth(),
                     )
                 }
-                Row(Modifier.padding(horizontal = Space.gutter)) {
+
+                if (state.loadFailed) {
+                    Text(
+                        "This transaction is no longer available.",
+                        modifier = Modifier.fillMaxWidth().padding(Space.gutter),
+                        color = Spendly.colors.negative,
+                    )
+                }
+
+                // --- Amount + when ---------------------------------------------------------------
+                AmountDisplay(
+                    f.amount.display(),
+                    f.amount.text.isEmpty(),
+                    f.type,
+                    compact = compact,
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
                     val zone = ZoneId.systemDefault()
                     val dt = Instant.ofEpochMilli(f.occurredAt).atZone(zone)
                     val label = Formats.relativeDay(dt.toLocalDate(), LocalDate.now(zone)) + " · " + dt.format(Formats.time)
@@ -370,35 +336,174 @@ fun EntryScreen(
                         modifier = Modifier.originAnchor(dateAnchor),
                     )
                 }
+                val errorText = state.errors.firstOrNull()?.message
+                AnimatedVisibility(errorText != null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                    Text(
+                        errorText.orEmpty(),
+                        color = Spendly.colors.negative,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = Space.xs).semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
+                state.refundLimitPaise?.let { limit ->
+                    Text(
+                        "Up to ${Money.format(limit)} can be refunded" + (state.refundOfLabel?.let { " · $it" } ?: ""),
+                        color = Spendly.colors.muted,
+                        style = MaterialTheme.typography.bodySmall,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = Space.xs),
+                    )
+                }
+
+                // --- Details (scrolls; the keypad and Save stay put) ---------------------------------
+                val detailsScroll = rememberScrollState()
+                var moreDetails by rememberSaveable { mutableStateOf(false) }
+                val moreState = remember { MutableTransitionState(moreDetails) }
+                moreState.targetState = moreDetails
+                // Once the fields have opened, scroll them into view.
+                val opened = moreState.isIdle && moreState.currentState
+                LaunchedEffect(opened) { if (opened) detailsScroll.animateScrollTo(detailsScroll.maxValue) }
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .fadingEdges()
+                        .verticalScroll(detailsScroll)
+                        .padding(top = Space.sm),
+                    verticalArrangement = Arrangement.spacedBy(Space.sm + Space.xxs),
+                ) {
+                    AnimatedVisibility(f.voiceTranscript != null) {
+                        VoiceBanner(f.voiceTranscript.orEmpty(), f.voiceIssues.map { it.message }, onDismiss = viewModel::dismissVoiceBanner)
+                    }
+
+                    if (f.type != TransactionType.TRANSFER) {
+                        FieldLabel("Category")
+                        CategoryTiles(
+                            categories = state.categories,
+                            selectedId = f.categoryId,
+                            onSelect = viewModel::setCategory,
+                            onMore = { popup = Popup.CATEGORIES },
+                            moreAnchor = categoryAnchor,
+                        )
+                    }
+
+                    FieldLabel(
+                        when (f.type) {
+                            TransactionType.EXPENSE -> "Paid with"
+                            TransactionType.INCOME -> "Received in"
+                            TransactionType.TRANSFER -> "From"
+                            TransactionType.REFUND -> "Refunded to"
+                        },
+                    )
+                    AccountChips(state, selectedId = f.accountId, exclude = null, onSelect = viewModel::setAccount, onAddAccount = onAddAccount)
+
+                    if (f.type == TransactionType.TRANSFER) {
+                        FieldLabel("To")
+                        AccountChips(state, selectedId = f.toAccountId, exclude = f.accountId, onSelect = viewModel::setToAccount, onAddAccount = onAddAccount, allowDebitCards = false)
+                        Text(
+                            "Transfers move money between your accounts. Paying a credit card bill is a transfer to the card.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Spendly.colors.muted,
+                            modifier = Modifier.padding(horizontal = Space.gutter),
+                        )
+                    }
+
+                    // Optional details stay folded away; the row shows what's set, so nothing is hidden.
+                    // The payment method has a sensible default (the one used last), so it lives here too.
+                    val methods = state.channels.size > 1
+                    MoreDetailsRow(
+                        expanded = moreDetails,
+                        summary = listOfNotNull(
+                            f.channel?.takeIf { methods }?.label,
+                            f.provider?.takeIf { state.showProviders }?.label,
+                            f.note.takeIf { it.isNotBlank() }?.let { "“${it.trim()}”" },
+                        ).joinToString(" · "),
+                        hint = if (methods || state.showProviders) "Method, app or note" else "Add a note",
+                        onToggle = { moreDetails = !moreDetails },
+                    )
+                    AnimatedVisibility(moreState, enter = fadeIn(tween(180)) + expandVertically(spring(dampingRatio = 0.9f, stiffness = 500f)), exit = fadeOut(tween(120)) + shrinkVertically(spring(dampingRatio = 1f, stiffness = 600f))) {
+                        Column(verticalArrangement = Arrangement.spacedBy(Space.sm + Space.xxs)) {
+                            if (methods) {
+                                FieldLabel("Method")
+                                LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                                    items(state.channels, key = { it.name }) { ch ->
+                                        SelectChip(selected = f.channel == ch, label = ch.label, onClick = { viewModel.setChannel(ch) })
+                                    }
+                                }
+                            }
+                            AnimatedVisibility(state.showProviders, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(Space.sm + Space.xxs)) {
+                                    FieldLabel("App (optional)")
+                                    LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                                        items(PaymentProvider.entries, key = { it.name }) { p ->
+                                            SelectChip(selected = f.provider == p, label = p.label, onClick = { viewModel.setProvider(p) })
+                                        }
+                                    }
+                                }
+                            }
+                            OutlinedTextField(
+                                value = f.note,
+                                onValueChange = viewModel::setNote,
+                                placeholder = { Text("Add a note") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
+                                shape = RoundedCornerShape(16.dp),
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(Space.xs))
+                }
+
+                // --- Add + keypad: the main action sits right above the keys ---------------------------
+                PrimaryButton(
+                    text = when {
+                        state.isEdit -> "Save changes"
+                        state.isRefund -> "Save refund"
+                        f.type == TransactionType.TRANSFER -> "Add transfer"
+                        f.type == TransactionType.INCOME -> "Add income"
+                        else -> "Add expense"
+                    },
+                    onClick = viewModel::save,
+                    enabled = saved == null && !state.loadFailed,
+                    loading = state.saving,
+                    trailingIcon = Icons.AutoMirrored.Rounded.ArrowForward,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = Space.gutter, vertical = Space.sm),
+                )
+                AnimatedVisibility(!WindowInsets.isImeVisible, enter = fadeIn(tween(160)), exit = fadeOut(tween(90))) {
+                    Keypad(
+                        keyHeight = if (compact) 44.dp else 52.dp,
+                        onDigit = viewModel::digit,
+                        onDecimal = viewModel::decimal,
+                        onBackspace = viewModel::backspace,
+                        onClear = viewModel::clearAmount,
+                    )
+                }
                 Spacer(Modifier.height(Space.sm))
             }
 
-            // --- Keypad + Save -----------------------------------------------------------------
-            AnimatedVisibility(!WindowInsets.isImeVisible, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                Keypad(onDigit = viewModel::digit, onDecimal = viewModel::decimal, onBackspace = viewModel::backspace, onClear = viewModel::clearAmount)
+            // After a save: the money moment, over the whole sheet, then back to where you were.
+            androidx.compose.animation.AnimatedVisibility(visible = moment != null, enter = fadeIn(tween(160)), exit = fadeOut()) {
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        // Nothing behind it can be tapped while it plays.
+                        .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {},
+                ) {
+                    moment?.let { m ->
+                        MoneyMoment(
+                            spec = m,
+                            onCheck = { haptics.performHapticFeedback(HapticFeedbackType.Confirm) },
+                            onDone = { momentDone = true },
+                            alert = saved?.alert?.let { a -> { BudgetAlertText(a) } },
+                        )
+                    }
+                }
             }
-            Button(
-                onClick = viewModel::save,
-                enabled = !state.saving && saved == null && !state.loadFailed,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = Space.md).height(56.dp),
-                shape = RoundedCornerShape(18.dp),
-            ) {
-                Text(
-                    when {
-                        state.isEdit -> "Save changes"
-                        f.type == TransactionType.TRANSFER -> "Save transfer"
-                        state.isRefund -> "Save refund"
-                        f.type == TransactionType.INCOME -> "Save income"
-                        else -> "Save expense"
-                    },
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
-        }
-
-        // --- Success overlay -------------------------------------------------------------------
-        AnimatedVisibility(saved != null, enter = fadeIn(), exit = fadeOut()) {
-            SuccessOverlay(saved)
         }
     }
 
@@ -485,36 +590,149 @@ fun EntryScreen(
     )
 }
 
+/** Softly fades scrolled content out at the top and bottom edges instead of cutting it off. */
+private fun Modifier.fadingEdges(): Modifier = graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        val edge = 18.dp.toPx()
+        drawRect(Brush.verticalGradient(listOf(Color.Transparent, Color.Black), startY = 0f, endY = edge), blendMode = BlendMode.DstIn, size = Size(size.width, edge))
+        drawRect(
+            Brush.verticalGradient(listOf(Color.Black, Color.Transparent), startY = size.height - edge, endY = size.height),
+            topLeft = Offset(0f, size.height - edge),
+            size = Size(size.width, edge),
+            blendMode = BlendMode.DstIn,
+        )
+    }
+
+/** The fold for optional details. Shows what's filled in while folded. */
+@Composable
+private fun MoreDetailsRow(expanded: Boolean, summary: String, hint: String, onToggle: () -> Unit) {
+    val turn by animateFloatAsState(if (expanded) 180f else 0f, spring(dampingRatio = 0.8f, stiffness = 500f), label = "moreChevron")
+    Row(
+        Modifier
+            .padding(horizontal = Space.gutter - Space.xs)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(role = Role.Button, onClickLabel = if (expanded) "Hide details" else "Show details", onClick = onToggle)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = Space.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("More details", style = MaterialTheme.typography.labelLarge, color = Spendly.colors.muted)
+        Spacer(Modifier.width(Space.md))
+        Text(
+            summary.ifEmpty { hint },
+            style = MaterialTheme.typography.bodySmall,
+            color = if (summary.isEmpty()) Spendly.colors.muted.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(Space.xs))
+        Icon(
+            Icons.Rounded.ExpandMore,
+            contentDescription = null,
+            tint = Spendly.colors.muted,
+            modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = turn },
+        )
+    }
+}
+
+/**
+ * Categories as tiles, most used first, with "More" at the end for the full list. A category
+ * picked from "More" joins the front of the row so the choice is always visible.
+ */
+@Composable
+private fun CategoryTiles(categories: List<CategoryUi>, selectedId: Long?, onSelect: (Long) -> Unit, onMore: () -> Unit, moreAnchor: OriginAnchor) {
+    // Wait for the categories, or the row would stay anchored to "More" as they arrive before it.
+    if (categories.isEmpty()) {
+        Spacer(Modifier.height(68.dp))
+        return
+    }
+    val shown = remember(categories, selectedId) {
+        val top = categories.take(7)
+        val picked = categories.firstOrNull { it.id == selectedId }
+        if (picked != null && picked !in top) listOf(picked) + top.take(6) else top
+    }
+    LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+        items(shown, key = { it.id }) { c ->
+            CategoryTile(CategoryIcons.forKey(c.iconKey), c.name, selected = c.id == selectedId, onClick = { onSelect(c.id) }, modifier = Modifier.animateItem())
+        }
+        item(key = "more") {
+            CategoryTile(Icons.Rounded.MoreHoriz, "More", selected = false, onClick = onMore, modifier = Modifier.originAnchor(moreAnchor), isMore = true)
+        }
+    }
+}
+
+@Composable
+private fun CategoryTile(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, isMore: Boolean = false) {
+    val c = Spendly.colors
+    val haptics = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
+    val bg by animateColorAsState(if (selected) c.selectedFill else c.card, spring(stiffness = 700f), label = "tileBg")
+    val fg by animateColorAsState(if (selected) c.onSelectedFill else MaterialTheme.colorScheme.onSurface, spring(stiffness = 700f), label = "tileFg")
+    val shape = RoundedCornerShape(18.dp)
+    // Themes without inverted selection mark the chosen tile with an accent outline as well.
+    val outline = selected && !c.palette.invertSelection
+    Column(
+        modifier
+            .pressScale(interaction, 0.94f)
+            .size(width = 74.dp, height = 68.dp)
+            .clip(shape)
+            .background(bg)
+            .then(if (outline) Modifier.border(1.5.dp, c.accent, shape) else Modifier)
+            .then(
+                if (isMore) {
+                    Modifier.clickable(interactionSource = interaction, indication = ripple(), role = Role.Button, onClickLabel = "Show all categories", onClick = onClick)
+                } else {
+                    Modifier.selectable(selected = selected, interactionSource = interaction, indication = ripple(), role = Role.RadioButton) {
+                        if (!selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        onClick()
+                    }
+                },
+            )
+            .padding(horizontal = Space.xs, vertical = Space.sm),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(22.dp))
+        Spacer(Modifier.height(Space.xs))
+        Text(label, style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
 @Composable
 private fun FieldLabel(text: String) {
     Text(text, style = MaterialTheme.typography.labelMedium, color = Spendly.colors.muted, modifier = Modifier.padding(horizontal = Space.gutter))
 }
 
 @Composable
-private fun AmountDisplay(text: String, empty: Boolean, type: TransactionType) {
+private fun AmountDisplay(text: String, empty: Boolean, type: TransactionType, compact: Boolean, modifier: Modifier = Modifier) {
     val color = when {
         empty -> Spendly.colors.muted.copy(alpha = 0.6f)
         type == TransactionType.INCOME || type == TransactionType.REFUND -> Spendly.colors.positive
         else -> MaterialTheme.colorScheme.onSurface
     }
-    Box(Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = Space.md), contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxWidth().padding(horizontal = Space.gutter, vertical = if (compact) Space.xs else Space.sm), contentAlignment = Alignment.Center) {
         // Shrink the type for long amounts so nothing is ever clipped.
+        val base = if (compact) 44 else 52
         val size = when {
-            text.length <= 7 -> 52.sp
-            text.length <= 10 -> 44.sp
-            else -> 36.sp
+            text.length <= 7 -> base.sp
+            text.length <= 10 -> (base - 8).sp
+            else -> (base - 16).sp
         }
         val style = MaterialTheme.typography.displayLarge.copy(fontSize = size, lineHeight = size * 1.15f)
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.semantics(mergeDescendants = true) {
+            modifier = modifier.semantics(mergeDescendants = true) {
                 contentDescription = if (empty) "Amount, empty" else "Amount ${spokenAmount(Money.parseRupees(text) ?: 0)}"
                 liveRegion = LiveRegionMode.Polite
             },
         ) {
-            Text("₹", style = style.copy(fontSize = size * 0.6f), color = Spendly.colors.muted)
+            Text("₹", style = style.copy(fontSize = size * 0.7f), color = if (empty) Spendly.colors.muted else color)
             Spacer(Modifier.width(Space.xs))
-            RollingText(text, style, color)
+            TypingAmount(text, empty = empty, style = style, color = color, caretColor = MaterialTheme.colorScheme.primary)
         }
     }
 }
@@ -544,18 +762,58 @@ private fun AccountChips(
     }
     LazyRow(state = listState, contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
         items(accounts, key = { it.id }) { a ->
-            SelectChip(selected = a.id == selectedId, label = a.name, icon = a.type.icon(), onClick = { onSelect(a.id) })
+            AccountChip(a, selected = a.id == selectedId, onClick = { onSelect(a.id) })
         }
         item(key = "add") { SelectChip(selected = false, label = "New account", onClick = onAddAccount) }
     }
 }
 
+/** An account to pay from or into, with its live balance, which counts to its new value. */
+@Composable
+private fun AccountChip(a: AccountUi, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val c = Spendly.colors
+    val haptics = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
+    val bg by animateColorAsState(if (selected) c.accent.copy(alpha = 0.14f) else c.card, spring(stiffness = 700f), label = "accBg")
+    val border by animateColorAsState(if (selected) c.accent.copy(alpha = 0.75f) else c.hairline, spring(stiffness = 700f), label = "accBorder")
+    val isCard = a.type == AccountType.CREDIT_CARD
+    Row(
+        modifier
+            .pressScale(interaction)
+            .heightIn(min = 52.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(bg)
+            .border(BorderStroke(if (selected) 1.5.dp else 1.dp, border), RoundedCornerShape(16.dp))
+            .selectable(selected = selected, interactionSource = interaction, indication = ripple(), role = Role.RadioButton) {
+                if (!selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                onClick()
+            }
+            .padding(start = Space.md, end = Space.lg, top = Space.sm, bottom = Space.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(a.type.icon(), contentDescription = null, tint = if (selected) c.accent else c.muted, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(Space.sm))
+        Column {
+            Text(a.name, style = MaterialTheme.typography.labelLarge, color = if (selected) MaterialTheme.colorScheme.onSurface else c.muted, maxLines = 1)
+            AnimatedMoney(
+                paise = if (isCard) a.outstandingPaise else a.balancePaise,
+                style = MaterialTheme.typography.labelSmall,
+                color = when {
+                    isCard && a.outstandingPaise > 0 -> c.negative
+                    !isCard && a.balancePaise < 0 -> c.negative
+                    else -> c.muted
+                },
+                format = { if (isCard) Money.format(it) + " owed" else Money.format(it) },
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun Keypad(onDigit: (Char) -> Unit, onDecimal: () -> Unit, onBackspace: () -> Unit, onClear: () -> Unit) {
+private fun Keypad(keyHeight: androidx.compose.ui.unit.Dp, onDigit: (Char) -> Unit, onDecimal: () -> Unit, onBackspace: () -> Unit, onClear: () -> Unit) {
     val haptics = LocalHapticFeedback.current
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(horizontal = Space.md)) {
-        val keyHeight = if (maxWidth < 340.dp) 50.dp else 58.dp
+    Box(Modifier.fillMaxWidth().padding(horizontal = Space.md, vertical = Space.xs)) {
         Column(verticalArrangement = Arrangement.spacedBy(Space.xs)) {
             listOf(listOf('1', '2', '3'), listOf('4', '5', '6'), listOf('7', '8', '9'), listOf('.', '0', '<')).forEach { row ->
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.xs)) {
@@ -567,6 +825,7 @@ private fun Keypad(onDigit: (Char) -> Unit, onDecimal: () -> Unit, onBackspace: 
                                 .height(keyHeight)
                                 .pressScale(interaction, 0.92f)
                                 .clip(RoundedCornerShape(16.dp))
+                                .background(Spendly.colors.card)
                                 .combinedClickable(
                                     interactionSource = interaction,
                                     indication = ripple(),
@@ -621,32 +880,16 @@ private fun VoiceBanner(transcript: String, issues: List<String>, onDismiss: () 
     }
 }
 
+/** "Food & Dining budget is 85% used", shown with the confirmation when a save crosses a limit. */
 @Composable
-private fun SuccessOverlay(saved: EntryEvent.Saved?) {
-    val reduced = LocalReducedMotion.current
-    val scale by animateFloatAsState(if (saved != null) 1f else 0.6f, spring(dampingRatio = 0.5f, stiffness = Spring.StiffnessMediumLow), label = "ok")
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background.copy(alpha = 0.94f)), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(Space.xxl).semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Assertive }) {
-            Icon(
-                Icons.Rounded.CheckCircle,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(72.dp).scale(if (reduced) 1f else scale),
-            )
-            Spacer(Modifier.height(Space.md))
-            Text(if (saved?.wasEdit == true) "Updated" else "Saved", style = MaterialTheme.typography.titleLarge)
-            saved?.alert?.let { a ->
-                Spacer(Modifier.height(Space.sm))
-                val who = a.categoryName?.let { "$it budget" } ?: "Monthly budget"
-                Text(
-                    if (a.level == BudgetLevel.EXCEEDED) "$who is used up (${a.percentUsed}%)" else "$who is ${a.percentUsed}% used",
-                    color = if (a.level == BudgetLevel.EXCEEDED) Spendly.colors.negative else Spendly.colors.warning,
-                    style = MaterialTheme.typography.bodyMedium,
-                    textAlign = TextAlign.Center,
-                )
-            }
-        }
-    }
+private fun BudgetAlertText(a: io.github.sharveshar.spendly.data.repo.BudgetAlert) {
+    val who = a.categoryName?.let { "$it budget" } ?: "Monthly budget"
+    Text(
+        if (a.level == BudgetLevel.EXCEEDED) "$who is used up (${a.percentUsed}%)" else "$who is ${a.percentUsed}% used",
+        color = if (a.level == BudgetLevel.EXCEEDED) Spendly.colors.negative else Spendly.colors.warning,
+        style = MaterialTheme.typography.bodyMedium,
+        textAlign = TextAlign.Center,
+    )
 }
 
 @Composable
@@ -686,34 +929,36 @@ private fun DateTimePopup(visible: Boolean, anchor: OriginAnchor, initial: Long,
     val zone = ZoneId.systemDefault()
     val initialLocal = Instant.ofEpochMilli(initial).atZone(zone)
     OriginPopup(visible = visible, anchor = anchor, onDismissRequest = onDismiss) {
-        val todayUtc = LocalDate.now(zone).atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli()
-        val dateState = rememberDatePickerState(
-            initialSelectedDateMillis = initialLocal.toLocalDate().atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
-            selectableDates = object : SelectableDates {
-                override fun isSelectableDate(utcTimeMillis: Long) = utcTimeMillis <= todayUtc && utcTimeMillis >= 946_684_800_000L
-                override fun isSelectableYear(year: Int) = year in 2000..LocalDate.now(zone).year
-            },
-        )
+        val today = LocalDate.now(zone)
+        var date by remember(visible) { mutableStateOf(initialLocal.toLocalDate()) }
         val timeState = rememberTimePickerState(initialHour = initialLocal.hour, initialMinute = initialLocal.minute)
-        var showTime by remember { mutableStateOf(false) }
-        Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = Space.md)) {
-            AnimatedContent(showTime, transitionSpec = { (fadeIn() + scaleIn(initialScale = 0.96f)).togetherWith(fadeOut()) }, label = "dt") { time ->
+        var showTime by remember(visible) { mutableStateOf(false) }
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = Space.lg)) {
+            Text(
+                if (showTime) "Time" else date.format(Formats.dayHeaderYear),
+                style = MaterialTheme.typography.titleLarge,
+                modifier = Modifier.padding(horizontal = Space.xl),
+            )
+            Spacer(Modifier.height(Space.sm))
+            AnimatedContent(showTime, transitionSpec = { (fadeIn(tween(200)) + scaleIn(initialScale = 0.97f)).togetherWith(fadeOut(tween(120))) }, label = "dt") { time ->
                 if (time) {
-                    Column(Modifier.padding(Space.xl)) {
-                        Text("Time", style = MaterialTheme.typography.titleLarge)
-                        Spacer(Modifier.height(Space.lg))
-                        TimeInput(timeState)
-                    }
+                    Box(Modifier.fillMaxWidth().padding(Space.xl), contentAlignment = Alignment.Center) { TimeInput(timeState) }
                 } else {
-                    DatePicker(dateState, showModeToggle = true, title = null, headline = null, modifier = Modifier.padding(top = Space.sm))
+                    CalendarPicker(
+                        selected = date,
+                        today = today,
+                        range = SelectableRange.forTransactions(today),
+                        onSelect = { date = it },
+                    )
                 }
             }
-            Row(Modifier.fillMaxWidth().padding(horizontal = Space.lg), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                TextButton(onClick = { showTime = !showTime }) { Text(if (showTime) "Date" else "Time: " + LocalDateTime.of(2000, 1, 1, timeState.hour, timeState.minute).format(Formats.time)) }
+            Row(Modifier.fillMaxWidth().padding(horizontal = Space.lg), verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { showTime = !showTime }) {
+                    Text(if (showTime) "Pick date" else "Time · " + LocalDateTime.of(2000, 1, 1, timeState.hour, timeState.minute).format(Formats.time))
+                }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onDismiss) { Text("Cancel") }
                 TextButton(onClick = {
-                    val date = dateState.selectedDateMillis?.let { Instant.ofEpochMilli(it).atZone(ZoneOffset.UTC).toLocalDate() } ?: initialLocal.toLocalDate()
                     val millis = date.atTime(timeState.hour, timeState.minute).atZone(zone).toInstant().toEpochMilli()
                     onConfirm(millis.coerceAtMost(System.currentTimeMillis()))
                 }) { Text("Done") }
@@ -727,15 +972,23 @@ private fun VoicePopup(visible: Boolean, anchor: OriginAnchor, state: VoiceState
     OriginPopup(visible = visible, anchor = anchor, onDismissRequest = onCancel) {
         Column(Modifier.fillMaxWidth().padding(Space.xxl), horizontalAlignment = Alignment.CenterHorizontally) {
             val listening = state as? VoiceState.Listening
-            val level by animateFloatAsState(listening?.level ?: 0f, spring(stiffness = Spring.StiffnessMediumLow), label = "rms")
-            Box(Modifier.size(132.dp), contentAlignment = Alignment.Center) {
-                Box(
-                    Modifier
-                        .size(132.dp)
-                        .graphicsLayer { val s = 0.62f + 0.38f * level; scaleX = s; scaleY = s }
-                        .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                )
+            // Three rings follow the voice level, each a little more lazily than the one inside it,
+            // so speech ripples outwards. They move only with sound: silence means stillness.
+            val raw = listening?.level ?: 0f
+            val inner by animateFloatAsState(raw, spring(dampingRatio = 0.7f, stiffness = Spring.StiffnessMedium), label = "rms1")
+            val middle by animateFloatAsState(raw, spring(dampingRatio = 0.8f, stiffness = Spring.StiffnessMediumLow), label = "rms2")
+            val outer by animateFloatAsState(raw, spring(dampingRatio = 0.9f, stiffness = Spring.StiffnessLow), label = "rms3")
+            val ring = MaterialTheme.colorScheme.primary
+            Box(Modifier.size(150.dp), contentAlignment = Alignment.Center) {
+                listOf(Triple(150.dp, outer, 0.07f), Triple(120.dp, middle, 0.11f), Triple(96.dp, inner, 0.16f)).forEach { (size, level, alpha) ->
+                    Box(
+                        Modifier
+                            .size(size)
+                            .graphicsLayer { val s = 0.6f + 0.4f * level; scaleX = s; scaleY = s }
+                            .clip(CircleShape)
+                            .background(ring.copy(alpha = alpha)),
+                    )
+                }
                 Box(
                     Modifier.size(72.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary.copy(alpha = if (listening != null) 1f else 0.3f)),
                     contentAlignment = Alignment.Center,

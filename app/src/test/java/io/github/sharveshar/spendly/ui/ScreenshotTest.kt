@@ -13,6 +13,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -64,10 +65,19 @@ class ScreenshotTest {
             DebugTools.loadSampleData(container.repositories)
         }
         var dark by mutableStateOf(true)
+        // Robolectric captures only the activity window, and Quick Add is a dialog window, so the
+        // real Quick Add screen is shown in the activity window for its screenshot.
+        var showSheet by mutableStateOf(false)
+        val entry = io.github.sharveshar.spendly.ui.entry.EntryViewModel(container.repositories, container.preferences, androidx.lifecycle.SavedStateHandle())
         compose.setContent {
             // Robolectric can't run framework ripple animations to completion; disable them for clean captures.
             CompositionLocalProvider(LocalAppContainer provides container, LocalRippleConfiguration provides null) {
-                SpendlyTheme(dark = dark) { SpendlyApp(container, emptyFlow()) }
+                SpendlyTheme(dark = dark) {
+                    androidx.compose.foundation.layout.Box {
+                        SpendlyApp(container, emptyFlow())
+                        if (showSheet) io.github.sharveshar.spendly.ui.entry.EntryScreen(entry, startVoice = false, onClose = { showSheet = false }, onAddAccount = {})
+                    }
+                }
             }
         }
         fun shot(name: String) {
@@ -75,8 +85,7 @@ class ScreenshotTest {
             // Framework ripples run on the Android looper, not the Compose clock; let them finish.
             ShadowLooper.idleMainLooper(2, TimeUnit.SECONDS)
             compose.waitForIdle()
-            val bmp = compose.onRoot().captureToImage().asAndroidBitmap()
-            File(out, "$name.png").outputStream().use { bmp.compress(Bitmap.CompressFormat.PNG, 100, it) }
+            compose.captureScreen().savePng(File(out, "$name.png"))
         }
         shot("01-home")
         compose.onNodeWithText("Activity").performClick(); shot("02-activity")
@@ -84,13 +93,16 @@ class ScreenshotTest {
         compose.onNodeWithText("Budgets").performClick(); shot("04-budgets")
         compose.onNodeWithText("Insights").performClick(); shot("05-insights")
         compose.onNodeWithText("Home").performClick()
-        compose.onNodeWithContentDescription("Quick add").performClick()
+        compose.mainClock.advanceTimeBy(1_000)
+        showSheet = true
+        compose.mainClock.advanceTimeBy(1_500)
         compose.onNodeWithContentDescription("4").performClick()
         compose.onNodeWithContentDescription("5").performClick()
         compose.onNodeWithContentDescription("0").performClick()
-        compose.onAllNodesWithText("Food & Dining").onFirst().performClick()
+        // The sheet's chip, not the dashboard's "Where it went" row under it.
+        compose.onAllNodesWithText("Food & Dining").onLast().performClick()
         shot("06-quick-add")
-        compose.onNodeWithContentDescription("Close without saving").performClick()
+        showSheet = false
         compose.mainClock.advanceTimeBy(1_000)
         compose.onNodeWithText("Activity").performClick()
         compose.mainClock.advanceTimeBy(1_000)

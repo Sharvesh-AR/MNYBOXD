@@ -1,5 +1,6 @@
 package io.github.sharveshar.spendly.ui.accounts
 
+import io.github.sharveshar.spendly.ui.common.netWorth
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -55,6 +56,8 @@ import io.github.sharveshar.spendly.ui.common.AccountUi
 import io.github.sharveshar.spendly.ui.components.BudgetBar
 import io.github.sharveshar.spendly.ui.components.EmptyState
 import io.github.sharveshar.spendly.ui.components.IconBadge
+import io.github.sharveshar.spendly.ui.components.AnimatedMoney
+import io.github.sharveshar.spendly.ui.components.LabeledAmount
 import io.github.sharveshar.spendly.ui.components.LabeledValue
 import io.github.sharveshar.spendly.ui.components.MoneyText
 import io.github.sharveshar.spendly.ui.components.SectionHeader
@@ -62,6 +65,7 @@ import io.github.sharveshar.spendly.ui.components.icon
 import io.github.sharveshar.spendly.ui.components.sharedContainer
 import io.github.sharveshar.spendly.ui.components.spokenAmount
 import io.github.sharveshar.spendly.ui.theme.AmountStyle
+import io.github.sharveshar.spendly.ui.components.staggered
 import io.github.sharveshar.spendly.ui.theme.Space
 import io.github.sharveshar.spendly.ui.theme.Spendly
 import io.github.sharveshar.spendly.ui.transactions.TransactionsViewModel
@@ -78,7 +82,7 @@ data class AccountsUiState(val loading: Boolean = true, val accounts: List<Accou
     val cards get() = active.filter { it.type == AccountType.CREDIT_CARD || it.type == AccountType.DEBIT_CARD }
     val archived get() = accounts.filter { it.archived }
     /** Debit cards share their bank's balance, so they are excluded to avoid double counting. */
-    val netWorth get() = BalanceCalculator.netWorth(accounts.filter { it.type.holdsBalance }.map { it.balancePaise })
+    val netWorth get() = accounts.netWorth()
 }
 
 class AccountsViewModel(repos: Repositories) : ViewModel() {
@@ -91,6 +95,7 @@ class AccountsViewModel(repos: Repositories) : ViewModel() {
 fun AccountsScreen(viewModel: AccountsViewModel, contentPadding: PaddingValues, onOpen: (Long) -> Unit, onAdd: () -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var showArchived by rememberSaveable { mutableStateOf(false) }
+    val stagger = io.github.sharveshar.spendly.ui.components.rememberStagger()
     LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
         item(key = "title") {
             Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.sm, top = Space.lg), verticalAlignment = Alignment.CenterVertically) {
@@ -100,13 +105,13 @@ fun AccountsScreen(viewModel: AccountsViewModel, contentPadding: PaddingValues, 
         }
         item(key = "networth") {
             val nw = state.netWorth
-            Column(Modifier.padding(horizontal = Space.gutter, vertical = Space.lg)) {
+            Column(Modifier.staggered(stagger, 0).padding(horizontal = Space.gutter, vertical = Space.lg)) {
                 Text("Net worth", style = MaterialTheme.typography.labelLarge, color = Spendly.colors.muted)
                 MoneyText(nw.netPaise, MaterialTheme.typography.displayMedium, color = if (nw.netPaise < 0) Spendly.colors.negative else MaterialTheme.colorScheme.onSurface)
                 Spacer(Modifier.height(Space.md))
                 Row(horizontalArrangement = Arrangement.spacedBy(Space.xxl)) {
-                    LabeledValue("Assets", Money.format(nw.assetsPaise))
-                    LabeledValue("Owed on cards", Money.format(nw.liabilitiesPaise), valueColor = if (nw.liabilitiesPaise > 0) Spendly.colors.negative else MaterialTheme.colorScheme.onSurface)
+                    LabeledAmount("Assets", nw.assetsPaise)
+                    LabeledAmount("Owed on cards", nw.liabilitiesPaise, valueColor = if (nw.liabilitiesPaise > 0) Spendly.colors.negative else MaterialTheme.colorScheme.onSurface)
                 }
             }
         }
@@ -140,7 +145,6 @@ fun AccountsScreen(viewModel: AccountsViewModel, contentPadding: PaddingValues, 
             }
             if (showArchived) items(state.archived, key = { it.id }) { a -> AccountRow(a, onClick = { onOpen(a.id) }, modifier = Modifier.animateItem()) }
         }
-        item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
     }
 }
 
@@ -172,7 +176,7 @@ private fun AccountRow(a: AccountUi, onClick: () -> Unit, modifier: Modifier = M
         }
         if (value.isNotEmpty()) {
             Column(horizontalAlignment = Alignment.End) {
-                Text(value, style = AmountStyle.row, color = valueColor, maxLines = 1)
+                AnimatedMoney(if (a.type == AccountType.CREDIT_CARD) a.outstandingPaise else a.balancePaise, AmountStyle.row, color = valueColor)
                 if (label.isNotEmpty()) Text(label, style = MaterialTheme.typography.labelSmall, color = Spendly.colors.muted)
             }
         }
@@ -189,6 +193,7 @@ fun AccountDetailScreen(
     onAddHere: () -> Unit,
     onOpenTransaction: (Long) -> Unit,
 ) {
+    val deleteWithUndo = io.github.sharveshar.spendly.ui.transactions.rememberDeleteWithUndo()
     val accounts by accountsViewModel.state.collectAsStateWithLifecycle()
     val tx by transactionsViewModel.state.collectAsStateWithLifecycle()
     val a = accounts.accounts.firstOrNull { it.id == accountId }
@@ -264,7 +269,7 @@ fun AccountDetailScreen(
                 }
                 Spacer(Modifier.height(Space.md))
             }
-            transactionGroups(tx, onOpenTransaction)
+            transactionGroups(tx, onOpenTransaction, onDelete = deleteWithUndo)
             if (!tx.loading && tx.groups.isEmpty()) {
                 item(key = "empty") { EmptyState(Icons.AutoMirrored.Rounded.ReceiptLong, "No transactions", "Transactions for this account will show up here.") }
             }

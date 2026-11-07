@@ -6,7 +6,8 @@ import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
-import io.github.sharveshar.spendly.MainActivity
+import androidx.annotation.VisibleForTesting
+import io.github.sharveshar.spendly.QuickAddActivity
 import io.github.sharveshar.spendly.appContainer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
@@ -29,6 +30,10 @@ class ButtonShortcutService : AccessibilityService() {
     private var scope: CoroutineScope? = null
     private var handler: ButtonShortcutHandler? = null
 
+    /** Switches the service off; replaced in tests, which can't observe [disableSelf]. */
+    @VisibleForTesting
+    internal var switchOff: () -> Unit = { disableSelf() }
+
     override fun onServiceConnected() {
         super.onServiceConnected()
         val audio = getSystemService(AudioManager::class.java) ?: return
@@ -39,12 +44,24 @@ class ButtonShortcutService : AccessibilityService() {
         )
         handler = shortcutHandler
         scope?.cancel()
+        val prefs = appContainer.preferences
         scope = MainScope().apply {
             launch {
-                appContainer.preferences.preferences
-                    .map { it.buttonShortcut }
+                // Being connected means the user just switched the service on in Android's
+                // settings. Record that first, so the watcher below never sees a stale "off".
+                prefs.setShortcutActive(true)
+                launch {
+                    prefs.preferences
+                        .map { it.buttonShortcut }
+                        .distinctUntilChanged()
+                        .collect { shortcutHandler.shortcut = it }
+                }
+                // "Turn off" in Spendly's settings: switch this service off entirely. Android then
+                // unbinds it, so it stops receiving key events until it's switched on again.
+                prefs.preferences
+                    .map { it.buttonShortcutActive }
                     .distinctUntilChanged()
-                    .collect { shortcutHandler.shortcut = it }
+                    .collect { active -> if (!active) switchOff() }
             }
         }
     }
@@ -58,8 +75,10 @@ class ButtonShortcutService : AccessibilityService() {
     private fun openQuickAdd() {
         try {
             // Allowed from the background: Android exempts bound accessibility services from
-            // background activity-start limits. MainActivity asks to unlock if the phone is locked.
-            startActivity(MainActivity.launchIntent(this, MainActivity.ACTION_QUICK_ADD))
+            // background activity-start limits. Quick Add opens as a pop-up over the current app
+            // (QuickAddActivity), asks to unlock first if the phone is locked, and ignores a second
+            // launch while it's already showing.
+            startActivity(QuickAddActivity.launchIntent(this))
         } catch (_: RuntimeException) {
             // The system refused the launch; there is nothing useful to do from a key filter.
         }

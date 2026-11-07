@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  No periodic updates (updatePeriodMillis = 0): widgets refresh when Spendly's data changes and
+  once after midnight. The picker preview shows illustrative figures; placed widgets show only
+  real data.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:minWidth="250dp"
+    android:minHeight="40dp"
+    android:minResizeWidth="110dp"
+    android:minResizeHeight="40dp"
+    android:maxResizeWidth="560dp"
+    android:maxResizeHeight="420dp"
+    android:targetCellWidth="4"
+    android:targetCellHeight="1"
+    android:resizeMode="horizontal|vertical"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/widget_message"
+    android:previewLayout="@layout/widget_quick_add_preview"
+    android:previewImage="@mipmap/ic_launcher"
+    android:description="@string/widget_quick_add_description"
+    android:widgetCategory="home_screen"
+    tools:ignore="UnusedAttribute" />

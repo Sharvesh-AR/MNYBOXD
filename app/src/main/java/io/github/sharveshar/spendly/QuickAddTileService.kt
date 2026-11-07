@@ -28,7 +28,7 @@ class QuickAddTileService : TileService() {
 
     @SuppressLint("StartActivityAndCollapseDeprecated")
     private fun openQuickAdd() {
-        val intent = MainActivity.launchIntent(this, MainActivity.ACTION_QUICK_ADD)
+        val intent = QuickAddActivity.launchIntent(this)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
             val pending = PendingIntent.getActivity(this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
             startActivityAndCollapse(pending)

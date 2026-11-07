@@ -49,6 +49,27 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.sharveshar.spendly.core.money.Money
+import io.github.sharveshar.spendly.data.db.TransactionRow
+import io.github.sharveshar.spendly.data.repo.DeleteResult
+import io.github.sharveshar.spendly.appContainer
+import io.github.sharveshar.spendly.ui.components.LocalAppMessages
+import io.github.sharveshar.spendly.ui.navigation.LocalAppContainer
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.icons.rounded.Delete
+import androidx.compose.material3.Icon
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
+import androidx.compose.material3.rememberSwipeToDismissBoxState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import kotlinx.coroutines.launch
 import io.github.sharveshar.spendly.domain.model.TransactionType
 import io.github.sharveshar.spendly.ui.components.EmptyState
 import io.github.sharveshar.spendly.ui.components.OriginAnchor
@@ -67,6 +88,7 @@ private enum class FilterPopup { NONE, TYPE, CATEGORY, ACCOUNT, DATE }
 @Composable
 fun TransactionsScreen(viewModel: TransactionsViewModel, contentPadding: PaddingValues, onOpen: (Long) -> Unit) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val deleteWithUndo = rememberDeleteWithUndo()
     val query by viewModel.query.collectAsStateWithLifecycle()
     var popup by rememberSaveable { mutableStateOf(FilterPopup.NONE) }
     val typeAnchor = rememberOriginAnchor()
@@ -121,7 +143,7 @@ fun TransactionsScreen(viewModel: TransactionsViewModel, contentPadding: Padding
                 }
             }
         }
-        transactionGroups(state, onOpen)
+        transactionGroups(state, onOpen, onDelete = deleteWithUndo)
         if (!state.loading && state.groups.isEmpty()) {
             item(key = "empty") {
                 if (state.hasFilters) {
@@ -141,7 +163,6 @@ fun TransactionsScreen(viewModel: TransactionsViewModel, contentPadding: Padding
                 )
             }
         }
-        item(key = "bottom") { Spacer(Modifier.height(96.dp)) }
     }
 
     OptionPopup(popup == FilterPopup.TYPE, typeAnchor, "Type", { popup = FilterPopup.NONE },
@@ -160,7 +181,12 @@ fun TransactionsScreen(viewModel: TransactionsViewModel, contentPadding: Padding
 
 /** Grouped transaction rows with sticky day headers. Shared by history and account detail. */
 @OptIn(ExperimentalFoundationApi::class)
-fun LazyListScope.transactionGroups(state: TransactionsUiState, onOpen: (Long) -> Unit) {
+fun LazyListScope.transactionGroups(
+    state: TransactionsUiState,
+    onOpen: (Long) -> Unit,
+    /** Swipe left to delete (with Undo). Returns false if the row couldn't be deleted. */
+    onDelete: (suspend (TransactionRow) -> Boolean)? = null,
+) {
     state.groups.forEach { g ->
         stickyHeader(key = "h" + g.date) {
             Row(
@@ -174,8 +200,79 @@ fun LazyListScope.transactionGroups(state: TransactionsUiState, onOpen: (Long) -
             }
         }
         items(g.rows, key = { it.id }) { row ->
-            TransactionListItem(row, onClick = { onOpen(row.id) }, modifier = Modifier.animateItem().sharedContainer("tx-${row.id}", 0))
+            if (onDelete == null) {
+                TransactionListItem(row, onClick = { onOpen(row.id) }, modifier = Modifier.animateItem().sharedContainer("tx-${row.id}", 0))
+            } else {
+                SwipeToDelete(onDelete = { onDelete(row) }, modifier = Modifier.animateItem()) {
+                    TransactionListItem(row, onClick = { onOpen(row.id) }, modifier = Modifier.sharedContainer("tx-${row.id}", 0))
+                }
+            }
         }
+    }
+}
+
+/**
+ * Deletes a transaction and shows "Transaction deleted · Undo". Returns false (with a message)
+ * for an expense that still has refunds linked to it.
+ */
+@Composable
+fun rememberDeleteWithUndo(): suspend (TransactionRow) -> Boolean {
+    val messages = LocalAppMessages.current
+    val container = LocalAppContainer.current ?: LocalContext.current.appContainer
+    return remember(messages, container) {
+        { row ->
+            val repos = container.repositories
+            val (result, removed) = repos.transactions.deleteForUndo(row.id)
+            if (result is DeleteResult.HasRefunds) {
+                messages?.show("Delete the refunds linked to this expense first.")
+                false
+            } else {
+                if (removed != null) {
+                    messages?.showUndo("Transaction deleted") {
+                        if (!repos.transactions.restoreDeleted(removed)) messages.show("Couldn't restore it. An account it used no longer exists.")
+                    }
+                }
+                true
+            }
+        }
+    }
+}
+
+/**
+ * Swipe a row left to delete it. The red area grows with the swipe; if deleting isn't possible
+ * (an expense with refunds) the row springs back. Screen readers get a "Delete" action instead.
+ */
+@Composable
+private fun SwipeToDelete(onDelete: suspend () -> Boolean, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    val state = rememberSwipeToDismissBoxState()
+    val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
+    SwipeToDismissBox(
+        state = state,
+        modifier = modifier.semantics {
+            customActions = listOf(CustomAccessibilityAction("Delete") { scope.launch { onDelete() }; true })
+        },
+        enableDismissFromStartToEnd = false,
+        onDismiss = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                scope.launch { if (!onDelete()) state.reset() }
+            }
+        },
+        backgroundContent = {
+            val active = state.dismissDirection == SwipeToDismissBoxValue.EndToStart
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(if (active) Spendly.colors.negative.copy(alpha = 0.16f) else Color.Transparent)
+                    .padding(end = Space.xxl),
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                if (active) Icon(Icons.Rounded.Delete, contentDescription = null, tint = Spendly.colors.negative)
+            }
+        },
+    ) {
+        Box(Modifier.background(MaterialTheme.colorScheme.background)) { content() }
     }
 }
 

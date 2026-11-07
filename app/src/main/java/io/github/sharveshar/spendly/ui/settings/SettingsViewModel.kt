@@ -12,9 +12,14 @@ import io.github.sharveshar.spendly.data.backup.BackupPasswordException
 import io.github.sharveshar.spendly.data.backup.BackupValidation
 import io.github.sharveshar.spendly.data.backup.BackupValidator
 import io.github.sharveshar.spendly.data.prefs.PreferencesRepository
-import io.github.sharveshar.spendly.data.prefs.ThemeMode
 import io.github.sharveshar.spendly.data.prefs.UserPreferences
+import io.github.sharveshar.spendly.domain.insights.Insights
+import io.github.sharveshar.spendly.domain.insights.TimeRange
 import io.github.sharveshar.spendly.shortcut.ShortcutButton
+import io.github.sharveshar.spendly.ui.theme.ThemeChoice
+import kotlinx.coroutines.flow.map
+import java.time.YearMonth
+import java.time.ZoneId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -50,10 +55,19 @@ class SettingsViewModel(
 
     val debugToolsAvailable = DebugTools.available
 
-    fun setTheme(mode: ThemeMode) = viewModelScope.launch { prefs.setThemeMode(mode) }
+    fun setTheme(choice: ThemeChoice) = viewModelScope.launch { prefs.setTheme(choice) }
+
+    /** This month's real spending, shown in the theme previews (null until loaded). */
+    val monthSpend: StateFlow<Long?> = repos.transactions
+        .observeSpendRecords(TimeRange.month(YearMonth.now(), ZoneId.systemDefault()))
+        .map { Insights.netSpend(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
     fun setSecureScreen(enabled: Boolean) = viewModelScope.launch { prefs.setSecureScreen(enabled) }
     fun setShortcutButton(button: ShortcutButton) = viewModelScope.launch { prefs.setShortcutButton(button) }
     fun setShortcutPresses(presses: Int) = viewModelScope.launch { prefs.setShortcutPresses(presses) }
+
+    /** Asks the running volume-button service to switch itself off (it calls disableSelf). */
+    fun turnOffButtonShortcut() = viewModelScope.launch { prefs.setShortcutActive(false) }
     fun consumeMessage() { _message.value = null }
 
     fun holdPassword(password: CharArray) {

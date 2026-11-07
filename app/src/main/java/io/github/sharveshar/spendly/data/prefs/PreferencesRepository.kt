@@ -10,20 +10,25 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import io.github.sharveshar.spendly.AppTab
 import io.github.sharveshar.spendly.domain.model.PaymentChannel
 import io.github.sharveshar.spendly.domain.model.PaymentProvider
 import io.github.sharveshar.spendly.shortcut.ButtonShortcut
 import io.github.sharveshar.spendly.shortcut.ShortcutButton
+import io.github.sharveshar.spendly.ui.navigation.DockOrder
+import io.github.sharveshar.spendly.ui.theme.ThemeCache
+import io.github.sharveshar.spendly.ui.theme.ThemeChoice
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.map
 import java.io.IOException
 
-enum class ThemeMode { SYSTEM, DARK, LIGHT }
+/** Pre-2.0 theme setting, read only to migrate it to [ThemeChoice]. */
+private enum class LegacyThemeMode { SYSTEM, DARK, LIGHT }
 
 /** Non-sensitive UI preferences only. No financial data or keys are stored here. */
 data class UserPreferences(
-    val themeMode: ThemeMode = ThemeMode.DARK,
+    val theme: ThemeChoice = ThemeChoice.DEFAULT,
     val onboardingDone: Boolean = false,
     val voiceDisclosureAccepted: Boolean = false,
     val secureScreen: Boolean = false,
@@ -32,13 +37,30 @@ data class UserPreferences(
     val lastProvider: PaymentProvider? = null,
     /** Volume-button pattern that opens Quick Add (only acts once the user enables the service). */
     val buttonShortcut: ButtonShortcut = ButtonShortcut(),
+    /**
+     * False after the user taps "Turn off" in Spendly: the running volume-button service then
+     * switches itself off (AccessibilityService.disableSelf). Set back to true whenever the
+     * service is switched on again in Android's Accessibility settings.
+     */
+    val buttonShortcutActive: Boolean = true,
+    /** The bottom dock's tabs, in the order the user dragged them into. */
+    val dockOrder: List<AppTab> = DockOrder.DEFAULT,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "spendly_prefs")
 
+/** Dark → the default (Mono), Light → Light, System stays System. Missing → the default. */
+internal fun legacyTheme(name: String?): ThemeChoice =
+    when (name?.let { n -> LegacyThemeMode.entries.firstOrNull { it.name == n } }) {
+        LegacyThemeMode.LIGHT -> ThemeChoice.LIGHT
+        LegacyThemeMode.SYSTEM -> ThemeChoice.SYSTEM
+        LegacyThemeMode.DARK, null -> ThemeChoice.DEFAULT
+    }
+
 class PreferencesRepository(private val context: Context) {
     private object Keys {
-        val theme = stringPreferencesKey("theme_mode")
+        val legacyTheme = stringPreferencesKey("theme_mode")
+        val theme = stringPreferencesKey("app_theme")
         val onboarding = booleanPreferencesKey("onboarding_done")
         val voiceDisclosure = booleanPreferencesKey("voice_disclosure_accepted")
         val secureScreen = booleanPreferencesKey("secure_screen")
@@ -47,13 +69,15 @@ class PreferencesRepository(private val context: Context) {
         val lastProvider = stringPreferencesKey("last_provider")
         val shortcutButton = stringPreferencesKey("shortcut_button")
         val shortcutPresses = intPreferencesKey("shortcut_presses")
+        val shortcutActive = booleanPreferencesKey("shortcut_active")
+        val dockOrder = stringPreferencesKey("dock_order")
     }
 
     val preferences: Flow<UserPreferences> = context.dataStore.data
         .catch { e -> if (e is IOException) emit(emptyPreferences()) else throw e }
         .map { p ->
             UserPreferences(
-                themeMode = p[Keys.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
+                theme = ThemeChoice.parse(p[Keys.theme]) ?: legacyTheme(p[Keys.legacyTheme]),
                 onboardingDone = p[Keys.onboarding] ?: false,
                 voiceDisclosureAccepted = p[Keys.voiceDisclosure] ?: false,
                 secureScreen = p[Keys.secureScreen] ?: false,
@@ -64,19 +88,44 @@ class PreferencesRepository(private val context: Context) {
                     button = p[Keys.shortcutButton]?.let { runCatching { ShortcutButton.valueOf(it) }.getOrNull() } ?: ShortcutButton.VOLUME_DOWN,
                     presses = p[Keys.shortcutPresses]?.takeIf { it in ButtonShortcut.PRESS_CHOICES } ?: ButtonShortcut.DEFAULT_PRESSES,
                 ),
+                buttonShortcutActive = p[Keys.shortcutActive] ?: true,
+                dockOrder = DockOrder.parse(p[Keys.dockOrder]),
             )
         }
 
-    suspend fun setThemeMode(mode: ThemeMode) = context.dataStore.edit { it[Keys.theme] = mode.name }
+    suspend fun setTheme(choice: ThemeChoice) {
+        context.dataStore.edit {
+            it[Keys.theme] = choice.name
+            it.remove(Keys.legacyTheme)
+        }
+        ThemeCache.write(context, choice)
+    }
+
+    /**
+     * Resets every preference to its default (part of Settings → Reset Spendly). The next read
+     * shows onboarding again. Theme cache is cleared too so the next launch starts on the default.
+     */
+    suspend fun clearAll() {
+        context.dataStore.edit { it.clear() }
+        ThemeCache.clear(context)
+    }
     suspend fun setOnboardingDone() = context.dataStore.edit { it[Keys.onboarding] = true }
     suspend fun setVoiceDisclosureAccepted() = context.dataStore.edit { it[Keys.voiceDisclosure] = true }
     suspend fun setSecureScreen(enabled: Boolean) = context.dataStore.edit { it[Keys.secureScreen] = enabled }
 
     // Button and press count are saved separately so quick changes to both can't overwrite each other.
     suspend fun setShortcutButton(button: ShortcutButton) = context.dataStore.edit { it[Keys.shortcutButton] = button.name }
+    suspend fun setShortcutActive(active: Boolean) = context.dataStore.edit { it[Keys.shortcutActive] = active }
+
     suspend fun setShortcutPresses(presses: Int) {
         require(presses in ButtonShortcut.PRESS_CHOICES) { "Unsupported press count $presses" }
         context.dataStore.edit { it[Keys.shortcutPresses] = presses }
+    }
+
+    /** Saves the dock's tab order, normalised so every tab is stored exactly once. */
+    suspend fun setDockOrder(order: List<AppTab>) {
+        val normalised = DockOrder.parse(DockOrder.serialize(order))
+        context.dataStore.edit { it[Keys.dockOrder] = DockOrder.serialize(normalised) }
     }
 
     suspend fun rememberPaymentChoice(accountId: Long, channel: PaymentChannel?, provider: PaymentProvider?) =
