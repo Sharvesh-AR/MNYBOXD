@@ -41,7 +41,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.runtime.remember
 import androidx.compose.ui.composed
 import androidx.compose.ui.draw.shadow
@@ -119,6 +123,9 @@ fun SectionCard(
  * The main call to action (Save, Continue). A gently lit gradient face and a soft press-in, with
  * loading and disabled states.
  */
+/** How long work must take before a button shows its spinner. */
+private const val BUSY_DELAY_MS = 300L
+
 @Composable
 fun PrimaryButton(
     text: String,
@@ -153,12 +160,27 @@ fun PrimaryButton(
             .padding(horizontal = Space.xl),
         contentAlignment = Alignment.Center,
     ) {
-        AnimatedContent(loading, transitionSpec = { fadeIn(tween(150)).togetherWith(fadeOut(tween(100))) }, label = "btnLoading") { busy ->
-            if (busy) {
-                CircularProgressIndicator(Modifier.size(22.dp), color = content, strokeWidth = 2.dp)
+        // The spinner appears only if the work takes a noticeable moment, so quick saves don't
+        // flash it. Label and spinner share one box: swapping never resizes or clips the label.
+        var showBusy by remember { mutableStateOf(false) }
+        LaunchedEffect(loading) {
+            if (loading) {
+                delay(BUSY_DELAY_MS)
+                showBusy = true
             } else {
-                Text(text, style = MaterialTheme.typography.titleMedium, color = content, maxLines = 1)
+                showBusy = false
             }
+        }
+        val busy by animateFloatAsState(if (showBusy) 1f else 0f, tween(150), label = "btnBusy")
+        Text(
+            text,
+            style = MaterialTheme.typography.titleMedium,
+            color = content,
+            maxLines = 1,
+            modifier = Modifier.graphicsLayer { this.alpha = 1f - busy },
+        )
+        if (busy > 0f) {
+            CircularProgressIndicator(Modifier.size(22.dp).graphicsLayer { this.alpha = busy }, color = content, strokeWidth = 2.dp)
         }
     }
 }

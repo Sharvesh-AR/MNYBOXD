@@ -4,6 +4,13 @@ import android.app.Application
 import android.content.Context
 import android.provider.Settings
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.semantics.Role
+import io.github.sharveshar.spendly.AppTab
+import io.github.sharveshar.spendly.data.prefs.PreferencesRepository
+import io.github.sharveshar.spendly.ui.navigation.DockOrder
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.SemanticsMatcher
@@ -106,6 +113,9 @@ class UiTest {
         }
     }
 
+    /** A tab in the bottom dock (other text on screen can share its label). */
+    private fun dockTab(label: String) = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
+
     private fun openShortcutSettings() {
         compose.onNodeWithContentDescription("Settings").performClick()
         shown("Shortcut settings")
@@ -135,6 +145,61 @@ class UiTest {
         shown("Income vs spending")
         compose.onNodeWithText("Home").performClick()
         shown("Spendly")
+    }
+
+    @Test fun `holding a dock tab and dragging it moves it, without opening it, and the order is kept`() {
+        launchApp()
+        shown("Spendly")
+        fun x(label: String) = compose.onNode(dockTab(label)).fetchSemanticsNode().boundsInRoot.center.x
+        try {
+            assertTrue(x("Home") < x("Activity") && x("Budgets") < x("Insights"))
+            // Hold Insights (the last tab), then drag it four slots left, onto Home's place.
+            compose.onNode(dockTab("Insights")).performTouchInput {
+                down(center)
+                advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+                repeat(24) { moveBy(Offset(-4f * width / 24, 0f)) }
+                up()
+            }
+            compose.waitForIdle()
+            stepUntil(5_000) { savedPreferences().dockOrder == listOf(AppTab.INSIGHTS, AppTab.HOME, AppTab.ACTIVITY, AppTab.ACCOUNTS, AppTab.BUDGETS) }
+            compose.mainClock.advanceTimeBy(1_000)
+            // Insights now sits first and Home second; holding it never navigated anywhere.
+            assertTrue(x("Insights") < x("Home") && x("Home") < x("Activity") && x("Accounts") < x("Budgets"))
+            shown("Spendly")
+            assertTrue(compose.onAllNodesWithText("Income vs spending").fetchSemanticsNodes().isEmpty())
+            // A fresh read (as after restarting the app) gives the same order.
+            assertEquals(listOf(AppTab.INSIGHTS, AppTab.HOME, AppTab.ACTIVITY, AppTab.ACCOUNTS, AppTab.BUDGETS), runBlocking(Dispatchers.IO) { withTimeout(5_000) { PreferencesRepository(context).preferences.first().dockOrder } })
+            // A plain tap still navigates straight away.
+            compose.onNode(dockTab("Insights")).performClick()
+            shown("Income vs spending")
+        } finally {
+            // DataStore is one instance per JVM, shared with later tests.
+            runBlocking(Dispatchers.IO) { withTimeout(5_000) { container.preferences.setDockOrder(DockOrder.DEFAULT) } }
+        }
+    }
+
+    @Test fun `a short hold that ends before the long-press time is a tap, and a drag released in place changes nothing`() {
+        launchApp()
+        shown("Spendly")
+        try {
+            compose.onNode(dockTab("Budgets")).performTouchInput {
+                down(center)
+                advanceEventTime(viewConfiguration.longPressTimeoutMillis + 200)
+                moveBy(Offset(width * 0.3f, 0f)) // less than half a slot
+                up()
+            }
+            compose.mainClock.advanceTimeBy(1_000)
+            assertEquals(DockOrder.DEFAULT, savedPreferences().dockOrder)
+            assertTrue(compose.onAllNodesWithText("Monthly budget").fetchSemanticsNodes().isEmpty())
+            compose.onNode(dockTab("Budgets")).performTouchInput {
+                down(center)
+                advanceEventTime(120)
+                up()
+            }
+            shown("Monthly budget")
+        } finally {
+            runBlocking(Dispatchers.IO) { withTimeout(5_000) { container.preferences.setDockOrder(DockOrder.DEFAULT) } }
+        }
     }
 
     @Test fun `empty states are shown on a fresh install`() {

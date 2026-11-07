@@ -37,6 +37,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -127,7 +128,9 @@ class EntryViewModel(
     val state: StateFlow<EntryUiState> = combine(
         form,
         accountsFlow,
-        combine(categoriesFlow, repos.categories.observeRecentlyUsed(TransactionType.EXPENSE), repos.categories.observeRecentlyUsed(TransactionType.INCOME)) { c, re, ri -> Triple(c, re, ri) },
+        // Recently used order is read once per Quick Add: saving must not reshuffle the chips
+        // behind the coin animation. The next Quick Add picks up the new order.
+        combine(categoriesFlow, repos.categories.observeRecentlyUsed(TransactionType.EXPENSE).take(1), repos.categories.observeRecentlyUsed(TransactionType.INCOME).take(1)) { c, re, ri -> Triple(c, re, ri) },
         combine(errors, saving, refundInfo, loadFailed) { e, s, r, l -> listOf(e, s, r, l) },
     ) { f, accountRows, (cats, recentExpense, recentIncome), misc ->
         @Suppress("UNCHECKED_CAST") val errs = misc[0] as List<ValidationError>

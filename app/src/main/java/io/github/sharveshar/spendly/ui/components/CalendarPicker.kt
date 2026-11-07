@@ -1,5 +1,7 @@
 package io.github.sharveshar.spendly.ui.components
 
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -87,6 +89,8 @@ fun CalendarPicker(
     val month = YearMonth.parse(shownMonth)
     val firstDay = WeekFields.of(locale).firstDayOfWeek
 
+    // Own text colour, so the header reads well wherever the picker is hosted.
+    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
     Column(modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = Space.xs), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { shownMonth = month.minusMonths(1).toString() }, enabled = range.canShow(month.minusMonths(1))) {
@@ -101,6 +105,7 @@ fun CalendarPicker(
                 Text(
                     m.format(monthTitle),
                     style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                     modifier = Modifier.fillMaxWidth().semantics { heading() },
                 )
@@ -160,6 +165,7 @@ fun CalendarPicker(
                 }
             }
         }
+    }
     }
 }
 

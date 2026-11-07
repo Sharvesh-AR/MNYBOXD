@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.accessibility.AccessibilityEvent
+import androidx.annotation.VisibleForTesting
 import io.github.sharveshar.spendly.QuickAddActivity
 import io.github.sharveshar.spendly.appContainer
 import kotlinx.coroutines.CoroutineScope
@@ -28,6 +29,10 @@ class ButtonShortcutService : AccessibilityService() {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var scope: CoroutineScope? = null
     private var handler: ButtonShortcutHandler? = null
+
+    /** Switches the service off; replaced in tests, which can't observe [disableSelf]. */
+    @VisibleForTesting
+    internal var switchOff: () -> Unit = { disableSelf() }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -56,7 +61,7 @@ class ButtonShortcutService : AccessibilityService() {
                 prefs.preferences
                     .map { it.buttonShortcutActive }
                     .distinctUntilChanged()
-                    .collect { active -> if (!active) disableSelf() }
+                    .collect { active -> if (!active) switchOff() }
             }
         }
     }

@@ -35,15 +35,29 @@ class AnimatedMoneyTest {
 
     @Test fun `old Dark, Light and System settings map to the new themes`() {
         assertEquals(ThemeChoice.MIDNIGHT_EMERALD, legacyTheme("DARK"))
-        assertEquals(ThemeChoice.WARM_SAND, legacyTheme("LIGHT"))
+        assertEquals(ThemeChoice.LIGHT, legacyTheme("LIGHT"))
         assertEquals(ThemeChoice.SYSTEM, legacyTheme("SYSTEM"))
         assertEquals(ThemeChoice.DEFAULT, legacyTheme(null))
         assertEquals(ThemeChoice.DEFAULT, legacyTheme("SOMETHING_ELSE"))
     }
 
-    @Test fun `match system resolves to Midnight Emerald at night and Warm Sand by day`() {
+    @Test fun `match system resolves to Midnight at night and Light by day`() {
         assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.MIDNIGHT_EMERALD, ThemeChoice.SYSTEM.resolve(systemDark = true))
-        assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.WARM_SAND, ThemeChoice.SYSTEM.resolve(systemDark = false))
-        assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.FOREST, ThemeChoice.FOREST.resolve(systemDark = false))
+        assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.LIGHT, ThemeChoice.SYSTEM.resolve(systemDark = false))
+        assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.OCEAN_BLUE, ThemeChoice.OCEAN_BLUE.resolve(systemDark = false))
+    }
+
+    @Test fun `themes from earlier betas open as the closest of the four`() {
+        assertEquals(ThemeChoice.PURE_AMOLED, ThemeChoice.parse("OBSIDIAN"))
+        assertEquals(ThemeChoice.MIDNIGHT_EMERALD, ThemeChoice.parse("FOREST"))
+        assertEquals(ThemeChoice.MIDNIGHT_EMERALD, ThemeChoice.parse("LAVENDER_NIGHT"))
+        assertEquals(ThemeChoice.LIGHT, ThemeChoice.parse("WARM_SAND"))
+        assertEquals(ThemeChoice.SYSTEM, ThemeChoice.parse("SYSTEM"))
+        assertEquals(ThemeChoice.OCEAN_BLUE, ThemeChoice.parse("OCEAN_BLUE"))
+        assertEquals(null, ThemeChoice.parse("NOPE"))
+        // Widget theme settings are stored as theme names too.
+        assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.LIGHT, io.github.sharveshar.spendly.ui.theme.AppTheme.parse("WARM_SAND"))
+        assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.PURE_AMOLED, io.github.sharveshar.spendly.ui.theme.AppTheme.parse("OBSIDIAN"))
+        assertEquals(4, io.github.sharveshar.spendly.ui.theme.Palettes.all.size)
     }
 }

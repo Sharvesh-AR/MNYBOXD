@@ -85,7 +85,7 @@ fun ThemesScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
                     palette = palette,
                     selected = selected,
                     spendPaise = spend,
-                    onSelect = { viewModel.setTheme(ThemeChoice.entries.first { it.theme == palette.theme }) },
+                    onSelect = { viewModel.setTheme(ThemeChoice.of(palette.theme)) },
                 )
             }
         }
@@ -109,7 +109,7 @@ private fun FollowSystemRow(on: Boolean, onChange: (Boolean) -> Unit) {
         Column(Modifier.weight(1f)) {
             Text("Match system", style = MaterialTheme.typography.bodyLarge)
             Text(
-                "Midnight Emerald when your phone is in dark mode, Warm Sand when it's light",
+                "Midnight when your phone is in dark mode, Light when it's light",
                 style = MaterialTheme.typography.bodySmall,
                 color = Spendly.colors.muted,
             )
@@ -163,7 +163,8 @@ private fun ThemeCard(palette: SpendlyPalette, selected: Boolean, spendPaise: Lo
             palette.theme.tagline,
             style = MaterialTheme.typography.bodySmall,
             color = Spendly.colors.muted,
-            maxLines = 2,
+            maxLines = 3,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = Space.xs),
         )
     }
@@ -233,6 +234,6 @@ private fun MiniChip(label: String, bg: Color, fg: Color) {
     }
 }
 
-/** "Midnight Emerald" or "Match system (Warm Sand)" for the Settings row. */
+/** "Midnight" or "Match system · Light" for the Settings row. */
 fun ThemeChoice.describe(resolved: AppTheme): String =
     if (this == ThemeChoice.SYSTEM) "Match system · ${resolved.label}" else resolved.label

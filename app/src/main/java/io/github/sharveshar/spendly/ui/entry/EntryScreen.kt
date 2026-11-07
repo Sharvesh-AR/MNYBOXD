@@ -33,6 +33,7 @@ import io.github.sharveshar.spendly.ui.components.CoinFlightSpec
 import io.github.sharveshar.spendly.ui.components.PrimaryButton
 import io.github.sharveshar.spendly.ui.components.trackBounds
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
@@ -81,6 +82,7 @@ import androidx.compose.material.icons.rounded.Apps
 import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.ExpandMore
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Button
@@ -245,7 +247,6 @@ fun EntryScreen(
             viewModel.events.collect { e ->
                 if (e is EntryEvent.Saved) {
                     // The transaction is committed. Everything below is presentation only.
-                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                     saved = e
                     val start = (if (e.type == TransactionType.TRANSFER) fromBounds[e.accountId] else null) ?: amountBounds
                     val target = (if (e.type == TransactionType.TRANSFER) toBounds[e.toAccountId] else fromBounds[e.accountId]) ?: saveBounds
@@ -261,7 +262,9 @@ fun EntryScreen(
         }
         LaunchedEffect(landed) {
             if (landed) {
-                delay(if (saved?.alert != null) 1_600 else 650)
+                // The confirmation lands with the coin; budget alerts get time to be read.
+                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                delay(if (saved?.alert != null) 1_600 else 480)
                 sheet.close()
             }
         }
@@ -339,12 +342,19 @@ fun EntryScreen(
                 }
 
                 // --- Details (scrolls; the keypad and Save stay put) ---------------------------------
+                val detailsScroll = rememberScrollState()
+                var moreDetails by rememberSaveable { mutableStateOf(false) }
+                val moreState = remember { MutableTransitionState(moreDetails) }
+                moreState.targetState = moreDetails
+                // Once the fields have opened, scroll them into view.
+                val opened = moreState.isIdle && moreState.currentState
+                LaunchedEffect(opened) { if (opened) detailsScroll.animateScrollTo(detailsScroll.maxValue) }
                 Column(
                     Modifier
                         .weight(1f)
                         .fillMaxWidth()
                         .fadingEdges()
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(detailsScroll)
                         .padding(top = Space.sm),
                     verticalArrangement = Arrangement.spacedBy(Space.sm + Space.xxs),
                 ) {
@@ -413,26 +423,39 @@ fun EntryScreen(
                             }
                         }
                     }
-                    AnimatedVisibility(state.showProviders, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                    // Optional details stay folded away; the row shows what's set, so nothing is hidden.
+                    MoreDetailsRow(
+                        expanded = moreDetails,
+                        summary = listOfNotNull(
+                            f.provider?.takeIf { state.showProviders }?.label,
+                            f.note.takeIf { it.isNotBlank() }?.let { "“${it.trim()}”" },
+                        ).joinToString(" · "),
+                        hint = if (state.showProviders) "Note or payment app" else "Add a note",
+                        onToggle = { moreDetails = !moreDetails },
+                    )
+                    AnimatedVisibility(moreState, enter = fadeIn(tween(180)) + expandVertically(spring(dampingRatio = 0.9f, stiffness = 500f)), exit = fadeOut(tween(120)) + shrinkVertically(spring(dampingRatio = 1f, stiffness = 600f))) {
                         Column(verticalArrangement = Arrangement.spacedBy(Space.sm + Space.xxs)) {
-                            FieldLabel("App (optional)")
-                            LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-                                items(PaymentProvider.entries, key = { it.name }) { p ->
-                                    SelectChip(selected = f.provider == p, label = p.label, onClick = { viewModel.setProvider(p) })
+                            AnimatedVisibility(state.showProviders, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
+                                Column(verticalArrangement = Arrangement.spacedBy(Space.sm + Space.xxs)) {
+                                    FieldLabel("App (optional)")
+                                    LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
+                                        items(PaymentProvider.entries, key = { it.name }) { p ->
+                                            SelectChip(selected = f.provider == p, label = p.label, onClick = { viewModel.setProvider(p) })
+                                        }
+                                    }
                                 }
                             }
+                            OutlinedTextField(
+                                value = f.note,
+                                onValueChange = viewModel::setNote,
+                                placeholder = { Text("Add a note") },
+                                singleLine = true,
+                                keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
+                                modifier = Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
+                                shape = RoundedCornerShape(16.dp),
+                            )
                         }
                     }
-
-                    OutlinedTextField(
-                        value = f.note,
-                        onValueChange = viewModel::setNote,
-                        placeholder = { Text("Add a note") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences, imeAction = ImeAction.Done),
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
-                        shape = RoundedCornerShape(16.dp),
-                    )
                     Spacer(Modifier.height(Space.xs))
                 }
 
@@ -567,6 +590,41 @@ private fun Modifier.fadingEdges(): Modifier = graphicsLayer { compositingStrate
             blendMode = BlendMode.DstIn,
         )
     }
+
+/** The fold for optional details. Shows what's filled in while folded. */
+@Composable
+private fun MoreDetailsRow(expanded: Boolean, summary: String, hint: String, onToggle: () -> Unit) {
+    val turn by animateFloatAsState(if (expanded) 180f else 0f, spring(dampingRatio = 0.8f, stiffness = 500f), label = "moreChevron")
+    Row(
+        Modifier
+            .padding(horizontal = Space.gutter - Space.xs)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(role = Role.Button, onClickLabel = if (expanded) "Hide details" else "Show details", onClick = onToggle)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = Space.xs),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("More details", style = MaterialTheme.typography.labelLarge, color = Spendly.colors.muted)
+        Spacer(Modifier.width(Space.md))
+        Text(
+            summary.ifEmpty { hint },
+            style = MaterialTheme.typography.bodySmall,
+            color = if (summary.isEmpty()) Spendly.colors.muted.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(Space.xs))
+        Icon(
+            Icons.Rounded.ExpandMore,
+            contentDescription = null,
+            tint = Spendly.colors.muted,
+            modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = turn },
+        )
+    }
+}
 
 @Composable
 private fun FieldLabel(text: String) {

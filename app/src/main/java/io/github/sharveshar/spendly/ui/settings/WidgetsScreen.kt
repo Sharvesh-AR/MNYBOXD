@@ -1,5 +1,12 @@
 package io.github.sharveshar.spendly.ui.settings
 
+import kotlin.math.roundToInt
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.layout.layout
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.BoxWithConstraints
 import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.view.View
@@ -64,6 +71,7 @@ private val widgetInfos = listOf(
  * Settings → Widgets. The previews are the real widget layouts, rendered with your data and the
  * widget theme, but they are previews only: widgets live on the home screen.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun WidgetsScreen(onBack: () -> Unit) {
     val context = LocalContext.current
@@ -99,18 +107,20 @@ fun WidgetsScreen(onBack: () -> Unit) {
                     Spacer(Modifier.height(Space.md))
                     Text("Preview", style = MaterialTheme.typography.labelSmall, color = Spendly.colors.muted)
                     Spacer(Modifier.height(Space.xs))
-                    Row(
+                    // Both sizes, each scaled down if needed so the whole widget is always visible.
+                    BoxWithConstraints(
                         Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(20.dp))
                             .background(Brush.linearGradient(listOf(Spendly.colors.accent.copy(alpha = 0.30f), Spendly.colors.secondaryAccent.copy(alpha = 0.12f), Spendly.colors.background)))
-                            .horizontalScroll(rememberScrollState())
                             .padding(Space.md),
-                        horizontalArrangement = Arrangement.spacedBy(Space.md),
                     ) {
-                        content?.let { c ->
-                            WidgetPreview(info.kind, c, info.compact, version, "${info.title}, compact")
-                            WidgetPreview(info.kind, c, info.expanded, version, "${info.title}, expanded")
+                        val room = maxWidth
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.md), verticalArrangement = Arrangement.spacedBy(Space.md)) {
+                            content?.let { c ->
+                                WidgetPreview(info.kind, c, info.compact, version, "${info.title}, compact", room)
+                                WidgetPreview(info.kind, c, info.expanded, version, "${info.title}, expanded", room)
+                            }
                         }
                     }
                     Spacer(Modifier.height(Space.md))
@@ -138,10 +148,14 @@ private fun apply(context: Context, theme: AppTheme?) {
     WidgetUpdater.requestUpdate(context)
 }
 
-/** The actual widget RemoteViews, inflated in place at a typical launcher size. */
+/**
+ * The actual widget RemoteViews, inflated in place at a typical launcher size and, when that's
+ * wider than [room], scaled down as a whole (never cropped).
+ */
 @Composable
-private fun WidgetPreview(kind: WidgetKind, content: WidgetRenderer.Content, size: Pair<Dp, Dp>, version: Int, description: String) {
+private fun WidgetPreview(kind: WidgetKind, content: WidgetRenderer.Content, size: Pair<Dp, Dp>, version: Int, description: String, room: Dp) {
     val (w, h) = size
+    val scale = (room / w).coerceAtMost(1f)
     AndroidView(
         factory = { ctx -> FrameLayout(ctx) },
         update = { frame ->
@@ -154,7 +168,16 @@ private fun WidgetPreview(kind: WidgetKind, content: WidgetRenderer.Content, siz
             frame.addView(view)
         },
         modifier = Modifier
-            .size(w, h)
+            .layout { measurable, _ ->
+                val full = measurable.measure(Constraints.fixed(w.roundToPx(), h.roundToPx()))
+                layout((full.width * scale).roundToInt(), (full.height * scale).roundToInt()) {
+                    full.placeWithLayer(0, 0) {
+                        scaleX = scale
+                        scaleY = scale
+                        transformOrigin = TransformOrigin(0f, 0f)
+                    }
+                }
+            }
             .clip(RoundedCornerShape(24.dp))
             .semantics { contentDescription = "Preview of the $description widget" },
     )

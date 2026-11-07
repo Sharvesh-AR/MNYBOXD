@@ -40,27 +40,33 @@ builds (`ScreenshotTest`).</sub>
 ## Features
 
 **Fast entry**
-* **Quick Add**: a custom amount keypad, recently used categories first, remembered account and
-  payment method, note, date and time. One tap to save; double-taps can't create duplicates.
+* **Quick Add**: a sheet that slides up over whatever you were looking at. A big amount and a
+  custom keypad, Expense / Income / Transfer, recently used categories first, and the account and
+  payment method you used last. Note and payment app sit under *More details*, folded away until
+  you need them; date and time are one tap away. One tap to save; double-taps can't create
+  duplicates.
 * **Voice entry**: say *"Spent 500 on petrol using PhonePe from SBI"*, *"120 rupees lunch"*,
   *"1500 shopping on ICICI credit card"* or *"80 coffee cash"*. A deterministic on-device parser
   extracts amount, description, category, payment method, app and account. **You always review
   the result before it is saved.**
-* **Quick Settings tile** and **launcher shortcuts** (*Add expense*, *Voice expense*).
-* **Volume-button shortcut** (optional, **separate build**: see
-  [Volume-button shortcut build](#volume-button-shortcut-build)): press volume down (or up) two or three times on any
-  screen to open Quick Add. Your volume buttons keep working normally, and the volume is put
-  back afterwards. Off by default; pick the button and *Twice* or *3 times* (the default) in
-  *Settings → Shortcuts*, then switch on *Spendly volume shortcut* in Android's Accessibility
-  settings (Spendly links there). It uses a minimal, opt-in accessibility service that only
-  notices button presses (see [SECURITY.md](SECURITY.md#optional-accessibility-service-volume-button-shortcut)).
-  It works while the screen is on, stays out of the way during calls, and asks you to unlock
-  first on the lock screen. If Android says *Restricted setting* (Android 13+ does this for
-  apps installed outside an app store), open *App info → ⋮ → Allow restricted settings* and try
-  again. *Twice* is quicker but can fire when you just turn the volume down fast.
+* **Shortcut Pop-up (optional)**: from outside the app (the Quick Settings tile, home-screen
+  widgets, the launcher shortcuts *Add expense* and *Voice expense*, the "Add expense" icon and
+  the volume-button shortcut) Quick Add opens as a pop-up over the app you're in. Save or close
+  it and you're straight back where you were.
+* **Volume-button shortcut (optional)**: press volume down (or up) two or three times on any
+  screen to open Quick Add. Your volume buttons keep working normally and the volume is put
+  back afterwards. It ships in a separate build; see
+  [Volume-button shortcut (optional)](#volume-button-shortcut-optional) for how to switch it on
+  and what its accessibility permission can and can't do.
 * **"Add expense" app icon** (optional): a second icon that opens Quick Add directly, so your
   phone's own gestures can launch it, such as back tap (Pixel *Quick Tap*) or double-pressing
   the side key (Samsung).
+* **Home-screen widgets**: *Quick Add* (add or speak an expense), *Monthly overview* (spent this
+  month, budget used and left, progress bar, last 7 days), *Account balance* (all accounts, or
+  one account you pick; tap an account to open it), plus *Spending trend* and *Quick stats*.
+  Each adapts to its size (touch and hold to resize), follows the app theme or one you choose,
+  and updates when your data changes and just after midnight, without polling. Preview them and
+  add them from *Settings → Widgets*.
 
 **Accurate money**
 * All amounts are integer paise (`Long`); floating point is never used for money.
@@ -78,7 +84,8 @@ builds (`ScreenshotTest`).</sub>
 * **Home**: spent this month, today, income, remaining budget, 7-day chart, accounts, top
   categories, recent activity.
 * **Activity**: search notes, categories, accounts or amounts; filter by type, category,
-  account and date; grouped by day with daily totals.
+  account and date; grouped by day with daily totals. Swipe a transaction left to delete it,
+  with *Undo*.
 * **Accounts**: savings, current, cash, wallets, debit and credit cards; net worth, assets and
   card dues; credit limit usage; archive or delete.
 * **Budgets**: monthly overall and per-category limits with 80% and 100% warnings (also shown
@@ -91,15 +98,31 @@ builds (`ScreenshotTest`).</sub>
 * Encrypted database (SQLCipher, key protected by Android Keystore).
 * Password-encrypted backups and restore (validated, previewed, confirmed, all-or-nothing).
 * CSV export for spreadsheets (with a clear "this file is unencrypted" warning).
-* Dark theme by default, light and system themes, optional screenshot blocking.
+* **Reset Spendly** (*Settings → Data management*): deletes every transaction, account, budget,
+  custom category and setting on the phone. Two separate confirmations: a warning that
+  suggests a backup first, then a screen where you type `DELETE EVERYTHING` exactly.
+* Optional screenshot blocking (*Hide app contents*).
+
+**Themes**
+* Four themes, each styling every screen, sheet, dialog, chart, the dock and the widgets:
+  **Midnight** (default: charcoal and emerald), **Light** (off-white and emerald), **AMOLED**
+  (true black, restrained accents) and **Ocean** (deep navy, soft blue). Or *Match system*
+  (Midnight in dark mode, Light otherwise). Applied instantly and remembered.
 
 **Design and accessibility**
-* Origin-aware motion: Quick Add grows out of the button you pressed; accounts and transactions
-  morph into their detail screens; dialogs expand from the control that opened them and
-  collapse back into it. Respects Android's *Remove animations* setting.
-* Haptics on keypad, selection, save and errors.
-* Screen reader labels for amounts, keypad, charts and rows; large touch targets; tabular
-  figures for aligned amounts.
+* **Your dock, your order**: touch and hold a tab in the bottom dock, slide it along and let go.
+  The other tabs move aside and Spendly remembers the order. A tap still just opens the tab.
+* **Spendly coins**: after a save, a small coin tumbles from the amount to the account it
+  affects (spending arcs over the top; income swoops up from below; transfers fly from one
+  account to the other) and the balances count to their new values. It plays only after the
+  transaction is stored, and never holds you up.
+* Origin-aware motion: accounts and transactions morph into their detail screens; dialogs
+  expand from the control that opened them and collapse back into it; charts glide to new
+  values. Everything respects Android's *Remove animations* setting.
+* Haptics on keypad, selection, save, dock moves and errors.
+* Screen reader labels for amounts, keypad, charts and rows; dock tabs can be moved with
+  screen-reader actions (*Move before / after*); large touch targets; tabular figures for
+  aligned amounts.
 
 ## Install on your phone
 
@@ -111,7 +134,18 @@ builds (`ScreenshotTest`).</sub>
 3. Tap **Install**, then **Open**.
 4. You can switch the "install unknown apps" permission off again afterwards.
 
-Requires Android 8.0 (API 26) or newer.
+Requires Android 8.0 (API 26) or newer. Everything works offline. A few things depend on the
+phone:
+
+| Feature | Needs |
+|---|---|
+| Voice entry | A speech recognition service (for example Google's). On-device recognition is used when the phone has it. |
+| Widgets that reshape as you resize them | Android 12 or newer. Older versions pick the closest layout when you resize. |
+| *Add to home screen* button in *Settings → Widgets* | A launcher that supports pinning widgets (most do). Otherwise add them from the launcher's widget list. |
+| Volume-button shortcut | The separate `Spendly-volume-shortcut.apk` build (below). |
+
+Updating keeps your data: every release is signed with the same key, so install the new
+`Spendly.apk` over the old one. Don't uninstall first, as that deletes your records.
 
 To install from a computer instead: enable *Developer options → USB debugging*, connect the
 phone and run `adb install Spendly.apk`.
@@ -119,9 +153,32 @@ phone and run `adb install Spendly.apk`.
 `Spendly.apk` declares no accessibility service, notification listener or SMS permission, so
 Google Play Protect does not block it when you install it from your browser or file manager.
 
-### Volume-button shortcut build
+### Volume-button shortcut (optional)
 
-The volume-button shortcut needs an Android accessibility service. In some countries (India among
+Press volume down (or up) two or three times on any screen to open Quick Add as a pop-up. It's
+off until you switch it on:
+
+1. Install `Spendly-volume-shortcut.apk` (see below).
+2. In Spendly, open *Settings → Shortcut settings*, pick the button and *Twice* or *3 times*
+   (the default).
+3. Tap *Accessibility settings* and switch on **Spendly volume shortcut**. If Android says
+   *Restricted setting* (Android 13+ does this for apps installed outside an app store), open
+   *App info → ⋮ → Allow restricted settings* and try again.
+
+You can switch it off again in Spendly (*Shortcut settings → Turn off*) or in Android's
+Accessibility settings.
+
+**What the accessibility permission is used for.** Android only lets an app notice button
+presses made outside it through an accessibility service. Spendly's asks for one capability,
+filtering key events: it sees which hardware key was pressed and when. It can't read the screen
+or other apps, receives no accessibility events, never blocks or changes a key press, and with
+no internet permission nothing could leave the phone anyway. Your volume buttons keep working;
+the volume is put back right after the pattern. It ignores the buttons while the phone is
+ringing or on a call, and if the phone is locked it asks you to unlock before Quick Add opens.
+*Twice* is quicker but can fire when you turn the volume down fast. Details in
+[SECURITY.md](SECURITY.md#optional-accessibility-service-volume-button-shortcut).
+
+**Why a separate build.** The volume-button shortcut needs an Android accessibility service. In some countries (India among
 them) Google Play Protect's
 [enhanced fraud protection](https://developers.google.com/android/play-protect/warning-dev-guidance)
 blocks **any** app that declares one from being installed from a browser, messaging app or file
@@ -136,7 +193,8 @@ keeps your data. Install it one of these ways:
 Downloading it on the phone works only where that protection isn't active.
 
 > **Back up regularly.** Spendly has no cloud sync. If you uninstall the app or reset your phone,
-> your records are gone unless you made an encrypted backup (Settings → Backup & export).
+> your records are gone unless you made an encrypted backup (*Settings → Data management →
+> Create encrypted backup*).
 
 ## Build from source
 
@@ -213,9 +271,11 @@ gh release create vX.Y.Z Spendly.apk Spendly-volume-shortcut.apk SHA256SUMS.txt 
 Automated tests run on the JVM (Robolectric). Before each public release, download `Spendly.apk`
 on a real phone and install it from the browser or file manager (this is the path Play Protect
 checks), then check: first launch and onboarding; adding an expense, income, transfer and
-refund; balances on Accounts; voice entry (allow and deny the microphone); creating and restoring
-an encrypted backup; the Quick Settings tile; the "Add expense" app icon; light/dark theme; and a
-large font size. Then install `Spendly-volume-shortcut.apk` over it with `adb install -r`, confirm
+refund; the coin animation and balances on Accounts; voice entry (allow and deny the microphone);
+creating and restoring an encrypted backup; the Quick Settings tile; the "Add expense" app icon;
+dragging a dock tab to a new place and restarting the app; every theme; adding, resizing,
+tapping and removing each widget; opening and closing Quick Add repeatedly; rotating the phone;
+and a large font size. Then install `Spendly-volume-shortcut.apk` over it with `adb install -r`, confirm
 your data is still there, and check the volume-button shortcut (in another app, on the lock
 screen, during a call, that the volume returns to where it was, and that it stops once switched
 off in Accessibility settings).
@@ -268,7 +328,6 @@ Details and limitations: [`SECURITY.md`](SECURITY.md). Latest review:
 * Recurring transactions and bill reminders (local notifications)
 * Custom date range filter and export ranges
 * Multiple currencies
-* Home-screen widget
 * Translations (strings are currently English-only)
 * Bundled premium typeface (currently the system font with tabular figures)
 

@@ -1,6 +1,43 @@
 package io.github.sharveshar.spendly.ui
 
 import android.os.SystemClock
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.AnimationVector1D
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.awaitLongPressOrCancellation
+import androidx.compose.foundation.gestures.horizontalDrag
+import androidx.compose.foundation.indication
+import androidx.compose.foundation.interaction.PressInteraction
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.input.pointer.changedToUp
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.positionChange
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.zIndex
+import io.github.sharveshar.spendly.AppTab
+import io.github.sharveshar.spendly.ui.components.LocalReducedMotion
+import io.github.sharveshar.spendly.ui.navigation.DockOrder
+import kotlinx.coroutines.flow.collectLatest
+import kotlin.math.roundToInt
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -176,15 +213,17 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlin.reflect.KClass
 
-private data class Tab(val route: Any, val routeClass: KClass<*>, val label: String, val icon: ImageVector, val selectedIcon: ImageVector)
+private data class Tab(val key: AppTab, val route: Any, val routeClass: KClass<*>, val label: String, val icon: ImageVector, val selectedIcon: ImageVector)
 
 private val tabs = listOf(
-    Tab(HomeRoute, HomeRoute::class, "Home", Icons.Outlined.Home, Icons.Rounded.Home),
-    Tab(TransactionsRoute, TransactionsRoute::class, "Activity", Icons.AutoMirrored.Outlined.ReceiptLong, Icons.AutoMirrored.Rounded.ReceiptLong),
-    Tab(AccountsRoute, AccountsRoute::class, "Accounts", Icons.Outlined.AccountBalanceWallet, Icons.Rounded.AccountBalanceWallet),
-    Tab(BudgetsRoute, BudgetsRoute::class, "Budgets", Icons.Outlined.DonutLarge, Icons.Rounded.DonutLarge),
-    Tab(InsightsRoute, InsightsRoute::class, "Insights", Icons.Outlined.Insights, Icons.Rounded.Insights),
+    Tab(AppTab.HOME, HomeRoute, HomeRoute::class, "Home", Icons.Outlined.Home, Icons.Rounded.Home),
+    Tab(AppTab.ACTIVITY, TransactionsRoute, TransactionsRoute::class, "Activity", Icons.AutoMirrored.Outlined.ReceiptLong, Icons.AutoMirrored.Rounded.ReceiptLong),
+    Tab(AppTab.ACCOUNTS, AccountsRoute, AccountsRoute::class, "Accounts", Icons.Outlined.AccountBalanceWallet, Icons.Rounded.AccountBalanceWallet),
+    Tab(AppTab.BUDGETS, BudgetsRoute, BudgetsRoute::class, "Budgets", Icons.Outlined.DonutLarge, Icons.Rounded.DonutLarge),
+    Tab(AppTab.INSIGHTS, InsightsRoute, InsightsRoute::class, "Insights", Icons.Outlined.Insights, Icons.Rounded.Insights),
 )
+
+private fun tabFor(key: AppTab) = tabs.first { it.key == key }
 
 private fun NavDestination?.isTopLevel() = this != null && tabs.any { t -> hierarchy.any { it.hasRoute(t.routeClass) } }
 
@@ -207,7 +246,11 @@ fun SpendlyApp(container: AppContainer, launchRequests: Flow<LaunchRequest>) {
             when {
                 p == null -> SplashScreen()
                 !p.onboardingDone -> WelcomeScreen(onStart = { scope.launch { container.preferences.setOnboardingDone() } })
-                else -> MainShell(launchRequests)
+                else -> MainShell(
+                    launchRequests = launchRequests,
+                    dockOrder = p.dockOrder,
+                    onDockReorder = { order -> scope.launch { container.preferences.setDockOrder(order) } },
+                )
             }
         }
     }
@@ -220,7 +263,7 @@ private val DockMargin = 12.dp
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun MainShell(launchRequests: Flow<LaunchRequest>) {
+private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTab>, onDockReorder: (List<AppTab>) -> Unit) {
     val nav = rememberNavController()
     val top by nav.currentBackStackEntryAsState()
     // The screen underneath any sheet decides whether the dock and Quick Add button show, so
@@ -231,7 +274,7 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>) {
     top?.let { if (it.destination !is FloatingWindow) baseHolder[0] = it }
     val base = baseHolder[0]
     val topLevel = base?.destination.isTopLevel()
-    val selectedTab = tabs.indexOfFirst { t -> base?.destination?.hierarchy?.any { it.hasRoute(t.routeClass) } == true }
+    val selectedTab = tabs.firstOrNull { t -> base?.destination?.hierarchy?.any { it.hasRoute(t.routeClass) } == true }?.key
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bandHeight = DockHeight + DockMargin + navInset
@@ -254,7 +297,7 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>) {
             when (r) {
                 LaunchRequest.QuickAdd -> openQuickAdd(EntryRoute())
                 LaunchRequest.Voice -> openQuickAdd(EntryRoute(startVoice = true))
-                is LaunchRequest.Open -> nav.switchTab(tabs[r.tab.ordinal].route)
+                is LaunchRequest.Open -> nav.switchTab(tabFor(r.tab).route)
                 is LaunchRequest.OpenAccount -> {
                     nav.switchTab(AccountsRoute)
                     nav.navigate(AccountDetailRoute(r.id)) { launchSingleTop = true }
@@ -437,8 +480,10 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>) {
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             BottomDock(
+                                order = dockOrder,
                                 selected = selectedTab,
-                                onSelect = { nav.switchTab(tabs[it].route) },
+                                onSelect = { nav.switchTab(tabFor(it).route) },
+                                onReorder = onDockReorder,
                                 modifier = Modifier.weight(1f),
                             )
                             Spacer(Modifier.width(Space.sm + Space.xxs))
@@ -529,53 +574,197 @@ private fun QuickAddFab(motion: SheetMotion, onClick: () -> Unit) {
 }
 
 /**
- * Floating navigation dock. The selection pill slides between tabs on a spring and the chosen
- * icon fills in. Labels hide on very narrow screens (icons keep their descriptions).
+ * Floating navigation dock. Tap a tab to open it. Touch and hold a tab to lift it, slide it along
+ * the dock and let go to drop it there: the others move out of the way and the order is saved.
+ * The selection pill follows the open tab wherever it goes. Labels hide on very narrow screens
+ * (icons keep their descriptions); screen readers get "Move before/after" actions instead of
+ * dragging.
  */
 @Composable
-private fun BottomDock(selected: Int, onSelect: (Int) -> Unit, modifier: Modifier = Modifier) {
+private fun BottomDock(
+    order: List<AppTab>,
+    selected: AppTab?,
+    onSelect: (AppTab) -> Unit,
+    onReorder: (List<AppTab>) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val c = Spendly.colors
     val haptics = LocalHapticFeedback.current
+    val reduced = LocalReducedMotion.current
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
+    val select by rememberUpdatedState(onSelect)
+    val reorder by rememberUpdatedState(onReorder)
+    val currentSelected by rememberUpdatedState(selected)
+    // What's on screen: the saved order, or the order just dropped while it's being saved.
+    var shown by remember { mutableStateOf(order) }
+    var dragging by remember { mutableStateOf<AppTab?>(null) }
+    var dragStart by remember { mutableIntStateOf(0) }
+    var dragPx by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(order) { if (dragging == null) shown = order }
+
     BoxWithConstraints(
         modifier
             .height(DockHeight)
             .layeredSurface(RoundedCornerShape(24.dp), c.cardElevated, raised = true)
             .padding(horizontal = 4.dp),
     ) {
-        val slot = maxWidth / tabs.size
+        val count = shown.size
+        val slot = maxWidth / count
+        val slotPx = constraints.maxWidth.toFloat() / count
         val showLabels = slot >= 52.dp
-        val index = selected.coerceAtLeast(0)
-        val offset by animateDpAsState(slot * index, spring(dampingRatio = 0.8f, stiffness = 520f), label = "dockPill")
-        if (selected >= 0) {
+        // Each tab's animated position, observable so the selection pill can follow it.
+        val xs = remember { mutableStateMapOf<AppTab, Animatable<Float, AnimationVector1D>>() }
+        // Where a dropped tab was let go, so it glides from the finger into its new slot.
+        val landings = remember { HashMap<AppTab, Float>() }
+        val drop by remember(slotPx, count) { derivedStateOf { DockOrder.dropIndex(dragStart, dragPx, slotPx, count) } }
+        // Where each tab is heading: its slot in the order the dock would have if dropped now.
+        val preview = if (dragging != null) DockOrder.move(shown, dragStart, drop) else shown
+        val maxX = slotPx * (count - 1)
+        fun liveX(tab: AppTab): Float? =
+            if (tab == dragging) (dragStart * slotPx + dragPx).coerceIn(0f, maxX) else xs[tab]?.value
+
+        fun move(from: Int, to: Int) {
+            val next = DockOrder.move(shown, from, to)
+            if (next != shown) {
+                shown = next
+                reorder(next)
+            }
+        }
+
+        // The selection pill chases the open tab, also while that tab is being dragged.
+        val pill = remember { Animatable(Float.NaN) }
+        LaunchedEffect(selected, slotPx) {
+            snapshotFlow { selected?.let { liveX(it) } }.collectLatest { target ->
+                if (target == null) return@collectLatest
+                if (pill.value.isNaN() || reduced) pill.snapTo(target) else pill.animateTo(target, spring(dampingRatio = 0.8f, stiffness = 520f))
+            }
+        }
+        if (selected != null) {
             Box(
                 Modifier
                     .align(Alignment.CenterStart)
-                    .offset { IntOffset((offset + 3.dp).roundToPx(), 0) }
+                    .offset { IntOffset(((if (pill.value.isNaN()) 0f else pill.value) + 3.dp.toPx()).roundToInt(), 0) }
                     .size(width = slot - 6.dp, height = DockHeight - 14.dp)
+                    .graphicsLayer { alpha = if (pill.value.isNaN()) 0f else 1f }
                     .clip(RoundedCornerShape(18.dp))
                     .background(c.accent.copy(alpha = if (c.isDark) 0.16f else 0.14f)),
             )
         }
-        Row(Modifier.fillMaxSize()) {
-            tabs.forEachIndexed { i, tab ->
-                val isSelected = i == selected
-                val tint by animateColorAsState(if (isSelected) c.accent else c.muted, spring(stiffness = 600f), label = "dockTint")
+
+        shown.forEachIndexed { index, tabKey ->
+            key(tabKey) {
+                val tab = tabFor(tabKey)
+                val isSelected = tabKey == selected
+                val isDragged = tabKey == dragging
+                val target = slotPx * preview.indexOf(tabKey)
+                val x = remember { Animatable(target) }
+                DisposableEffect(x) {
+                    xs[tabKey] = x
+                    onDispose { xs.remove(tabKey) }
+                }
+                LaunchedEffect(target, isDragged) {
+                    if (!isDragged) {
+                        landings.remove(tabKey)?.let { x.snapTo(it) }
+                        if (reduced) x.snapTo(target) else x.animateTo(target, spring(dampingRatio = 0.78f, stiffness = 480f))
+                    }
+                }
+                val lift by animateFloatAsState(if (isDragged && !reduced) 1f else 0f, spring(dampingRatio = 0.62f, stiffness = 520f), label = "dockLift")
+                val tint by animateColorAsState(if (isSelected || isDragged) c.accent else c.muted, spring(stiffness = 600f), label = "dockTint")
                 val scale by animateFloatAsState(if (isSelected) 1.08f else 1f, spring(dampingRatio = 0.5f, stiffness = 600f), label = "dockScale")
+                val interaction = remember { MutableInteractionSource() }
+                val before = shown.getOrNull(index - 1)?.let { tabFor(it).label }
+                val after = shown.getOrNull(index + 1)?.let { tabFor(it).label }
                 Column(
                     Modifier
+                        .align(Alignment.CenterStart)
+                        .offset { IntOffset((if (isDragged) liveX(tabKey) ?: 0f else x.value).roundToInt(), 0) }
+                        .zIndex(if (isDragged) 1f else 0f)
                         .width(slot)
                         .fillMaxHeight()
+                        .graphicsLayer {
+                            val s = 1f + 0.12f * lift
+                            scaleX = s
+                            scaleY = s
+                            shadowElevation = 10.dp.toPx() * lift
+                            shape = RoundedCornerShape(18.dp)
+                            clip = false
+                        }
+                        .drawBehind {
+                            if (lift > 0f) {
+                                drawRoundRect(
+                                    lerp(c.cardElevated, c.accent, 0.1f).copy(alpha = lift),
+                                    topLeft = Offset(3.dp.toPx(), 7.dp.toPx()),
+                                    size = Size(size.width - 6.dp.toPx(), size.height - 14.dp.toPx()),
+                                    cornerRadius = CornerRadius(18.dp.toPx()),
+                                )
+                            }
+                        }
                         .clip(RoundedCornerShape(18.dp))
-                        .selectable(selected = isSelected, role = Role.Tab, interactionSource = null, indication = ripple(bounded = true)) {
-                            if (!isSelected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                            onSelect(i)
+                        .indication(interaction, ripple(bounded = true))
+                        .pointerInput(tabKey, slotPx) {
+                            awaitEachGesture {
+                                val down = awaitFirstDown()
+                                val press = PressInteraction.Press(down.position)
+                                interaction.tryEmit(press)
+                                val held = awaitLongPressOrCancellation(down.id)
+                                if (held == null) {
+                                    // Released before the hold time: a tap (unless something else took it).
+                                    val up = currentEvent.changes.firstOrNull { it.id == down.id }
+                                    val tapped = up != null && up.changedToUp()
+                                    interaction.tryEmit(if (tapped) PressInteraction.Release(press) else PressInteraction.Cancel(press))
+                                    if (tapped) {
+                                        up.consume()
+                                        if (dragging == null) {
+                                            if (currentSelected != tabKey) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                            select(tabKey)
+                                        }
+                                    }
+                                    return@awaitEachGesture
+                                }
+                                // Held: lift the tab and follow the finger along the dock. No navigation.
+                                interaction.tryEmit(PressInteraction.Cancel(press))
+                                if (dragging != null) return@awaitEachGesture
+                                held.consume()
+                                dragStart = shown.indexOf(tabKey)
+                                dragPx = 0f
+                                dragging = tabKey
+                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                                var slotNow = dragStart
+                                val completed = horizontalDrag(held.id) { change ->
+                                    val dx = change.positionChange().x
+                                    dragPx += if (rtl) -dx else dx
+                                    change.consume()
+                                    if (drop != slotNow) {
+                                        slotNow = drop
+                                        haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+                                    }
+                                }
+                                // Drop where it is (or, if the gesture was cancelled, back where it came from).
+                                val from = dragStart
+                                val to = if (completed) drop else from
+                                landings[tabKey] = liveX(tabKey) ?: 0f
+                                dragging = null
+                                dragPx = 0f
+                                move(from, to)
+                                haptics.performHapticFeedback(HapticFeedbackType.GestureEnd)
+                            }
+                        }
+                        .semantics(mergeDescendants = true) {
+                            role = Role.Tab
+                            this.selected = isSelected
+                            if (!showLabels) contentDescription = tab.label
+                            onClick(label = "Open ${tab.label}") { select(tabKey); true }
+                            customActions = listOfNotNull(
+                                before?.let { CustomAccessibilityAction("Move before $it") { move(index, index - 1); true } },
+                                after?.let { CustomAccessibilityAction("Move after $it") { move(index, index + 1); true } },
+                            )
                         },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
                     Icon(
                         if (isSelected) tab.selectedIcon else tab.icon,
-                        contentDescription = if (showLabels) null else tab.label,
+                        contentDescription = null,
                         tint = tint,
                         modifier = Modifier.size(24.dp).graphicsLayer { scaleX = scale; scaleY = scale },
                     )

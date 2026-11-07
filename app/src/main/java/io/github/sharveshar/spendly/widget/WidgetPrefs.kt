@@ -21,7 +21,7 @@ object WidgetPrefs {
 
     /** The theme widgets use: null = match the app (the default). */
     fun style(context: Context): AppTheme? =
-        prefs(context).getString(KEY_STYLE, null)?.let { n -> AppTheme.entries.firstOrNull { it.name == n } }
+        AppTheme.parse(prefs(context).getString(KEY_STYLE, null))
 
     fun setStyle(context: Context, theme: AppTheme?) = prefs(context).edit {
         if (theme == null) remove(KEY_STYLE) else putString(KEY_STYLE, theme.name)

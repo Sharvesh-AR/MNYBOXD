@@ -17,6 +17,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.hasText
 import androidx.test.core.app.ApplicationProvider
 import io.github.sharveshar.spendly.AppContainer
@@ -85,6 +86,26 @@ class ReviewShotsTest {
             compose.captureScreen().savePng(File(out, "$name.png"))
         }
         settle(); save("a-home")
+
+        // Dock: Insights lifted and dragged two slots left, then dropped.
+        compose.mainClock.autoAdvance = false
+        val dockTab = hasText("Insights") and androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Tab)
+        compose.onNode(dockTab).performTouchInput {
+            down(center)
+            advanceEventTime(viewConfiguration.longPressTimeoutMillis + 100)
+            repeat(10) { moveBy(androidx.compose.ui.geometry.Offset(-1.6f * width / 10, 0f)) }
+        }
+        compose.mainClock.advanceTimeBy(400); ShadowLooper.idleMainLooper()
+        save("h-dock-drag")
+        compose.onNode(dockTab).performTouchInput { up() }
+        compose.mainClock.advanceTimeBy(800); ShadowLooper.idleMainLooper()
+        save("h-dock-dropped")
+        compose.mainClock.autoAdvance = true
+        // Let the drop's own save finish on the main thread before resetting the shared order.
+        settle()
+        runBlocking(kotlinx.coroutines.Dispatchers.IO) { kotlinx.coroutines.withTimeout(5_000) { container.preferences.setDockOrder(io.github.sharveshar.spendly.ui.navigation.DockOrder.DEFAULT) } }
+        settle()
+
         compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Accounts"))
         settle(); save("b-home-accounts")
 
@@ -167,7 +188,8 @@ class ReviewShotsTest {
         save("s-sheet-filled")
         for (p in io.github.sharveshar.spendly.ui.theme.Palettes.all) {
             palette = p
-            compose.mainClock.advanceTimeBy(800)
+            // The sheet is its own window: let it recompose and redraw before capturing.
+            repeat(8) { compose.mainClock.advanceTimeBy(100); ShadowLooper.idleMainLooper() }
             save("t-sheet-${p.theme.name.lowercase()}")
         }
         palette = io.github.sharveshar.spendly.ui.theme.Palettes.MidnightEmerald
@@ -226,7 +248,7 @@ class ReviewShotsTest {
         runBlocking { DebugTools.loadSampleData(container.repositories) }
         val data = runBlocking { io.github.sharveshar.spendly.widget.WidgetSnapshot.load(container.repositories) }
         val density = context.resources.displayMetrics.density
-        for (palette in listOf(io.github.sharveshar.spendly.ui.theme.Palettes.MidnightEmerald, io.github.sharveshar.spendly.ui.theme.Palettes.WarmSand, io.github.sharveshar.spendly.ui.theme.Palettes.OceanBlue)) {
+        for (palette in listOf(io.github.sharveshar.spendly.ui.theme.Palettes.MidnightEmerald, io.github.sharveshar.spendly.ui.theme.Palettes.Light, io.github.sharveshar.spendly.ui.theme.Palettes.OceanBlue)) {
             for (kind in io.github.sharveshar.spendly.widget.WidgetKind.entries) {
                 for (bp in io.github.sharveshar.spendly.widget.WidgetRenderer.sizesFor(kind, context, 3)) {
                     // Render at a typical launcher cell size for this breakpoint.

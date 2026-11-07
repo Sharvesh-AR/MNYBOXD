@@ -10,10 +10,12 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import io.github.sharveshar.spendly.AppTab
 import io.github.sharveshar.spendly.domain.model.PaymentChannel
 import io.github.sharveshar.spendly.domain.model.PaymentProvider
 import io.github.sharveshar.spendly.shortcut.ButtonShortcut
 import io.github.sharveshar.spendly.shortcut.ShortcutButton
+import io.github.sharveshar.spendly.ui.navigation.DockOrder
 import io.github.sharveshar.spendly.ui.theme.ThemeCache
 import io.github.sharveshar.spendly.ui.theme.ThemeChoice
 import kotlinx.coroutines.flow.Flow
@@ -41,14 +43,16 @@ data class UserPreferences(
      * service is switched on again in Android's Accessibility settings.
      */
     val buttonShortcutActive: Boolean = true,
+    /** The bottom dock's tabs, in the order the user dragged them into. */
+    val dockOrder: List<AppTab> = DockOrder.DEFAULT,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "spendly_prefs")
 
-/** Dark → Midnight Emerald, Light → Warm Sand, System stays System. Missing → the default. */
+/** Dark → Midnight, Light → Light, System stays System. Missing → the default. */
 internal fun legacyTheme(name: String?): ThemeChoice =
     when (name?.let { n -> LegacyThemeMode.entries.firstOrNull { it.name == n } }) {
-        LegacyThemeMode.LIGHT -> ThemeChoice.WARM_SAND
+        LegacyThemeMode.LIGHT -> ThemeChoice.LIGHT
         LegacyThemeMode.SYSTEM -> ThemeChoice.SYSTEM
         LegacyThemeMode.DARK, null -> ThemeChoice.DEFAULT
     }
@@ -66,6 +70,7 @@ class PreferencesRepository(private val context: Context) {
         val shortcutButton = stringPreferencesKey("shortcut_button")
         val shortcutPresses = intPreferencesKey("shortcut_presses")
         val shortcutActive = booleanPreferencesKey("shortcut_active")
+        val dockOrder = stringPreferencesKey("dock_order")
     }
 
     val preferences: Flow<UserPreferences> = context.dataStore.data
@@ -84,6 +89,7 @@ class PreferencesRepository(private val context: Context) {
                     presses = p[Keys.shortcutPresses]?.takeIf { it in ButtonShortcut.PRESS_CHOICES } ?: ButtonShortcut.DEFAULT_PRESSES,
                 ),
                 buttonShortcutActive = p[Keys.shortcutActive] ?: true,
+                dockOrder = DockOrder.parse(p[Keys.dockOrder]),
             )
         }
 
@@ -114,6 +120,12 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setShortcutPresses(presses: Int) {
         require(presses in ButtonShortcut.PRESS_CHOICES) { "Unsupported press count $presses" }
         context.dataStore.edit { it[Keys.shortcutPresses] = presses }
+    }
+
+    /** Saves the dock's tab order, normalised so every tab is stored exactly once. */
+    suspend fun setDockOrder(order: List<AppTab>) {
+        val normalised = DockOrder.parse(DockOrder.serialize(order))
+        context.dataStore.edit { it[Keys.dockOrder] = DockOrder.serialize(normalised) }
     }
 
     suspend fun rememberPaymentChoice(accountId: Long, channel: PaymentChannel?, provider: PaymentProvider?) =

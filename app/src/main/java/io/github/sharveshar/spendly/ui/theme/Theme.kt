@@ -176,10 +176,10 @@ fun SpendlyTheme(palette: SpendlyPalette = Palettes.Default, content: @Composabl
     }
 }
 
-/** Light/dark shorthand used by tests and previews: Midnight Emerald or Warm Sand. */
+/** Light/dark shorthand used by tests and previews: Midnight or Light. */
 @Composable
 fun SpendlyTheme(dark: Boolean, content: @Composable () -> Unit) =
-    SpendlyTheme(if (dark) Palettes.MidnightEmerald else Palettes.WarmSand, content)
+    SpendlyTheme(if (dark) Palettes.MidnightEmerald else Palettes.Light, content)
 
 object Spendly {
     val colors: SpendlyColors
