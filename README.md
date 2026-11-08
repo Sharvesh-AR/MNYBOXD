@@ -13,13 +13,13 @@ Free. No ads. No tracking. No internet permission.
 <h2 align="center">Download</h2>
 
 <p align="center">
-  <a href="https://github.com/Sharvesh-AR/Spendly/releases/latest/download/MNYBOXD.apk">
+  <a href="https://github.com/Sharvesh-AR/MNYBOXD/releases/latest/download/MNYBOXD.apk">
     <img src="docs/badges/available-on-android.svg" height="56" alt="Available on Android: download the MNYBOXD APK">
   </a>
 </p>
 
 <p align="center">
-  Grab the latest signed APK from the <a href="https://github.com/Sharvesh-AR/Spendly/releases/latest">Releases</a> page.
+  Grab the latest signed APK from the <a href="https://github.com/Sharvesh-AR/MNYBOXD/releases/latest">Releases</a> page.
   Sideloading requires enabling "Install unknown apps" for whichever app you download it with.
 </p>
 
@@ -141,7 +141,7 @@ builds (`ScreenshotTest`).</sub>
 ## Install on your phone
 
 1. On your phone, tap the **Available on Android** badge above (or open
-   [Releases](https://github.com/Sharvesh-AR/Spendly/releases/latest)) to download `MNYBOXD.apk`. (Optionally compare its SHA-256 with
+   [Releases](https://github.com/Sharvesh-AR/MNYBOXD/releases/latest)) to download `MNYBOXD.apk`. (Optionally compare its SHA-256 with
    `SHA256SUMS.txt` on the release page.)
 2. Open the downloaded file. If Android asks, allow your browser or file manager to
    **install unknown apps** (Settings → Apps → *your browser* → Install unknown apps).
