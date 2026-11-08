@@ -108,10 +108,10 @@ jobs:
             if "$BT/aapt2" dump badging "$APK" | grep -q "android.permission.INTERNET"; then echo "Unexpected INTERNET permission in $APK" >&2; exit 1; fi
           done
           # Play Protect blocks browser/file-manager installs of apps declaring any of these
-          # (developers.google.com/android/play-protect/warning-dev-guidance). Spendly.apk must declare none.
+          # (developers.google.com/android/play-protect/warning-dev-guidance). MNYBOXD.apk must declare none.
           if "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$STANDARD" \
               | grep -E "BIND_ACCESSIBILITY_SERVICE|BIND_NOTIFICATION_LISTENER_SERVICE|android.permission.(RECEIVE|READ)_SMS"; then
-            echo "Spendly.apk declares a permission that Play Protect blocks for sideloaded apps" >&2; exit 1
+            echo "MNYBOXD.apk declares a permission that Play Protect blocks for sideloaded apps" >&2; exit 1
           fi
 
       - name: Remove keystore
@@ -175,9 +175,9 @@ jobs:
           for APK in "$STANDARD" "$VOLUME"; do
             test -f "$APK" || { echo "No signed $APK was produced; refusing to publish a release." >&2; exit 1; }
           done
-          # Fixed asset names so README's releases/latest/download/Spendly.apk always works.
-          mv "$STANDARD" Spendly.apk
-          mv "$VOLUME" Spendly-volume-shortcut.apk
-          sha256sum Spendly.apk Spendly-volume-shortcut.apk > SHA256SUMS.txt
-          gh release create "$GITHUB_REF_NAME" Spendly.apk Spendly-volume-shortcut.apk SHA256SUMS.txt \
-            --repo "$GITHUB_REPOSITORY" --title "Spendly ${GITHUB_REF_NAME}" --generate-notes --verify-tag
+          # Fixed asset names so README's releases/latest/download/MNYBOXD.apk always works.
+          mv "$STANDARD" MNYBOXD.apk
+          mv "$VOLUME" MNYBOXD-volume-shortcut.apk
+          sha256sum MNYBOXD.apk MNYBOXD-volume-shortcut.apk > SHA256SUMS.txt
+          gh release create "$GITHUB_REF_NAME" MNYBOXD.apk MNYBOXD-volume-shortcut.apk SHA256SUMS.txt \
+            --repo "$GITHUB_REPOSITORY" --title "MNYBOXD ${GITHUB_REF_NAME}" --generate-notes --verify-tag

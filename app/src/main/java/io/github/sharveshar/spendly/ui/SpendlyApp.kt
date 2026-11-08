@@ -1,6 +1,33 @@
 package io.github.sharveshar.spendly.ui
 
 import android.os.SystemClock
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.DonutLarge
+import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.rounded.DonutLarge
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
+import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import io.github.sharveshar.spendly.ui.components.pressScale
+import io.github.sharveshar.spendly.ui.components.sharedContainer
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.foundation.gestures.awaitEachGesture
@@ -39,26 +66,18 @@ import io.github.sharveshar.spendly.ui.navigation.DockOrder
 import kotlinx.coroutines.flow.collectLatest
 import kotlin.math.roundToInt
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.ripple
-import androidx.compose.runtime.mutableLongStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -76,6 +95,10 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.rememberCoroutineScope
 import io.github.sharveshar.spendly.ui.components.AppMessages
+import io.github.sharveshar.spendly.ui.components.LocalAddButtonSlot
+import io.github.sharveshar.spendly.ui.components.GlidingAddButton
+import io.github.sharveshar.spendly.ui.components.AddButtonCornerSize
+import io.github.sharveshar.spendly.ui.components.AddButtonSlot
 import io.github.sharveshar.spendly.ui.components.DialogWindowSetup
 import io.github.sharveshar.spendly.ui.components.LocalAppMessages
 import io.github.sharveshar.spendly.ui.components.layeredSurface
@@ -93,10 +116,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
-import androidx.compose.animation.scaleOut
-import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
@@ -108,33 +128,19 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.AccountBalanceWallet
-import androidx.compose.material.icons.outlined.DonutLarge
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Insights
-import androidx.compose.material.icons.automirrored.outlined.ReceiptLong
-import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.DonutLarge
 import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.Insights
-import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
-import androidx.compose.material3.FloatingActionButton
-import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
@@ -168,8 +174,6 @@ import io.github.sharveshar.spendly.ui.budgets.BudgetsScreen
 import io.github.sharveshar.spendly.ui.budgets.BudgetsViewModel
 import io.github.sharveshar.spendly.ui.components.LocalSharedTransitionScope
 import io.github.sharveshar.spendly.ui.components.ProvideNavAnimatedScope
-import io.github.sharveshar.spendly.ui.components.pressScale
-import io.github.sharveshar.spendly.ui.components.sharedContainer
 import io.github.sharveshar.spendly.ui.entry.EntryScreen
 import io.github.sharveshar.spendly.ui.entry.EntryViewModel
 import io.github.sharveshar.spendly.ui.home.HomeScreen
@@ -261,8 +265,6 @@ fun SpendlyApp(container: AppContainer, launchRequests: Flow<LaunchRequest>) {
 
 /** Height of the floating navigation dock, and its gap above the system navigation area. */
 private val DockHeight = 64.dp
-/** The round + that floats above the dock on every tab but Home. */
-private val FabSize = 56.dp
 private val DockMargin = 12.dp
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -284,7 +286,8 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
     val bandHeight = DockHeight + DockMargin + navInset
     // Tab screens scroll clear of the dock (and, off Home, the + above it): nothing ends up hidden.
     val tabPadding = PaddingValues(top = statusInset, bottom = bandHeight + Space.md)
-    val tabPaddingWithAdd = PaddingValues(top = statusInset, bottom = bandHeight + Space.md + FabSize + Space.md)
+    val tabPaddingWithAdd = PaddingValues(top = statusInset, bottom = bandHeight + Space.md + AddButtonCornerSize + Space.md)
+    val addSlot = remember { AddButtonSlot() }
     val onHome = selectedTab == AppTab.HOME
     val context = LocalContext.current
     val sheetMotion = remember { SheetMotion() }
@@ -313,7 +316,7 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
     }
 
     SharedTransitionLayout(Modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalSharedTransitionScope provides this, LocalSheetMotion provides sheetMotion, LocalAppMessages provides messages) {
+        CompositionLocalProvider(LocalSharedTransitionScope provides this, LocalSheetMotion provides sheetMotion, LocalAppMessages provides messages, LocalAddButtonSlot provides addSlot) {
             val background = MaterialTheme.colorScheme.background
             Box(Modifier.fillMaxSize().background(Color.Black)) {
                 // The app recedes slightly while Quick Add is open (driven by the sheet's own motion).
@@ -346,8 +349,6 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
                                 HomeScreen(
                                     viewModel = spendlyViewModel { c, _ -> HomeViewModel(c.repositories) },
                                     contentPadding = tabPadding,
-                                    onAdd = { openQuickAdd(EntryRoute()) },
-                                    onVoice = { openQuickAdd(EntryRoute(startVoice = true)) },
                                     onOpenTransaction = { nav.navigate(TransactionDetailRoute(it)) },
                                     onSeeAllTransactions = { nav.switchTab(TransactionsRoute) },
                                     onSeeAccounts = { nav.switchTab(AccountsRoute) },
@@ -488,17 +489,16 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
                                 .padding(start = DockMargin, end = DockMargin, bottom = navInset + DockMargin),
                         )
                     }
-                    // Home has its own big +; everywhere else a smaller one floats above the dock.
-                    AnimatedVisibility(
-                        visible = topLevel && !onHome,
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(end = DockMargin + Space.xs, bottom = bandHeight + Space.md),
-                        enter = scaleIn(spring(dampingRatio = 0.7f, stiffness = 500f), initialScale = 0.6f) + fadeIn(tween(160)),
-                        exit = scaleOut(tween(140), targetScale = 0.6f) + fadeOut(tween(120)),
-                    ) {
-                        QuickAddFab(motion = sheetMotion, onClick = { openQuickAdd(EntryRoute()) })
-                    }
+                    // The one +: resting mid-Home, gliding to the corner above the dock on other tabs.
+                    GlidingAddButton(
+                        slot = addSlot,
+                        onHome = onHome,
+                        visible = topLevel,
+                        corner = PaddingValues(end = DockMargin + Space.xs, bottom = bandHeight + Space.md),
+                        motion = sheetMotion,
+                        onAdd = { openQuickAdd(EntryRoute()) },
+                        onVoice = { openQuickAdd(EntryRoute(startVoice = true)) },
+                    )
                 }
             }
         }
@@ -542,44 +542,6 @@ fun NavGraphBuilder.quickAddDestinations(nav: NavHostController) {
 /** Pops [entry] only if it's still on top, so a double tap can never pop the screen beneath. */
 fun NavHostController.popIfTop(entry: NavBackStackEntry) {
     if (currentBackStackEntry?.id == entry.id) popBackStack()
-}
-
-/**
- * The Quick Add button. A raised, softly lit gradient face with a press-in spring; the plus
- * turns into a cross as Quick Add opens. Taps are ignored while Quick Add is opening or open.
- */
-@Composable
-private fun QuickAddFab(motion: SheetMotion, onClick: () -> Unit) {
-    val c = Spendly.colors
-    val haptics = LocalHapticFeedback.current
-    val interaction = remember { MutableInteractionSource() }
-    var lastTap by remember { mutableLongStateOf(Long.MIN_VALUE / 2) }
-    val shape = CircleShape
-    Box(
-        Modifier
-            .size(FabSize)
-            .pressScale(interaction, 0.9f)
-            .layeredSurface(shape, c.accent, raised = true)
-            .background(Brush.verticalGradient(listOf(c.accentHighlight, c.accent)))
-            .border(1.dp, Brush.verticalGradient(0f to Color.White.copy(alpha = 0.3f), 0.5f to Color.Transparent), shape)
-            .clickable(interactionSource = interaction, indication = ripple(color = c.onAccent), role = Role.Button) {
-                val now = SystemClock.uptimeMillis()
-                if (motion.progress == 0f && now - lastTap > 600) {
-                    lastTap = now
-                    haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
-                    onClick()
-                }
-            }
-            .semantics { contentDescription = "Quick add" },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            Icons.Rounded.Add,
-            contentDescription = null,
-            tint = c.onAccent,
-            modifier = Modifier.size(30.dp).graphicsLayer { rotationZ = 45f * motion.progress },
-        )
-    }
 }
 
 /**

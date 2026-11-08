@@ -179,11 +179,11 @@ internal fun ShortcutsSection(
                 Spacer(Modifier.height(Space.md))
                 Text(
                     if (serviceOn) {
-                        "${shortcut.describe()} quickly, on any screen, to open the Quick Add pop-up. Turn it off here at any time: Spendly then stops receiving button presses until you switch it on again in Accessibility settings."
+                        "${shortcut.describe()} quickly, on any screen, to open the Quick Add pop-up. Turn it off here at any time: MNYBOXD then stops receiving button presses until you switch it on again in Accessibility settings."
                     } else {
                         "${shortcut.describe()} quickly, on any screen, to open Quick Add. On the lock screen you’ll be asked to unlock first.\n\n" +
                             "Android only lets apps notice button presses outside their own screens through Accessibility settings. " +
-                            "Spendly uses that access for one thing: checking whether a volume button was pressed. " +
+                            "MNYBOXD uses that access for one thing: checking whether a volume button was pressed. " +
                             "It can’t see your screen, it ignores every other key, and with no internet permission nothing can leave your phone. " +
                             "Android will show a general warning about accessibility access when you switch it on."
                     },
@@ -192,7 +192,7 @@ internal fun ShortcutsSection(
                 )
                 Spacer(Modifier.height(Space.md))
                 Text(
-                    "Your volume buttons keep working as usual. When Spendly sees the pattern it opens Quick Add and puts the volume back where it was. " +
+                    "Your volume buttons keep working as usual. When MNYBOXD sees the pattern it opens Quick Add and puts the volume back where it was. " +
                         "It works while the screen is on and stays out of the way during calls.",
                     color = Spendly.colors.muted,
                     style = MaterialTheme.typography.bodyMedium,
@@ -200,7 +200,7 @@ internal fun ShortcutsSection(
                 if (!serviceOn) {
                     Spacer(Modifier.height(Space.md))
                     Text(
-                        "In Accessibility settings, open “Spendly volume shortcut” (often under Downloaded or Installed apps) and switch it on.\n\n" +
+                        "In Accessibility settings, open “MNYBOXD volume shortcut” (often under Downloaded or Installed apps) and switch it on.\n\n" +
                             "If Android says “Restricted setting”: open App info, tap ⋮, choose Allow restricted settings, then try again.",
                         style = MaterialTheme.typography.bodyMedium,
                     )
@@ -271,12 +271,12 @@ fun ShortcutsScreen(viewModel: SettingsViewModel, onBack: () -> Unit) {
             InfoRow(
                 Icons.Rounded.TouchApp,
                 "App shortcuts",
-                "Touch and hold the Spendly icon for Add expense and Voice expense. You can drag either one to your home screen.",
+                "Touch and hold the MNYBOXD icon for Add expense and Voice expense. You can drag either one to your home screen.",
             )
             InfoRow(
                 Icons.Rounded.Widgets,
                 "Home-screen widgets",
-                "Touch and hold an empty part of your home screen, tap Widgets and find Spendly.",
+                "Touch and hold an empty part of your home screen, tap Widgets and find MNYBOXD.",
             )
             Spacer(Modifier.height(Space.xxxl))
         }

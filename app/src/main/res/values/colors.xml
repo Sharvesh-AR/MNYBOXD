@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="spendly_background">#0D1117</color>
-    <color name="spendly_accent">#67D6A0</color>
+    <color name="spendly_background">#0B0B0C</color>
+    <color name="spendly_accent">#F5F5F7</color>
 </resources>

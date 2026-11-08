@@ -35,8 +35,8 @@ android {
         applicationId = "io.github.sharveshar.spendly"
         minSdk = 26
         targetSdk = 37
-        versionCode = 7
-        versionName = "2.2.0"
+        versionCode = 8
+        versionName = "2.3.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -44,7 +44,7 @@ android {
      * Two builds of the same app: same applicationId, version and signing key, so either one
      * installs as an update over the other and keeps the user's data.
      *
-     * standard        The APK published on GitHub (Spendly.apk). It declares no accessibility
+     * standard        The APK published on GitHub (MNYBOXD.apk). It declares no accessibility
      *                 service, so Google Play Protect's "enhanced fraud protection" does not block
      *                 it when it is installed from a browser, messaging app or file manager.
      * volumeShortcut  Adds the optional volume-button shortcut, which needs an accessibility

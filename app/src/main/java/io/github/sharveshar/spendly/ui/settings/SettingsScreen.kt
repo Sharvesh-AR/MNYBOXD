@@ -157,14 +157,14 @@ fun SettingsScreen(
                     Spacer(Modifier.width(Space.lg))
                     Column(Modifier.weight(1f)) {
                         Text("Hide app contents", style = MaterialTheme.typography.bodyLarge)
-                        Text("Blocks screenshots and blurs Spendly in recent apps", style = MaterialTheme.typography.bodySmall, color = Spendly.colors.muted)
+                        Text("Blocks screenshots and blurs MNYBOXD in recent apps", style = MaterialTheme.typography.bodySmall, color = Spendly.colors.muted)
                     }
                     Switch(checked = prefs.secureScreen, onCheckedChange = null)
                 }
                 SettingRow(
                     Icons.Rounded.Lock,
                     "Your data stays on this phone",
-                    "Encrypted on-device database. No account, no internet permission, no ads or trackers. Android cloud backup is turned off for Spendly; use encrypted backups below.",
+                    "Encrypted on-device database. No account, no internet permission, no ads or trackers. Android cloud backup is turned off for MNYBOXD; use encrypted backups below.",
                 )
 
                 Group("Data management")
@@ -173,7 +173,7 @@ fun SettingsScreen(
                 SettingRow(Icons.Rounded.TableChart, "Export as CSV", "Unencrypted spreadsheet of all transactions", Modifier.originAnchor(csvAnchor)) { popup = SettingsPopup.CSV_WARNING }
                 SettingRow(
                     Icons.Rounded.DeleteForever,
-                    "Reset Spendly",
+                    "Reset MNYBOXD",
                     "Permanently delete all data on this phone and start again",
                     Modifier.originAnchor(resetAnchor),
                     destructive = true,
@@ -188,7 +188,7 @@ fun SettingsScreen(
                 }
 
                 Group("About")
-                SettingRow(Icons.Rounded.Info, "About Spendly", "Version, privacy, open-source licences", chevron = true, onClick = onAbout)
+                SettingRow(Icons.Rounded.Info, "About MNYBOXD", "Version, privacy, open-source licences", chevron = true, onClick = onAbout)
                 Spacer(Modifier.height(Space.xxxl))
                 BrandFooter()
                 Spacer(Modifier.height(Space.xl))
@@ -256,9 +256,9 @@ fun SettingsScreen(
     // Reset, step 1 of 2: what will be deleted, and a nudge to back up first. Step 2 is ResetScreen.
     OriginPopup(visible = popup == SettingsPopup.RESET_WARNING, anchor = resetAnchor, onDismissRequest = { popup = SettingsPopup.NONE }) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(Space.xxl)) {
-            Text("Reset Spendly?", style = MaterialTheme.typography.titleLarge)
+            Text("Reset MNYBOXD?", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(Space.md))
-            Text("This deletes everything Spendly stores on this phone:", style = MaterialTheme.typography.bodyMedium, color = Spendly.colors.muted)
+            Text("This deletes everything MNYBOXD stores on this phone:", style = MaterialTheme.typography.bodyMedium, color = Spendly.colors.muted)
             Spacer(Modifier.height(Space.sm))
             RESET_DELETES.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 2.dp)) }
             Spacer(Modifier.height(Space.md))
@@ -297,7 +297,7 @@ fun SettingsScreen(
                 Spacer(Modifier.height(Space.md))
             }
             Text(
-                "Everything currently in Spendly on this phone will be replaced by this backup. This can't be undone. Consider creating a backup of the current data first.",
+                "Everything currently in MNYBOXD on this phone will be replaced by this backup. This can't be undone. Consider creating a backup of the current data first.",
                 color = Spendly.colors.warning,
                 style = MaterialTheme.typography.bodyMedium,
             )
@@ -417,16 +417,18 @@ private fun PasswordPopup(
 private const val BRAND_URL = "https://ar-sharvesh.vercel.app"
 
 /**
- * "Built with ♥ by ARS". Only "ARS" is a link (it opens the author's site in the browser; Spendly
- * itself has no network access). The URL is never shown.
+ * "Built with care ♥ by ARS". Only "ARS" is a link (it opens the author's portfolio in the
+ * browser; the app itself has no network access). The URL is never shown.
  */
 @Composable
 fun BrandFooter(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+    // Both parts sit on one text baseline (the ♥ glyph would otherwise lift "ARS").
+    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
         Text(
-            buildAnnotatedString {
-                withStyle(SpanStyle(color = Spendly.colors.muted)) { append("Built with ") }
+            modifier = Modifier.alignByBaseline(),
+            text = buildAnnotatedString {
+                withStyle(SpanStyle(color = Spendly.colors.muted)) { append("Built with care ") }
                 withStyle(SpanStyle(color = Spendly.colors.negative)) { append("♥") }
                 withStyle(SpanStyle(color = Spendly.colors.muted)) { append(" by") }
             },
@@ -437,8 +439,9 @@ fun BrandFooter(modifier: Modifier = Modifier) {
             style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurface,
             modifier = Modifier
+                .alignByBaseline()
                 .clip(RoundedCornerShape(8.dp))
-                .clickable(role = Role.Button, onClickLabel = "Open ARS's website in your browser") {
+                .clickable(role = Role.Button, onClickLabel = "Open ARS's portfolio in your browser") {
                     try {
                         context.startActivity(
                             Intent(Intent.ACTION_VIEW, BRAND_URL.toUri())

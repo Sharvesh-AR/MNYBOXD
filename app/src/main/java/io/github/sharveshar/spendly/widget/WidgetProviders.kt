@@ -93,9 +93,9 @@ object WidgetUpdater {
     /** What widgets can show right now: data, or why not (first run, locked database). */
     suspend fun loadContent(container: AppContainer): WidgetRenderer.Content {
         val state = withTimeoutOrNull(8_000) { container.databaseManager.state.first { it !is DatabaseState.Opening } }
-        if (state !is DatabaseState.Ready) return WidgetRenderer.Content.Message("Open Spendly to see your spending")
+        if (state !is DatabaseState.Ready) return WidgetRenderer.Content.Message("Open MNYBOXD to see your spending")
         val prefs = container.preferences.preferences.first()
-        if (!prefs.onboardingDone) return WidgetRenderer.Content.Message("Open Spendly to get started")
+        if (!prefs.onboardingDone) return WidgetRenderer.Content.Message("Open MNYBOXD to get started")
         return WidgetRenderer.Content.Ready(WidgetSnapshot.load(container.repositories))
     }
 

@@ -244,24 +244,24 @@ fun AboutScreen(onBack: () -> Unit) {
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = Space.gutter)) {
             Spacer(Modifier.height(Space.lg))
-            Text("Spendly", style = MaterialTheme.typography.displaySmall)
+            Text("MNYBOXD", style = MaterialTheme.typography.displaySmall)
             Text("Version $version", style = MaterialTheme.typography.bodySmall, color = Spendly.colors.muted)
             Spacer(Modifier.height(Space.xl))
             AboutBlock(
                 "Privacy",
-                "Spendly works entirely offline and has no internet permission. There is no account, no analytics, no ads and no tracking. " +
+                "MNYBOXD works entirely offline and has no internet permission. There is no account, no analytics, no ads and no tracking. " +
                     "Your records are stored in an encrypted database on this phone, protected by a key held in Android Keystore.",
             )
             AboutBlock(
                 "Backups",
-                "Android cloud and device-to-device backup are disabled for Spendly, so your data is never copied to the cloud without you. " +
+                "Android cloud and device-to-device backup are disabled for MNYBOXD, so your data is never copied to the cloud without you. " +
                     "Create an encrypted backup file from Settings and keep it somewhere safe. If you uninstall the app or reset your phone without a backup, your records can't be recovered.",
             )
             AboutBlock(
                 "Voice entry",
-                "Voice uses your phone's speech recognition service. Depending on the device, that service may process audio online. Spendly never stores audio, and you always confirm before anything is saved.",
+                "Voice uses your phone's speech recognition service. Depending on the device, that service may process audio online. MNYBOXD never stores audio, and you always confirm before anything is saved.",
             )
-            AboutBlock("Not a bank", "Spendly never connects to banks or payment apps and never moves money. Balances are calculated from what you record.")
+            AboutBlock("Not a bank", "MNYBOXD never connects to banks or payment apps and never moves money. Balances are calculated from what you record.")
             Spacer(Modifier.height(Space.md))
             Text("Open-source licences", style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
             Spacer(Modifier.height(Space.sm))

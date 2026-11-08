@@ -18,7 +18,7 @@ import org.robolectric.annotation.Config
  * Google Play Protect's "enhanced fraud protection" blocks installing, from a browser, messaging
  * app or file manager, any app that declares one of four things: RECEIVE_SMS, READ_SMS, a
  * notification listener or an accessibility service. The user sees "App blocked to protect your
- * device". Spendly.apk (the standard build) is installed exactly that way, so it must declare none
+ * device". MNYBOXD.apk (the standard build) is installed exactly that way, so it must declare none
  * of them; only the volumeShortcut build may declare its one accessibility service.
  * https://developers.google.com/android/play-protect/warning-dev-guidance
  *

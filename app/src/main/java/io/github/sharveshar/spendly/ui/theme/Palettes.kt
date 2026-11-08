@@ -10,7 +10,7 @@ import androidx.compose.ui.graphics.lerp
  * were removed are mapped to the closest one by [parse].
  */
 enum class AppTheme(val label: String, val tagline: String) {
-    MONO("Mono", "Matte black and white. Calm, minimal, Spendly's signature look."),
+    MONO("Mono", "Matte black and white. Calm, minimal, MNYBOXD's signature look."),
     MIDNIGHT_EMERALD("Midnight", "Deep charcoal with an emerald accent."),
     LIGHT("Light", "Clean off-white with emerald accents."),
     PURE_AMOLED("AMOLED", "True black for OLED screens and night use."),

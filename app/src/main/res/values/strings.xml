@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Spendly</string>
+    <string name="app_name">MNYBOXD</string>
     <string name="tile_label">Add expense</string>
     <string name="widget_quick_add_label">Quick Add</string>
     <string name="widget_quick_add_description">Add an expense or speak it, straight from your home screen.</string>

@@ -88,7 +88,7 @@ object BackupCodec {
             val n = input.read(buf)
             if (n < 0) break
             total += n
-            if (total > MAX_FILE_BYTES) throw BackupFormatException("File is too large to be a Spendly backup")
+            if (total > MAX_FILE_BYTES) throw BackupFormatException("File is too large to be a MNYBOXD backup")
             out.write(buf, 0, n)
         }
         return out.toByteArray()
@@ -97,12 +97,12 @@ object BackupCodec {
     @Throws(BackupFormatException::class, BackupPasswordException::class)
     fun decrypt(file: ByteArray, password: CharArray): BackupSnapshot {
         val buf = ByteBuffer.wrap(file)
-        fun need(n: Int) { if (buf.remaining() < n) throw BackupFormatException("This is not a Spendly backup file") }
+        fun need(n: Int) { if (buf.remaining() < n) throw BackupFormatException("This is not a MNYBOXD backup file") }
         need(MAGIC.size + 2 + 4)
         val magic = ByteArray(MAGIC.size).also { buf.get(it) }
-        if (!magic.contentEquals(MAGIC)) throw BackupFormatException("This is not a Spendly backup file")
+        if (!magic.contentEquals(MAGIC)) throw BackupFormatException("This is not a MNYBOXD backup file")
         val version = buf.get()
-        if (version != FORMAT_VERSION) throw BackupFormatException("This backup was made by a newer version of Spendly")
+        if (version != FORMAT_VERSION) throw BackupFormatException("This backup was made by a newer version of MNYBOXD")
         if (buf.get() != KDF_PBKDF2_SHA256) throw BackupFormatException("Unsupported backup encryption")
         val iterations = buf.int
         if (iterations !in MIN_ITERATIONS..MAX_ITERATIONS) throw BackupFormatException("Unsupported backup parameters")

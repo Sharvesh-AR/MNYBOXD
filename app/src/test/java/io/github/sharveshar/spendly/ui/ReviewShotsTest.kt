@@ -106,6 +106,19 @@ class ReviewShotsTest {
         runBlocking(kotlinx.coroutines.Dispatchers.IO) { kotlinx.coroutines.withTimeout(5_000) { container.preferences.setDockOrder(io.github.sharveshar.spendly.ui.navigation.DockOrder.DEFAULT) } }
         settle()
 
+        // The + gliding from mid-Home to the corner as the tab changes, frame by frame.
+        compose.mainClock.autoAdvance = false
+        compose.onNode(tab("Activity")).performClick()
+        var glideAt = 0L
+        for (step in listOf(60L, 140L, 240L, 420L)) {
+            compose.mainClock.advanceTimeBy(step - glideAt); glideAt = step
+            ShadowLooper.idleMainLooper()
+            save("k-glide-%03d".format(step))
+        }
+        compose.mainClock.autoAdvance = true
+        compose.onNode(tab("Home")).performClick()
+        settle()
+
         compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Recent"))
         settle(); save("b-home-recent")
 
@@ -319,8 +332,8 @@ class ReviewShotsTest {
         compose.onNodeWithText("Home-screen widgets").performClick(); shot("11-widgets"); back()
         compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Categories"))
         compose.onNodeWithText("Categories").performClick(); shot("12-categories"); back()
-        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("About Spendly"))
-        compose.onNodeWithText("About Spendly").performClick(); shot("13-about"); back()
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("About MNYBOXD"))
+        compose.onNodeWithText("About MNYBOXD").performClick(); shot("13-about"); back()
         compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Built with", substring = true))
         shot("14-settings-bottom")
         db.close()

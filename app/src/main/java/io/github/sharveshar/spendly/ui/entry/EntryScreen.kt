@@ -1,5 +1,32 @@
 package io.github.sharveshar.spendly.ui.entry
 
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.automirrored.rounded.CallMade
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
+import androidx.compose.material.icons.automirrored.rounded.ArrowForward
+import androidx.compose.material.icons.rounded.MoreHoriz
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material.icons.automirrored.rounded.Backspace
+import androidx.compose.material.icons.rounded.Apps
+import androidx.compose.material.icons.rounded.CheckCircle
+import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.ExpandMore
+import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Mic
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.SelectableDates
+import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.scale
+import io.github.sharveshar.spendly.ui.components.LocalReducedMotion
+import io.github.sharveshar.spendly.ui.components.RollingText
+import java.time.ZoneOffset
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -12,28 +39,19 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.runtime.key
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.rounded.Notes
-import androidx.compose.material.icons.automirrored.rounded.CallMade
-import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.ui.semantics.heading
 import io.github.sharveshar.spendly.ui.common.CategoryUi
 import io.github.sharveshar.spendly.ui.components.TypingAmount
 import io.github.sharveshar.spendly.ui.components.momentFor
 import io.github.sharveshar.spendly.ui.components.MomentSpec
 import io.github.sharveshar.spendly.ui.components.MoneyMoment
-import androidx.compose.material.icons.automirrored.rounded.ArrowForward
-import androidx.compose.material.icons.rounded.MoreHoriz
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
@@ -79,10 +97,8 @@ import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -90,44 +106,31 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.Backspace
-import androidx.compose.material.icons.rounded.Apps
-import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.Event
-import androidx.compose.material.icons.rounded.ExpandMore
-import androidx.compose.material.icons.rounded.GraphicEq
-import androidx.compose.material.icons.rounded.Mic
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
-import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
@@ -152,10 +155,8 @@ import io.github.sharveshar.spendly.domain.model.TransactionType
 import io.github.sharveshar.spendly.ui.common.Formats
 import io.github.sharveshar.spendly.ui.components.CategoryIcons
 import io.github.sharveshar.spendly.ui.components.IconBadge
-import io.github.sharveshar.spendly.ui.components.LocalReducedMotion
 import io.github.sharveshar.spendly.ui.components.OriginAnchor
 import io.github.sharveshar.spendly.ui.components.OriginPopup
-import io.github.sharveshar.spendly.ui.components.RollingText
 import io.github.sharveshar.spendly.ui.components.SegmentedSelector
 import io.github.sharveshar.spendly.ui.components.SelectChip
 import io.github.sharveshar.spendly.ui.components.icon
@@ -173,7 +174,6 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneId
-import java.time.ZoneOffset
 
 private enum class Popup { NONE, CATEGORIES, DATE, ACCOUNT, TO_ACCOUNT, VOICE_DISCLOSURE, VOICE, PERMISSION }
 
@@ -566,9 +566,9 @@ fun EntryScreen(
             Spacer(Modifier.height(Space.md))
             Text(
                 "Speech is turned into text by your phone's speech recognition service (for example, Google's). " +
-                    "Spendly prefers on-device recognition when your phone supports it, but depending on your device and settings, " +
+                    "MNYBOXD prefers on-device recognition when your phone supports it, but depending on your device and settings, " +
                     "that service may process audio online.\n\n" +
-                    "Spendly never records or stores audio and never sends your finances anywhere. The text is read on your device, " +
+                    "MNYBOXD never records or stores audio and never sends your finances anywhere. The text is read on your device, " +
                     "and nothing is saved until you check the details and tap Save.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Spendly.colors.muted,

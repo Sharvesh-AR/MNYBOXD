@@ -128,7 +128,7 @@ fun AccountsScreen(viewModel: AccountsViewModel, contentPadding: PaddingValues, 
                 EmptyState(
                     Icons.AutoMirrored.Rounded.ReceiptLong,
                     "Add your bank accounts and cards",
-                    "Spendly never asks for passwords, PINs or card numbers. Just a name and your current balance.",
+                    "MNYBOXD never asks for passwords, PINs or card numbers. Just a name and your current balance.",
                     action = { FilledTonalButton(onClick = onAdd) { Text("Add account") } },
                 )
             }

@@ -1,16 +1,29 @@
 package io.github.sharveshar.spendly.ui.home
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
+import androidx.compose.material.icons.outlined.NotificationsNone
+import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Person
+import androidx.compose.material.icons.rounded.WarningAmber
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -32,13 +45,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
-import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.rounded.Add
-import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.Person
-import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -50,18 +57,11 @@ import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -74,6 +74,7 @@ import io.github.sharveshar.spendly.core.money.Money
 import io.github.sharveshar.spendly.domain.insights.BudgetLevel
 import io.github.sharveshar.spendly.ui.common.Formats
 import io.github.sharveshar.spendly.ui.common.Today
+import io.github.sharveshar.spendly.ui.components.AddButtonPlace
 import io.github.sharveshar.spendly.ui.components.AmountPill
 import io.github.sharveshar.spendly.ui.components.BudgetBar
 import io.github.sharveshar.spendly.ui.components.EmptyState
@@ -82,7 +83,8 @@ import io.github.sharveshar.spendly.ui.components.OriginPopup
 import io.github.sharveshar.spendly.ui.components.RollingAmount
 import io.github.sharveshar.spendly.ui.components.SectionCard
 import io.github.sharveshar.spendly.ui.components.SectionHeader
-import io.github.sharveshar.spendly.ui.components.SpendlyMark
+import io.github.sharveshar.spendly.ui.components.BrandMark
+import io.github.sharveshar.spendly.ui.components.Wordmark
 import io.github.sharveshar.spendly.ui.components.TransactionListItem
 import io.github.sharveshar.spendly.ui.components.originAnchor
 import io.github.sharveshar.spendly.ui.components.pressScale
@@ -98,7 +100,7 @@ import java.time.YearMonth
 
 /**
  * Home: where you stand, in two seconds. The balance, what you spent today and the budget come
- * first, with one big + to add. The month picker changes the budget card and the line behind the
+ * first, with the app's + resting in the middle (it glides to the corner on other tabs). The month picker changes the budget card and the line behind the
  * balance; the balance itself is always today's.
  *
  * While Quick Add is open over Home, the figures keep showing what they showed. When it closes
@@ -109,8 +111,6 @@ import java.time.YearMonth
 fun HomeScreen(
     viewModel: HomeViewModel,
     contentPadding: PaddingValues,
-    onAdd: () -> Unit,
-    onVoice: () -> Unit,
     onOpenTransaction: (Long) -> Unit,
     onSeeAllTransactions: () -> Unit,
     onSeeAccounts: () -> Unit,
@@ -165,9 +165,9 @@ fun HomeScreen(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
         item(key = "top") {
             Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.sm, top = Space.sm), verticalAlignment = Alignment.CenterVertically) {
-                SpendlyMark(size = 28.dp)
+                BrandMark(size = 28.dp)
                 Spacer(Modifier.width(Space.sm))
-                Text("Spendly", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f).semantics { heading() })
+                Wordmark(Modifier.weight(1f).semantics { heading() })
                 // Bell: budgets that need attention, with a dot when there are any.
                 IconButton(onClick = { showAlerts = true }, modifier = Modifier.originAnchor(bell)) {
                     Box {
@@ -247,7 +247,8 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxWidth().height(120.dp),
                         )
                     }
-                    AddButton(onAdd = onAdd, onVoice = onVoice, modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = Space.sm))
+                    // The app's + rests here (it lives in the shell, so it can glide between tabs).
+                    AddButtonPlace(Modifier.align(Alignment.BottomCenter).padding(bottom = Space.sm))
                 }
             }
         }
@@ -378,37 +379,5 @@ private fun MonthPicker(month: YearMonth, months: List<YearMonth>, onPick: (Year
                 )
             }
         }
-    }
-}
-
-/**
- * The big white + : tap to add, hold to speak. Presses in slightly, like a physical key.
- */
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun AddButton(onAdd: () -> Unit, onVoice: () -> Unit, modifier: Modifier = Modifier) {
-    val c = Spendly.colors
-    val haptics = LocalHapticFeedback.current
-    val interaction = remember { MutableInteractionSource() }
-    Box(
-        modifier
-            .pressScale(interaction, 0.92f)
-            .size(64.dp)
-            .shadow(12.dp, CircleShape, ambientColor = Color.Black, spotColor = Color.Black)
-            .clip(CircleShape)
-            .background(Brush.verticalGradient(listOf(c.accentHighlight, c.accent)))
-            .combinedClickable(
-                interactionSource = interaction,
-                indication = ripple(color = c.onAccent),
-                role = Role.Button,
-                onClickLabel = "Add expense",
-                onLongClickLabel = "Add by voice",
-                onLongClick = { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onVoice() },
-                onClick = { haptics.performHapticFeedback(HapticFeedbackType.ContextClick); onAdd() },
-            )
-            .semantics { contentDescription = "Add expense" },
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(Icons.Rounded.Add, contentDescription = null, tint = c.onAccent, modifier = Modifier.size(30.dp))
     }
 }

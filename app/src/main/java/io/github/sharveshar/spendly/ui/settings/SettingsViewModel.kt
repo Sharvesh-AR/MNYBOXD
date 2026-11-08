@@ -124,7 +124,7 @@ class SettingsViewModel(
                 _message.value = "Wrong password, or the file has been changed. Nothing was restored."
             } catch (e: BackupFormatException) {
                 _flow.value = BackupFlow.Idle
-                _message.value = e.message ?: "That file isn't a Spendly backup."
+                _message.value = e.message ?: "That file isn't a MNYBOXD backup."
             } catch (e: Exception) {
                 _flow.value = BackupFlow.Idle
                 _message.value = "Couldn't read that file. Nothing was restored."

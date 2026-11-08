@@ -84,7 +84,7 @@ class ResetViewModel(private val container: AppContainer) : ViewModel() {
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
-                ResetState.Failed("Nothing was deleted. Spendly couldn't reset (${e.javaClass.simpleName}). Please try again.")
+                ResetState.Failed("Nothing was deleted. MNYBOXD couldn't reset (${e.javaClass.simpleName}). Please try again.")
             }
         }
     }
@@ -112,11 +112,11 @@ fun ResetScreen(viewModel: ResetViewModel, onBack: () -> Unit) {
 
     LaunchedEffect(state) {
         if (state == ResetState.Done) {
-            Toast.makeText(context.applicationContext, "Spendly has been reset. All your data was deleted.", Toast.LENGTH_LONG).show()
+            Toast.makeText(context.applicationContext, "MNYBOXD has been reset. All your data was deleted.", Toast.LENGTH_LONG).show()
         }
     }
 
-    SubScreen("Reset Spendly", onBack = { if (!working) onBack() }) {
+    SubScreen("Reset MNYBOXD", onBack = { if (!working) onBack() }) {
         Column(
             Modifier
                 .weight(1f)
@@ -129,7 +129,7 @@ fun ResetScreen(viewModel: ResetViewModel, onBack: () -> Unit) {
             IconBadge(Icons.Rounded.WarningAmber, Spendly.colors.negative, size = 64.dp)
             Spacer(Modifier.height(Space.xl))
             Text(
-                "This will permanently delete all your Spendly data.",
+                "This will permanently delete all your MNYBOXD data.",
                 style = MaterialTheme.typography.headlineSmall,
                 color = Spendly.colors.negative,
             )

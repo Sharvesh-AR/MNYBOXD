@@ -1,8 +1,10 @@
-# Spendly
+# MNYBOXD
+
+<sub>Formerly Spendly. Same app, same data: it updates in place.</sub>
 
 **A calm, private expense tracker for Android. Every rupee, accounted for.**
 
-Spendly records spending in seconds, by keypad or voice, and keeps accurate balances across
+MNYBOXD records spending in seconds, by keypad or voice, and keeps accurate balances across
 your bank accounts, cash, UPI, debit cards and credit cards. It works completely offline, has
 no account or sign-in, and stores everything in an encrypted database on your phone.
 
@@ -11,8 +13,8 @@ Free. No ads. No tracking. No internet permission.
 <h2 align="center">Download</h2>
 
 <p align="center">
-  <a href="https://github.com/Sharvesh-AR/Spendly/releases/latest/download/Spendly.apk">
-    <img src="docs/badges/available-on-android.svg" height="56" alt="Available on Android: download the Spendly APK">
+  <a href="https://github.com/Sharvesh-AR/Spendly/releases/latest/download/MNYBOXD.apk">
+    <img src="docs/badges/available-on-android.svg" height="56" alt="Available on Android: download the MNYBOXD APK">
   </a>
 </p>
 
@@ -102,7 +104,7 @@ builds (`ScreenshotTest`).</sub>
 * Encrypted database (SQLCipher, key protected by Android Keystore).
 * Password-encrypted backups and restore (validated, previewed, confirmed, all-or-nothing).
 * CSV export for spreadsheets (with a clear "this file is unencrypted" warning).
-* **Reset Spendly** (*Settings → Data management*): deletes every transaction, account, budget,
+* **Reset MNYBOXD** (*Settings → Data management*): deletes every transaction, account, budget,
   custom category and setting on the phone. Two separate confirmations: a warning that
   suggests a backup first, then a screen where you type `DELETE EVERYTHING` exactly.
 * Optional screenshot blocking (*Hide app contents*).
@@ -118,7 +120,7 @@ builds (`ScreenshotTest`).</sub>
 
 **Design and accessibility**
 * **Your dock, your order**: the bottom dock is icons only (screen readers hear each name). Touch
-  and hold a tab, slide it along and let go: the other tabs move aside and Spendly remembers
+  and hold a tab, slide it along and let go: the other tabs move aside and MNYBOXD remembers
   the order. A tap still just opens the tab. On every tab but Home, a small **+** floats above
   the dock.
 * **Money moments**: after you save an expense, a solid silver ₹ coin (you can see its edge)
@@ -139,7 +141,7 @@ builds (`ScreenshotTest`).</sub>
 ## Install on your phone
 
 1. On your phone, tap the **Available on Android** badge above (or open
-   [Releases](https://github.com/Sharvesh-AR/Spendly/releases/latest)) to download `Spendly.apk`. (Optionally compare its SHA-256 with
+   [Releases](https://github.com/Sharvesh-AR/Spendly/releases/latest)) to download `MNYBOXD.apk`. (Optionally compare its SHA-256 with
    `SHA256SUMS.txt` on the release page.)
 2. Open the downloaded file. If Android asks, allow your browser or file manager to
    **install unknown apps** (Settings → Apps → *your browser* → Install unknown apps).
@@ -154,15 +156,15 @@ phone:
 | Voice entry | A speech recognition service (for example Google's). On-device recognition is used when the phone has it. |
 | Widgets that reshape as you resize them | Android 12 or newer. Older versions pick the closest layout when you resize. |
 | *Add to home screen* button in *Settings → Widgets* | A launcher that supports pinning widgets (most do). Otherwise add them from the launcher's widget list. |
-| Volume-button shortcut | The separate `Spendly-volume-shortcut.apk` build (below). |
+| Volume-button shortcut | The separate `MNYBOXD-volume-shortcut.apk` build (below). |
 
 Updating keeps your data: every release is signed with the same key, so install the new
-`Spendly.apk` over the old one. Don't uninstall first, as that deletes your records.
+`MNYBOXD.apk` over the old one. Don't uninstall first, as that deletes your records.
 
 To install from a computer instead: enable *Developer options → USB debugging*, connect the
-phone and run `adb install Spendly.apk`.
+phone and run `adb install MNYBOXD.apk`.
 
-`Spendly.apk` declares no accessibility service, notification listener or SMS permission, so
+`MNYBOXD.apk` declares no accessibility service, notification listener or SMS permission, so
 Google Play Protect does not block it when you install it from your browser or file manager.
 
 ### Volume-button shortcut (optional)
@@ -170,18 +172,18 @@ Google Play Protect does not block it when you install it from your browser or f
 Press volume down (or up) two or three times on any screen to open Quick Add as a pop-up. It's
 off until you switch it on:
 
-1. Install `Spendly-volume-shortcut.apk` (see below).
-2. In Spendly, open *Settings → Shortcut settings*, pick the button and *Twice* or *3 times*
+1. Install `MNYBOXD-volume-shortcut.apk` (see below).
+2. In MNYBOXD, open *Settings → Shortcut settings*, pick the button and *Twice* or *3 times*
    (the default).
-3. Tap *Accessibility settings* and switch on **Spendly volume shortcut**. If Android says
+3. Tap *Accessibility settings* and switch on **MNYBOXD volume shortcut**. If Android says
    *Restricted setting* (Android 13+ does this for apps installed outside an app store), open
    *App info → ⋮ → Allow restricted settings* and try again.
 
-You can switch it off again in Spendly (*Shortcut settings → Turn off*) or in Android's
+You can switch it off again in MNYBOXD (*Shortcut settings → Turn off*) or in Android's
 Accessibility settings.
 
 **What the accessibility permission is used for.** Android only lets an app notice button
-presses made outside it through an accessibility service. Spendly's asks for one capability,
+presses made outside it through an accessibility service. MNYBOXD's asks for one capability,
 filtering key events: it sees which hardware key was pressed and when. It can't read the screen
 or other apps, receives no accessibility events, never blocks or changes a key press, and with
 no internet permission nothing could leave the phone anyway. Your volume buttons keep working;
@@ -195,16 +197,16 @@ them) Google Play Protect's
 [enhanced fraud protection](https://developers.google.com/android/play-protect/warning-dev-guidance)
 blocks **any** app that declares one from being installed from a browser, messaging app or file
 manager. You see *"App blocked to protect your device"*. It doesn't matter how little the
-service can do. So the shortcut ships in a separate build, `Spendly-volume-shortcut.apk`. It has
+service can do. So the shortcut ships in a separate build, `MNYBOXD-volume-shortcut.apk`. It has
 the same app, version and signing key, so either build installs as an update over the other and
 keeps your data. Install it one of these ways:
 
-* from a computer: `adb install -r Spendly-volume-shortcut.apk` (USB debugging on), or
+* from a computer: `adb install -r MNYBOXD-volume-shortcut.apk` (USB debugging on), or
 * through Google Play, if the app is published there (for example on an internal testing track).
 
 Downloading it on the phone works only where that protection isn't active.
 
-> **Back up regularly.** Spendly has no cloud sync. If you uninstall the app or reset your phone,
+> **Back up regularly.** MNYBOXD has no cloud sync. If you uninstall the app or reset your phone,
 > your records are gone unless you made an encrypted backup (*Settings → Data management →
 > Create encrypted backup*).
 
@@ -221,8 +223,8 @@ echo "sdk.dir=$ANDROID_HOME" > local.properties     # if ANDROID_HOME isn't set 
 ```
 
 There are two builds (*product flavors*, see `app/build.gradle.kts`): **standard** (published as
-`Spendly.apk`) and **volumeShortcut** (adds the volume-button accessibility service from
-`app/src/volumeShortcut/`; published as `Spendly-volume-shortcut.apk`).
+`MNYBOXD.apk`) and **volumeShortcut** (adds the volume-button accessibility service from
+`app/src/volumeShortcut/`; published as `MNYBOXD-volume-shortcut.apk`).
 
 * Debug build (installs side by side as "io.github.sharveshar.spendly.debug"):
   `./gradlew installStandardDebug` or `./gradlew installVolumeShortcutDebug`
@@ -250,7 +252,7 @@ future update):
 
 ```bash
 keytool -genkeypair -v -storetype PKCS12 -keystore ~/spendly-release.p12 \
-  -alias spendly -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=Spendly"
+  -alias spendly -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=MNYBOXD"
 chmod 600 ~/spendly-release.p12
 ```
 
@@ -258,8 +260,8 @@ chmod 600 ~/spendly-release.p12
 
 The workflow in `.github/workflows/android.yml` tests, lints and (when secrets exist) builds and
 verifies signed APKs on every push. Pushing a tag `vX.Y.Z` that matches `versionName` publishes
-a GitHub Release with `Spendly.apk`, `Spendly-volume-shortcut.apk` and their SHA-256 sums. The asset name never changes, so the
-README badge (`releases/latest/download/Spendly.apk`) always downloads the newest version.
+a GitHub Release with `MNYBOXD.apk`, `MNYBOXD-volume-shortcut.apk` and their SHA-256 sums. The asset name never changes, so the
+README badge (`releases/latest/download/MNYBOXD.apk`) always downloads the newest version.
 
 1. Add repository secrets (Settings → Secrets and variables → Actions):
    * `SPENDLY_KEYSTORE_BASE64`: output of `base64 -w0 ~/spendly-release.p12`
@@ -272,22 +274,22 @@ Without signing secrets the workflow still tests and lints, but never creates a 
 Prefer to publish manually? Build locally, then:
 
 ```bash
-cp app/build/outputs/apk/standard/release/app-standard-release.apk Spendly.apk
-cp app/build/outputs/apk/volumeShortcut/release/app-volumeShortcut-release.apk Spendly-volume-shortcut.apk
-sha256sum Spendly.apk Spendly-volume-shortcut.apk > SHA256SUMS.txt
-gh release create vX.Y.Z Spendly.apk Spendly-volume-shortcut.apk SHA256SUMS.txt --generate-notes
+cp app/build/outputs/apk/standard/release/app-standard-release.apk MNYBOXD.apk
+cp app/build/outputs/apk/volumeShortcut/release/app-volumeShortcut-release.apk MNYBOXD-volume-shortcut.apk
+sha256sum MNYBOXD.apk MNYBOXD-volume-shortcut.apk > SHA256SUMS.txt
+gh release create vX.Y.Z MNYBOXD.apk MNYBOXD-volume-shortcut.apk SHA256SUMS.txt --generate-notes
 ```
 
 ### Before publishing a release: device check
 
-Automated tests run on the JVM (Robolectric). Before each public release, download `Spendly.apk`
+Automated tests run on the JVM (Robolectric). Before each public release, download `MNYBOXD.apk`
 on a real phone and install it from the browser or file manager (this is the path Play Protect
 checks), then check: first launch and onboarding; adding an expense, income, transfer and
 refund; the coin animation and balances on Accounts; voice entry (allow and deny the microphone);
 creating and restoring an encrypted backup; the Quick Settings tile; the "Add expense" app icon;
 dragging a dock tab to a new place and restarting the app; every theme; adding, resizing,
 tapping and removing each widget; opening and closing Quick Add repeatedly; rotating the phone;
-and a large font size. Then install `Spendly-volume-shortcut.apk` over it with `adb install -r`, confirm
+and a large font size. Then install `MNYBOXD-volume-shortcut.apk` over it with `adb install -r`, confirm
 your data is still there, and check the volume-button shortcut (in another app, on the lock
 screen, during a call, that the volume returns to where it was, and that it stops once switched
 off in Accessibility settings).
@@ -328,7 +330,7 @@ See [`DEPENDENCIES.md`](DEPENDENCIES.md) for every library, version and licence.
 * No internet permission, no accounts, no analytics, no ads, no paid services, no API keys.
 * Encrypted at rest; Android cloud backup disabled; you choose when and where to export.
 * Never asks for passwords, PINs, OTPs, CVVs or card numbers.
-* Voice uses your phone's speech service, which may work online on some devices. Spendly tells
+* Voice uses your phone's speech service, which may work online on some devices. MNYBOXD tells
   you before first use and never stores audio.
 
 Details and limitations: [`SECURITY.md`](SECURITY.md). Latest review:
@@ -345,7 +347,7 @@ Details and limitations: [`SECURITY.md`](SECURITY.md). Latest review:
 
 ## Credits
 
-Built with ♥ by **ARS** · [ar-sharvesh.vercel.app](https://ar-sharvesh.vercel.app)
+Built with care ♥ by [**ARS**](https://ar-sharvesh.vercel.app)
 
 <sub>The Android robot is reproduced or modified from work created and shared by Google and used
 according to terms described in the Creative Commons 3.0 Attribution License.</sub>

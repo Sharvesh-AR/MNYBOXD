@@ -62,7 +62,7 @@ fun WelcomeScreen(onStart: () -> Unit) {
         Spacer(Modifier.height(72.dp))
         AnimatedVisibility(visible, enter = fadeIn(tween(500)) + slideInVertically(tween(500)) { it / 6 }) {
             Column {
-                Text("Spendly", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+                Text("MNYBOXD", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.height(Space.md))
                 Text("Every rupee,\naccounted for.", style = MaterialTheme.typography.displayMedium, modifier = Modifier.semantics { heading() })
                 Spacer(Modifier.height(Space.lg))
@@ -132,7 +132,7 @@ fun SplashScreen() {
                     }
                 }
                 Spacer(Modifier.height(Space.lg))
-                Text("Spendly", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
+                Text("MNYBOXD", style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onBackground)
             }
         }
     }
@@ -158,9 +158,9 @@ fun RecoveryScreen(state: DatabaseState, onRetry: () -> Unit, onErase: suspend (
         Text(
             when {
                 locked -> "Your data can't be unlocked"
-                code == "UPGRADE" -> "Spendly couldn't update its database"
+                code == "UPGRADE" -> "MNYBOXD couldn't update its database"
                 code == "STORAGE" -> "Your phone is out of storage"
-                else -> "Spendly couldn't open your data"
+                else -> "MNYBOXD couldn't open your data"
             },
             style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.semantics { heading() },
@@ -170,8 +170,8 @@ fun RecoveryScreen(state: DatabaseState, onRetry: () -> Unit, onErase: suspend (
             when {
                 locked -> "Your records are encrypted with a key kept in this phone's secure keystore, and that key is no longer available. " +
                     "This can happen after some system resets. Your encrypted data has not been deleted.\n\n" +
-                    "If you have an encrypted Spendly backup, you can erase this unreadable data, start fresh, then restore the backup from Settings."
-                code == "UPGRADE" -> "Nothing has been deleted. Try again, or install the latest version of Spendly. If this keeps happening, please report it (see SECURITY.md / GitHub issues)."
+                    "If you have an encrypted MNYBOXD backup, you can erase this unreadable data, start fresh, then restore the backup from Settings."
+                code == "UPGRADE" -> "Nothing has been deleted. Try again, or install the latest version of MNYBOXD. If this keeps happening, please report it (see SECURITY.md / GitHub issues)."
                 code == "STORAGE" -> "Free up some space on your phone and try again. Nothing has been deleted."
                 else -> "Nothing has been deleted. Try again. If it keeps happening, restart your phone. (Error: ${code ?: "unknown"})"
             },
