@@ -60,7 +60,9 @@ internal fun legacyTheme(name: String?): ThemeChoice =
 class PreferencesRepository(private val context: Context) {
     private object Keys {
         val legacyTheme = stringPreferencesKey("theme_mode")
-        val theme = stringPreferencesKey("app_theme")
+        // 2.2 replaced Spendly's design: everyone starts on the new look (Mono) once, so themes
+        // picked before then are read from the old key no longer. Pick a theme again to keep it.
+        val theme = stringPreferencesKey("app_theme_v3")
         val onboarding = booleanPreferencesKey("onboarding_done")
         val voiceDisclosure = booleanPreferencesKey("voice_disclosure_accepted")
         val secureScreen = booleanPreferencesKey("secure_screen")

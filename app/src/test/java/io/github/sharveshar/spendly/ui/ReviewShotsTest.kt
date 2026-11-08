@@ -89,7 +89,7 @@ class ReviewShotsTest {
 
         // Dock: Insights lifted and dragged two slots left, then dropped.
         compose.mainClock.autoAdvance = false
-        val dockTab = hasText("Insights") and androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Tab)
+        val dockTab = androidx.compose.ui.test.hasContentDescription("Insights") and androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Tab)
         compose.onNode(dockTab).performTouchInput {
             down(center)
             advanceEventTime(viewConfiguration.longPressTimeoutMillis + 100)
@@ -111,7 +111,7 @@ class ReviewShotsTest {
 
         // Quick Add opening, frame by frame.
         compose.mainClock.autoAdvance = false
-        compose.onNodeWithContentDescription("Quick add").performClick()
+        compose.onNodeWithContentDescription("Add expense").performClick()
         for (t in listOf(48L, 96L, 160L, 240L, 400L)) {
             compose.mainClock.advanceTimeBy(if (t == 48L) 48 else t - listOf(48L, 96L, 160L, 240L, 400L).let { it[it.indexOf(t) - 1] })
             save("c-open-%03d".format(t))
@@ -195,9 +195,9 @@ class ReviewShotsTest {
         palette = io.github.sharveshar.spendly.ui.theme.Palettes.Mono
         compose.mainClock.advanceTimeBy(500)
         // Save, then the money moment frame by frame.
-        compose.onAllNodesWithText("Add expense").onLast().performClick()
+        compose.onAllNodesWithText("Add Expense").onLast().performClick()
         var waited = 0L
-        while (compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Expense added", substring = true)).fetchSemanticsNodes().isEmpty() && waited < 2_000) {
+        while (compose.onAllNodes(androidx.compose.ui.test.hasContentDescription("Expense Added!", substring = true)).fetchSemanticsNodes().isEmpty() && waited < 2_000) {
             compose.mainClock.advanceTimeBy(16); ShadowLooper.idleMainLooper(); waited += 16
         }
         var since = 0L
@@ -306,13 +306,13 @@ class ReviewShotsTest {
         fun shot(name: String) { settle(); compose.captureScreen().savePng(File(out, "x-$name.png")) }
         fun back() { compose.onNodeWithContentDescription("Back").performClick(); settle() }
         shot("01-home")
-        compose.onNodeWithText("Activity").performClick(); shot("02-activity")
+        compose.onNode(tab("Activity")).performClick(); shot("02-activity")
         compose.onAllNodesWithText("Petrol").onFirst().performClick(); shot("03-tx-detail"); back()
-        compose.onNodeWithText("Accounts").performClick(); shot("04-accounts")
+        compose.onNode(tab("Accounts")).performClick(); shot("04-accounts")
         compose.onAllNodesWithText("HDFC Savings").onFirst().performClick(); shot("05-account-detail"); back()
-        compose.onNodeWithText("Budgets").performClick(); shot("06-budgets")
-        compose.onNodeWithText("Insights").performClick(); shot("07-insights")
-        compose.onNodeWithText("Home").performClick(); settle()
+        compose.onNode(tab("Budgets")).performClick(); shot("06-budgets")
+        compose.onNode(tab("Insights")).performClick(); shot("07-insights")
+        compose.onNode(tab("Home")).performClick(); settle()
         compose.onNodeWithContentDescription("Settings").performClick(); shot("08-settings")
         compose.onNodeWithText("Themes").performClick(); shot("09-themes"); back()
         compose.onNodeWithText("Shortcut settings").performClick(); shot("10-shortcuts"); back()
@@ -325,4 +325,8 @@ class ReviewShotsTest {
         shot("14-settings-bottom")
         db.close()
     }
+
+    /** A tab in the bottom dock (icons only; the name is its description). */
+    private fun tab(label: String) = androidx.compose.ui.test.hasContentDescription(label) and
+        androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Tab)
 }

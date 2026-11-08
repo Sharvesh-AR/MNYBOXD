@@ -8,6 +8,14 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.runtime.key
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.rounded.Notes
+import androidx.compose.material.icons.automirrored.rounded.CallMade
+import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.ui.semantics.heading
 import io.github.sharveshar.spendly.ui.common.CategoryUi
 import io.github.sharveshar.spendly.ui.components.TypingAmount
@@ -167,7 +175,7 @@ import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.ZoneOffset
 
-private enum class Popup { NONE, CATEGORIES, DATE, VOICE_DISCLOSURE, VOICE, PERMISSION }
+private enum class Popup { NONE, CATEGORIES, DATE, ACCOUNT, TO_ACCOUNT, VOICE_DISCLOSURE, VOICE, PERMISSION }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -192,6 +200,8 @@ fun EntryScreen(
     val micAnchor = rememberOriginAnchor()
     val categoryAnchor = rememberOriginAnchor()
     val dateAnchor = rememberOriginAnchor()
+    val accountAnchor = rememberOriginAnchor()
+    val toAccountAnchor = rememberOriginAnchor()
 
     val recognizer = remember { VoiceRecognizer(context.applicationContext) }
     DisposableEffect(Unit) { onDispose { recognizer.destroy() } }
@@ -278,9 +288,9 @@ fun EntryScreen(
                     val title = when {
                         state.isRefund -> "Record refund"
                         state.isEdit -> "Edit transaction"
-                        f.type == TransactionType.INCOME -> "New income"
-                        f.type == TransactionType.TRANSFER -> "New transfer"
-                        else -> "New expense"
+                        f.type == TransactionType.INCOME -> "Add Income"
+                        f.type == TransactionType.TRANSFER -> "Transfer"
+                        else -> "Add Expense"
                     }
                     AnimatedContent(
                         title,
@@ -324,18 +334,6 @@ fun EntryScreen(
                     f.type,
                     compact = compact,
                 )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                    val zone = ZoneId.systemDefault()
-                    val dt = Instant.ofEpochMilli(f.occurredAt).atZone(zone)
-                    val label = Formats.relativeDay(dt.toLocalDate(), LocalDate.now(zone)) + " · " + dt.format(Formats.time)
-                    SelectChip(
-                        selected = false,
-                        label = label,
-                        icon = Icons.Rounded.Event,
-                        onClick = { popup = Popup.DATE },
-                        modifier = Modifier.originAnchor(dateAnchor),
-                    )
-                }
                 val errorText = state.errors.firstOrNull()?.message
                 AnimatedVisibility(errorText != null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
                     Text(
@@ -378,7 +376,6 @@ fun EntryScreen(
                     }
 
                     if (f.type != TransactionType.TRANSFER) {
-                        FieldLabel("Category")
                         CategoryTiles(
                             categories = state.categories,
                             selectedId = f.categoryId,
@@ -388,19 +385,49 @@ fun EntryScreen(
                         )
                     }
 
-                    FieldLabel(
-                        when (f.type) {
-                            TransactionType.EXPENSE -> "Paid with"
-                            TransactionType.INCOME -> "Received in"
-                            TransactionType.TRANSFER -> "From"
-                            TransactionType.REFUND -> "Refunded to"
-                        },
-                    )
-                    AccountChips(state, selectedId = f.accountId, exclude = null, onSelect = viewModel::setAccount, onAddAccount = onAddAccount)
-
+                    // Account, date and the optional details: clean rows, each opening its choice.
+                    val zone = ZoneId.systemDefault()
+                    val dt = Instant.ofEpochMilli(f.occurredAt).atZone(zone)
+                    val whenLabel = Formats.relativeDay(dt.toLocalDate(), LocalDate.now(zone)) + ", " + dt.format(Formats.time)
+                    val methods = state.channels.size > 1
+                    val details = listOfNotNull(
+                        f.channel?.takeIf { methods }?.label,
+                        f.provider?.takeIf { state.showProviders }?.label,
+                        f.note.takeIf { it.isNotBlank() }?.let { "“${it.trim()}”" },
+                    ).joinToString(" · ")
+                    RowGroup {
+                        PickRow(
+                            icon = Icons.Rounded.AccountBalanceWallet,
+                            label = when (f.type) {
+                                TransactionType.EXPENSE -> "Paid with"
+                                TransactionType.INCOME -> "Received in"
+                                TransactionType.TRANSFER -> "From"
+                                TransactionType.REFUND -> "Refunded to"
+                            },
+                            value = state.accounts.firstOrNull { it.id == f.accountId }?.name ?: "Choose",
+                            onClick = { popup = Popup.ACCOUNT },
+                            modifier = Modifier.originAnchor(accountAnchor),
+                        )
+                        if (f.type == TransactionType.TRANSFER) {
+                            PickRow(
+                                icon = Icons.AutoMirrored.Rounded.CallMade,
+                                label = "To",
+                                value = state.accounts.firstOrNull { it.id == f.toAccountId }?.name ?: "Choose",
+                                onClick = { popup = Popup.TO_ACCOUNT },
+                                modifier = Modifier.originAnchor(toAccountAnchor),
+                            )
+                        }
+                        PickRow(Icons.Rounded.Event, "Date", whenLabel, onClick = { popup = Popup.DATE }, modifier = Modifier.originAnchor(dateAnchor))
+                        PickRow(
+                            icon = Icons.AutoMirrored.Rounded.Notes,
+                            label = "Details",
+                            value = details.ifEmpty { if (methods || state.showProviders) "Method, app or note" else "Add a note" },
+                            valueMuted = details.isEmpty(),
+                            onClick = { moreDetails = !moreDetails },
+                            expanded = moreDetails,
+                        )
+                    }
                     if (f.type == TransactionType.TRANSFER) {
-                        FieldLabel("To")
-                        AccountChips(state, selectedId = f.toAccountId, exclude = f.accountId, onSelect = viewModel::setToAccount, onAddAccount = onAddAccount, allowDebitCards = false)
                         Text(
                             "Transfers move money between your accounts. Paying a credit card bill is a transfer to the card.",
                             style = MaterialTheme.typography.bodySmall,
@@ -408,20 +435,6 @@ fun EntryScreen(
                             modifier = Modifier.padding(horizontal = Space.gutter),
                         )
                     }
-
-                    // Optional details stay folded away; the row shows what's set, so nothing is hidden.
-                    // The payment method has a sensible default (the one used last), so it lives here too.
-                    val methods = state.channels.size > 1
-                    MoreDetailsRow(
-                        expanded = moreDetails,
-                        summary = listOfNotNull(
-                            f.channel?.takeIf { methods }?.label,
-                            f.provider?.takeIf { state.showProviders }?.label,
-                            f.note.takeIf { it.isNotBlank() }?.let { "“${it.trim()}”" },
-                        ).joinToString(" · "),
-                        hint = if (methods || state.showProviders) "Method, app or note" else "Add a note",
-                        onToggle = { moreDetails = !moreDetails },
-                    )
                     AnimatedVisibility(moreState, enter = fadeIn(tween(180)) + expandVertically(spring(dampingRatio = 0.9f, stiffness = 500f)), exit = fadeOut(tween(120)) + shrinkVertically(spring(dampingRatio = 1f, stiffness = 600f))) {
                         Column(verticalArrangement = Arrangement.spacedBy(Space.sm + Space.xxs)) {
                             if (methods) {
@@ -461,9 +474,9 @@ fun EntryScreen(
                     text = when {
                         state.isEdit -> "Save changes"
                         state.isRefund -> "Save refund"
-                        f.type == TransactionType.TRANSFER -> "Add transfer"
-                        f.type == TransactionType.INCOME -> "Add income"
-                        else -> "Add expense"
+                        f.type == TransactionType.TRANSFER -> "Transfer"
+                        f.type == TransactionType.INCOME -> "Add Income"
+                        else -> "Add Expense"
                     },
                     onClick = viewModel::save,
                     enabled = saved == null && !state.loadFailed,
@@ -513,6 +526,31 @@ fun EntryScreen(
         anchor = categoryAnchor,
         state = state,
         onPick = { viewModel.setCategory(it); popup = Popup.NONE },
+        onDismiss = { popup = Popup.NONE },
+    )
+    AccountPickerPopup(
+        visible = popup == Popup.ACCOUNT,
+        anchor = accountAnchor,
+        title = when (f.type) {
+            TransactionType.EXPENSE -> "Paid with"
+            TransactionType.INCOME -> "Received in"
+            TransactionType.TRANSFER -> "Transfer from"
+            TransactionType.REFUND -> "Refunded to"
+        },
+        accounts = state.accounts.filter { !it.archived || it.id == f.accountId },
+        selectedId = f.accountId,
+        onPick = { viewModel.setAccount(it); popup = Popup.NONE },
+        onNew = { popup = Popup.NONE; onAddAccount() },
+        onDismiss = { popup = Popup.NONE },
+    )
+    AccountPickerPopup(
+        visible = popup == Popup.TO_ACCOUNT,
+        anchor = toAccountAnchor,
+        title = "Transfer to",
+        accounts = state.accounts.filter { it.id != f.accountId && it.type != AccountType.DEBIT_CARD && (!it.archived || it.id == f.toAccountId) },
+        selectedId = f.toAccountId,
+        onPick = { viewModel.setToAccount(it); popup = Popup.NONE },
+        onNew = { popup = Popup.NONE; onAddAccount() },
         onDismiss = { popup = Popup.NONE },
     )
     DateTimePopup(
@@ -604,69 +642,38 @@ private fun Modifier.fadingEdges(): Modifier = graphicsLayer { compositingStrate
         )
     }
 
-/** The fold for optional details. Shows what's filled in while folded. */
-@Composable
-private fun MoreDetailsRow(expanded: Boolean, summary: String, hint: String, onToggle: () -> Unit) {
-    val turn by animateFloatAsState(if (expanded) 180f else 0f, spring(dampingRatio = 0.8f, stiffness = 500f), label = "moreChevron")
-    Row(
-        Modifier
-            .padding(horizontal = Space.gutter - Space.xs)
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(role = Role.Button, onClickLabel = if (expanded) "Hide details" else "Show details", onClick = onToggle)
-            .heightIn(min = 48.dp)
-            .padding(horizontal = Space.xs),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("More details", style = MaterialTheme.typography.labelLarge, color = Spendly.colors.muted)
-        Spacer(Modifier.width(Space.md))
-        Text(
-            summary.ifEmpty { hint },
-            style = MaterialTheme.typography.bodySmall,
-            color = if (summary.isEmpty()) Spendly.colors.muted.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-            textAlign = TextAlign.End,
-            modifier = Modifier.weight(1f),
-        )
-        Spacer(Modifier.width(Space.xs))
-        Icon(
-            Icons.Rounded.ExpandMore,
-            contentDescription = null,
-            tint = Spendly.colors.muted,
-            modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = turn },
-        )
-    }
-}
-
 /**
- * Categories as tiles, most used first, with "More" at the end for the full list. A category
- * picked from "More" joins the front of the row so the choice is always visible.
+ * Your four most used categories as tiles, then a round "…" for the rest. A category picked from
+ * the full list takes the first place, so the choice is always visible. Four fit any phone width.
  */
 @Composable
 private fun CategoryTiles(categories: List<CategoryUi>, selectedId: Long?, onSelect: (Long) -> Unit, onMore: () -> Unit, moreAnchor: OriginAnchor) {
-    // Wait for the categories, or the row would stay anchored to "More" as they arrive before it.
     if (categories.isEmpty()) {
         Spacer(Modifier.height(68.dp))
         return
     }
     val shown = remember(categories, selectedId) {
-        val top = categories.take(7)
+        val top = categories.take(4)
         val picked = categories.firstOrNull { it.id == selectedId }
-        if (picked != null && picked !in top) listOf(picked) + top.take(6) else top
+        if (picked != null && picked !in top) listOf(picked) + top.take(3) else top
     }
-    LazyRow(contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-        items(shown, key = { it.id }) { c ->
-            CategoryTile(CategoryIcons.forKey(c.iconKey), c.name, selected = c.id == selectedId, onClick = { onSelect(c.id) }, modifier = Modifier.animateItem())
+    Row(
+        Modifier.fillMaxWidth().padding(horizontal = Space.gutter),
+        horizontalArrangement = Arrangement.spacedBy(Space.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        shown.forEach { c ->
+            key(c.id) {
+                CategoryTile(CategoryIcons.forKey(c.iconKey), c.name, selected = c.id == selectedId, onClick = { onSelect(c.id) }, modifier = Modifier.weight(1f))
+            }
         }
-        item(key = "more") {
-            CategoryTile(Icons.Rounded.MoreHoriz, "More", selected = false, onClick = onMore, modifier = Modifier.originAnchor(moreAnchor), isMore = true)
-        }
+        repeat(4 - shown.size) { Spacer(Modifier.weight(1f)) }
+        MoreButton(onClick = onMore, modifier = Modifier.originAnchor(moreAnchor))
     }
 }
 
 @Composable
-private fun CategoryTile(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, isMore: Boolean = false) {
+private fun CategoryTile(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val c = Spendly.colors
     val haptics = LocalHapticFeedback.current
     val interaction = remember { MutableInteractionSource() }
@@ -678,20 +685,14 @@ private fun CategoryTile(icon: androidx.compose.ui.graphics.vector.ImageVector, 
     Column(
         modifier
             .pressScale(interaction, 0.94f)
-            .size(width = 74.dp, height = 68.dp)
+            .height(64.dp)
             .clip(shape)
             .background(bg)
             .then(if (outline) Modifier.border(1.5.dp, c.accent, shape) else Modifier)
-            .then(
-                if (isMore) {
-                    Modifier.clickable(interactionSource = interaction, indication = ripple(), role = Role.Button, onClickLabel = "Show all categories", onClick = onClick)
-                } else {
-                    Modifier.selectable(selected = selected, interactionSource = interaction, indication = ripple(), role = Role.RadioButton) {
-                        if (!selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                        onClick()
-                    }
-                },
-            )
+            .selectable(selected = selected, interactionSource = interaction, indication = ripple(), role = Role.RadioButton) {
+                if (!selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                onClick()
+            }
             .padding(horizontal = Space.xs, vertical = Space.sm),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
@@ -699,6 +700,150 @@ private fun CategoryTile(icon: androidx.compose.ui.graphics.vector.ImageVector, 
         Icon(icon, contentDescription = null, tint = fg, modifier = Modifier.size(22.dp))
         Spacer(Modifier.height(Space.xs))
         Text(label, style = MaterialTheme.typography.labelSmall, color = fg, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+    }
+}
+
+/** The round "…" that opens every category. */
+@Composable
+private fun MoreButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val interaction = remember { MutableInteractionSource() }
+    Box(
+        modifier
+            .pressScale(interaction, 0.92f)
+            .size(52.dp)
+            .clip(CircleShape)
+            .background(Spendly.colors.card)
+            .clickable(interactionSource = interaction, indication = ripple(), role = Role.Button, onClickLabel = "Show all categories", onClick = onClick)
+            .semantics { contentDescription = "More categories" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(Icons.Rounded.MoreHoriz, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+    }
+}
+
+/** A card holding [PickRow]s, separated by hairlines. */
+@Composable
+private fun RowGroup(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier
+            .padding(horizontal = Space.gutter)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(Spendly.colors.card),
+        content = content,
+    )
+}
+
+/**
+ * One row in Quick Add: icon, what it is, the current choice and a chevron. [expanded] turns the
+ * chevron down for the row that unfolds in place (Details).
+ */
+@Composable
+private fun PickRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    label: String,
+    value: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    valueMuted: Boolean = false,
+    expanded: Boolean? = null,
+) {
+    val c = Spendly.colors
+    val turn by animateFloatAsState(if (expanded == true) 90f else 0f, spring(dampingRatio = 0.8f, stiffness = 500f), label = "rowChevron")
+    Row(
+        modifier
+            .fillMaxWidth()
+            .clickable(role = Role.Button, onClickLabel = if (expanded == null) "Change $label" else if (expanded) "Hide details" else "Show details", onClick = onClick)
+            .heightIn(min = 52.dp)
+            .padding(horizontal = Space.lg),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = c.muted, modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(Space.md))
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = c.muted)
+        Spacer(Modifier.width(Space.md))
+        Text(
+            value,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (valueMuted) c.muted.copy(alpha = 0.7f) else MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
+            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            textAlign = TextAlign.End,
+            modifier = Modifier.weight(1f),
+        )
+        Spacer(Modifier.width(Space.xs))
+        Icon(
+            Icons.AutoMirrored.Rounded.KeyboardArrowRight,
+            contentDescription = null,
+            tint = c.muted,
+            modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = turn },
+        )
+    }
+}
+
+/** Choose an account, with its live balance. "New account" adds one without losing the form. */
+@Composable
+private fun AccountPickerPopup(
+    visible: Boolean,
+    anchor: OriginAnchor,
+    title: String,
+    accounts: List<AccountUi>,
+    selectedId: Long?,
+    onPick: (Long) -> Unit,
+    onNew: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val c = Spendly.colors
+    OriginPopup(visible = visible, anchor = anchor, onDismissRequest = onDismiss) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(vertical = Space.lg)) {
+            Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(horizontal = Space.xl))
+            Spacer(Modifier.height(Space.sm))
+            accounts.forEach { a ->
+                val selected = a.id == selectedId
+                val isCard = a.type == AccountType.CREDIT_CARD
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .selectable(selected = selected, role = Role.RadioButton) { onPick(a.id) }
+                        .heightIn(min = 60.dp)
+                        .padding(horizontal = Space.xl),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(36.dp).background(c.cardElevated, CircleShape), contentAlignment = Alignment.Center) {
+                        Icon(a.type.icon(), contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                    }
+                    Spacer(Modifier.width(Space.md))
+                    Column(Modifier.weight(1f)) {
+                        Text(a.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                        AnimatedMoney(
+                            paise = if (isCard) a.outstandingPaise else a.balancePaise,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = when {
+                                isCard && a.outstandingPaise > 0 -> c.negative
+                                !isCard && a.balancePaise < 0 -> c.negative
+                                else -> c.muted
+                            },
+                            format = { if (isCard) Money.format(it) + " owed" else Money.format(it) },
+                        )
+                    }
+                    if (selected) Icon(Icons.Rounded.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface)
+                }
+            }
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .clickable(role = Role.Button, onClick = onNew)
+                    .heightIn(min = 56.dp)
+                    .padding(horizontal = Space.xl),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Box(Modifier.size(36.dp).background(c.cardElevated, CircleShape), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Rounded.Add, contentDescription = null, tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
+                }
+                Spacer(Modifier.width(Space.md))
+                Text("New account", style = MaterialTheme.typography.bodyLarge)
+            }
+        }
     }
 }
 
@@ -733,78 +878,6 @@ private fun AmountDisplay(text: String, empty: Boolean, type: TransactionType, c
             Text("₹", style = style.copy(fontSize = size * 0.7f), color = if (empty) Spendly.colors.muted else color)
             Spacer(Modifier.width(Space.xs))
             TypingAmount(text, empty = empty, style = style, color = color, caretColor = MaterialTheme.colorScheme.primary)
-        }
-    }
-}
-
-@Composable
-private fun AccountChips(
-    state: EntryUiState,
-    selectedId: Long?,
-    exclude: Long?,
-    onSelect: (Long) -> Unit,
-    onAddAccount: () -> Unit,
-    allowDebitCards: Boolean = true,
-) {
-    val accounts = state.accounts.filter { it.id != exclude && (allowDebitCards || it.type != AccountType.DEBIT_CARD) && (!it.archived || it.id == selectedId) }
-    // Wait for accounts to load so the list isn't anchored to the trailing "New account" chip.
-    if (accounts.isEmpty() && state.accounts.isEmpty()) {
-        Spacer(Modifier.height(40.dp))
-        return
-    }
-    val listState = rememberLazyListState()
-    val selectedIndex = accounts.indexOfFirst { it.id == selectedId }
-    LaunchedEffect(selectedIndex) {
-        // Bring the selected account into view (e.g. after voice entry picked it).
-        if (selectedIndex >= 0 && listState.layoutInfo.visibleItemsInfo.none { it.index == selectedIndex && it.offset >= 0 }) {
-            listState.animateScrollToItem(selectedIndex)
-        }
-    }
-    LazyRow(state = listState, contentPadding = PaddingValues(horizontal = Space.gutter), horizontalArrangement = Arrangement.spacedBy(Space.sm)) {
-        items(accounts, key = { it.id }) { a ->
-            AccountChip(a, selected = a.id == selectedId, onClick = { onSelect(a.id) })
-        }
-        item(key = "add") { SelectChip(selected = false, label = "New account", onClick = onAddAccount) }
-    }
-}
-
-/** An account to pay from or into, with its live balance, which counts to its new value. */
-@Composable
-private fun AccountChip(a: AccountUi, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    val c = Spendly.colors
-    val haptics = LocalHapticFeedback.current
-    val interaction = remember { MutableInteractionSource() }
-    val bg by animateColorAsState(if (selected) c.accent.copy(alpha = 0.14f) else c.card, spring(stiffness = 700f), label = "accBg")
-    val border by animateColorAsState(if (selected) c.accent.copy(alpha = 0.75f) else c.hairline, spring(stiffness = 700f), label = "accBorder")
-    val isCard = a.type == AccountType.CREDIT_CARD
-    Row(
-        modifier
-            .pressScale(interaction)
-            .heightIn(min = 52.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(bg)
-            .border(BorderStroke(if (selected) 1.5.dp else 1.dp, border), RoundedCornerShape(16.dp))
-            .selectable(selected = selected, interactionSource = interaction, indication = ripple(), role = Role.RadioButton) {
-                if (!selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                onClick()
-            }
-            .padding(start = Space.md, end = Space.lg, top = Space.sm, bottom = Space.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(a.type.icon(), contentDescription = null, tint = if (selected) c.accent else c.muted, modifier = Modifier.size(20.dp))
-        Spacer(Modifier.width(Space.sm))
-        Column {
-            Text(a.name, style = MaterialTheme.typography.labelLarge, color = if (selected) MaterialTheme.colorScheme.onSurface else c.muted, maxLines = 1)
-            AnimatedMoney(
-                paise = if (isCard) a.outstandingPaise else a.balancePaise,
-                style = MaterialTheme.typography.labelSmall,
-                color = when {
-                    isCard && a.outstandingPaise > 0 -> c.negative
-                    !isCard && a.balancePaise < 0 -> c.negative
-                    else -> c.muted
-                },
-                format = { if (isCard) Money.format(it) + " owed" else Money.format(it) },
-            )
         }
     }
 }

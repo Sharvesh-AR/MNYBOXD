@@ -88,11 +88,11 @@ class ScreenshotTest {
             compose.captureScreen().savePng(File(out, "$name.png"))
         }
         shot("01-home")
-        compose.onNodeWithText("Activity").performClick(); shot("02-activity")
-        compose.onNodeWithText("Accounts").performClick(); shot("03-accounts")
-        compose.onNodeWithText("Budgets").performClick(); shot("04-budgets")
-        compose.onNodeWithText("Insights").performClick(); shot("05-insights")
-        compose.onNodeWithText("Home").performClick()
+        compose.onNode(tab("Activity")).performClick(); shot("02-activity")
+        compose.onNode(tab("Accounts")).performClick(); shot("03-accounts")
+        compose.onNode(tab("Budgets")).performClick(); shot("04-budgets")
+        compose.onNode(tab("Insights")).performClick(); shot("05-insights")
+        compose.onNode(tab("Home")).performClick()
         compose.mainClock.advanceTimeBy(1_000)
         showSheet = true
         compose.mainClock.advanceTimeBy(1_500)
@@ -104,7 +104,7 @@ class ScreenshotTest {
         shot("06-quick-add")
         showSheet = false
         compose.mainClock.advanceTimeBy(1_000)
-        compose.onNodeWithText("Activity").performClick()
+        compose.onNode(tab("Activity")).performClick()
         compose.mainClock.advanceTimeBy(1_000)
         compose.onAllNodesWithText("Petrol").onFirst().performClick()
         shot("07-transaction-detail")
@@ -112,4 +112,8 @@ class ScreenshotTest {
         shot("08-detail-light")
         db.close()
     }
+
+    /** A tab in the bottom dock (icons only; the name is its description). */
+    private fun tab(label: String) = androidx.compose.ui.test.hasContentDescription(label) and
+        androidx.compose.ui.test.SemanticsMatcher.expectValue(androidx.compose.ui.semantics.SemanticsProperties.Role, androidx.compose.ui.semantics.Role.Tab)
 }

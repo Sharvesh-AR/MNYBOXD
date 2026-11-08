@@ -93,6 +93,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
@@ -260,6 +261,8 @@ fun SpendlyApp(container: AppContainer, launchRequests: Flow<LaunchRequest>) {
 
 /** Height of the floating navigation dock, and its gap above the system navigation area. */
 private val DockHeight = 64.dp
+/** The round + that floats above the dock on every tab but Home. */
+private val FabSize = 56.dp
 private val DockMargin = 12.dp
 
 @OptIn(ExperimentalSharedTransitionApi::class)
@@ -279,8 +282,10 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
     val navInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     val statusInset = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val bandHeight = DockHeight + DockMargin + navInset
-    // Tab screens scroll clear of the dock: nothing ends up hidden behind it.
+    // Tab screens scroll clear of the dock (and, off Home, the + above it): nothing ends up hidden.
     val tabPadding = PaddingValues(top = statusInset, bottom = bandHeight + Space.md)
+    val tabPaddingWithAdd = PaddingValues(top = statusInset, bottom = bandHeight + Space.md + FabSize + Space.md)
+    val onHome = selectedTab == AppTab.HOME
     val context = LocalContext.current
     val sheetMotion = remember { SheetMotion() }
     val snackbar = remember { SnackbarHostState() }
@@ -355,7 +360,7 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
                             ProvideNavAnimatedScope(this) {
                                 TransactionsScreen(
                                     viewModel = spendlyViewModel { c, h -> TransactionsViewModel(c.repositories, h) },
-                                    contentPadding = tabPadding,
+                                    contentPadding = tabPaddingWithAdd,
                                     onOpen = { nav.navigate(TransactionDetailRoute(it)) },
                                 )
                             }
@@ -364,7 +369,7 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
                             ProvideNavAnimatedScope(this) {
                                 AccountsScreen(
                                     viewModel = spendlyViewModel { c, _ -> AccountsViewModel(c.repositories) },
-                                    contentPadding = tabPadding,
+                                    contentPadding = tabPaddingWithAdd,
                                     onOpen = { nav.navigate(AccountDetailRoute(it)) },
                                     onAdd = { nav.navigate(AccountEditRoute()) },
                                 )
@@ -372,12 +377,12 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
                         }
                         composable<BudgetsRoute> {
                             ProvideNavAnimatedScope(this) {
-                                BudgetsScreen(spendlyViewModel { c, h -> BudgetsViewModel(c.repositories, h) }, tabPadding)
+                                BudgetsScreen(spendlyViewModel { c, h -> BudgetsViewModel(c.repositories, h) }, tabPaddingWithAdd)
                             }
                         }
                         composable<InsightsRoute> {
                             ProvideNavAnimatedScope(this) {
-                                InsightsScreen(spendlyViewModel { c, h -> InsightsViewModel(c.repositories, h) }, tabPadding)
+                                InsightsScreen(spendlyViewModel { c, h -> InsightsViewModel(c.repositories, h) }, tabPaddingWithAdd)
                             }
                         }
                         quickAddDestinations(nav)
@@ -473,22 +478,26 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
                         enter = slideInVertically(spring(dampingRatio = 0.85f, stiffness = 420f)) { it } + fadeIn(),
                         exit = slideOutVertically(tween(200)) { it } + fadeOut(tween(160)),
                     ) {
-                        Row(
-                            Modifier
+                        BottomDock(
+                            order = dockOrder,
+                            selected = selectedTab,
+                            onSelect = { nav.switchTab(tabFor(it).route) },
+                            onReorder = onDockReorder,
+                            modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(start = DockMargin, end = DockMargin, bottom = navInset + DockMargin),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            BottomDock(
-                                order = dockOrder,
-                                selected = selectedTab,
-                                onSelect = { nav.switchTab(tabFor(it).route) },
-                                onReorder = onDockReorder,
-                                modifier = Modifier.weight(1f),
-                            )
-                            Spacer(Modifier.width(Space.sm + Space.xxs))
-                            QuickAddFab(motion = sheetMotion, onClick = { openQuickAdd(EntryRoute()) })
-                        }
+                        )
+                    }
+                    // Home has its own big +; everywhere else a smaller one floats above the dock.
+                    AnimatedVisibility(
+                        visible = topLevel && !onHome,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(end = DockMargin + Space.xs, bottom = bandHeight + Space.md),
+                        enter = scaleIn(spring(dampingRatio = 0.7f, stiffness = 500f), initialScale = 0.6f) + fadeIn(tween(160)),
+                        exit = scaleOut(tween(140), targetScale = 0.6f) + fadeOut(tween(120)),
+                    ) {
+                        QuickAddFab(motion = sheetMotion, onClick = { openQuickAdd(EntryRoute()) })
                     }
                 }
             }
@@ -548,7 +557,7 @@ private fun QuickAddFab(motion: SheetMotion, onClick: () -> Unit) {
     val shape = CircleShape
     Box(
         Modifier
-            .size(DockHeight)
+            .size(FabSize)
             .pressScale(interaction, 0.9f)
             .layeredSurface(shape, c.accent, raised = true)
             .background(Brush.verticalGradient(listOf(c.accentHighlight, c.accent)))
@@ -574,11 +583,10 @@ private fun QuickAddFab(motion: SheetMotion, onClick: () -> Unit) {
 }
 
 /**
- * Floating navigation dock. Tap a tab to open it. Touch and hold a tab to lift it, slide it along
+ * Floating navigation dock, icons only. Tap a tab to open it. Touch and hold a tab to lift it, slide it along
  * the dock and let go to drop it there: the others move out of the way and the order is saved.
- * The selection pill follows the open tab wherever it goes. Labels hide on very narrow screens
- * (icons keep their descriptions); screen readers get "Move before/after" actions instead of
- * dragging.
+ * The selection pill follows the open tab wherever it goes. Screen readers hear each tab's name
+ * and get "Move before/after" actions instead of dragging.
  */
 @Composable
 private fun BottomDock(
@@ -611,7 +619,6 @@ private fun BottomDock(
         val count = shown.size
         val slot = maxWidth / count
         val slotPx = constraints.maxWidth.toFloat() / count
-        val showLabels = slot >= 52.dp
         // Each tab's animated position, observable so the selection pill can follow it.
         val xs = remember { mutableStateMapOf<AppTab, Animatable<Float, AnimationVector1D>>() }
         // Where a dropped tab was let go, so it glides from the finger into its new slot.
@@ -752,7 +759,8 @@ private fun BottomDock(
                         .semantics(mergeDescendants = true) {
                             role = Role.Tab
                             this.selected = isSelected
-                            if (!showLabels) contentDescription = tab.label
+                            // Icons only, as in Spendly's design; every tab keeps its name for screen readers.
+                            contentDescription = tab.label
                             onClick(label = "Open ${tab.label}") { select(tabKey); true }
                             customActions = listOfNotNull(
                                 before?.let { CustomAccessibilityAction("Move before $it") { move(index, index - 1); true } },
@@ -768,15 +776,6 @@ private fun BottomDock(
                         tint = tint,
                         modifier = Modifier.size(24.dp).graphicsLayer { scaleX = scale; scaleY = scale },
                     )
-                    if (showLabels) {
-                        Text(
-                            tab.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = tint,
-                            maxLines = 1,
-                            modifier = Modifier.padding(top = 2.dp),
-                        )
-                    }
                 }
             }
         }

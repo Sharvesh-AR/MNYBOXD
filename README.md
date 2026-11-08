@@ -41,11 +41,10 @@ builds (`ScreenshotTest`).</sub>
 
 **Fast entry**
 * **Quick Add**: a sheet that slides up over whatever you were looking at and opens straight
-  into the amount. Big digits that appear as you type, Expense / Income / Transfer, category
-  tiles with your most used first (*More* for the rest), and the account you used last. Payment
-  method, app and note sit under *More details*, folded away until you need them; date and time
-  are one tap away. *Add expense* sits right above the keypad. Double-taps can't create
-  duplicates.
+  into the amount. Big digits that appear as you type, Expense / Income / Transfer, your four
+  most used categories as tiles (*…* for the rest), then three rows: the account (the one you
+  used last), the date, and *Details* (payment method, app and note, folded away until you need
+  them). *Add Expense* sits right above the keypad. Double-taps can't create duplicates.
 * **Voice entry**: say *"Spent 500 on petrol using PhonePe from SBI"*, *"120 rupees lunch"*,
   *"1500 shopping on ICICI credit card"* or *"80 coffee cash"*. A deterministic on-device parser
   extracts amount, description, category, payment method, app and account. **You always review
@@ -83,9 +82,11 @@ builds (`ScreenshotTest`).</sub>
 
 **Understand your spending**
 * **Home**: where you stand in two seconds. Your balance (everything in your accounts minus
-  what you owe on cards, the same figure as Accounts) in large type, what you spent today, the
-  last 7 days as a quiet line, *Add expense* and *Voice*, your monthly budget, and your latest
-  transactions. Tap the balance for the breakdown.
+  what you owe on cards, the same figure as Accounts) in large type, what you spent today, a
+  faint line of the month's spending, one big **+** (tap to add, hold to speak), your budget,
+  and your latest transactions. Pick a month (*November ⌄*) to see that month's budget and
+  spending; the bell lists budgets that have passed 80%; the profile icon opens Settings. Tap the
+  balance for the breakdown.
 * **Activity**: search notes, categories, accounts or amounts; filter by type, category,
   account and date; grouped by day with daily totals. Swipe a transaction left to delete it,
   with *Undo*.
@@ -108,19 +109,23 @@ builds (`ScreenshotTest`).</sub>
 
 **Themes**
 * **Mono** (default): matte black, white type, soft greys and charcoal surfaces, with colour only
-  where it means something (money in, money over budget).
+  where it means something (money in, money over budget). Version 2.2 moves everyone to Mono
+  once, with the new design; pick another theme any time.
 * Also **Midnight** (charcoal and emerald), **Light** (off-white and emerald), **AMOLED** (true
   black, restrained accents) and **Ocean** (deep navy, soft blue), or *Match system* (Mono in
   dark mode, Light otherwise). Each styles every screen, sheet, dialog, chart, the dock and the
   widgets. Applied instantly and remembered.
 
 **Design and accessibility**
-* **Your dock, your order**: touch and hold a tab in the bottom dock, slide it along and let go.
-  The other tabs move aside and Spendly remembers the order. A tap still just opens the tab.
-* **Money moments**: after you save an expense, a small silver ₹ coin turns about its axis as
-  it eases into place and a check appears; income rises in with a small arrow; a transfer runs
-  a line of dots from one account to the other. Back on Home the balance then rolls to its new
-  value like a fine mechanical counter (only the digits that changed move), the budget bar
+* **Your dock, your order**: the bottom dock is icons only (screen readers hear each name). Touch
+  and hold a tab, slide it along and let go: the other tabs move aside and Spendly remembers
+  the order. A tap still just opens the tab. On every tab but Home, a small **+** floats above
+  the dock.
+* **Money moments**: after you save an expense, a solid silver ₹ coin (you can see its edge)
+  spins about its axis inside a thin orbit as it eases into place, then *Expense Added!* and a
+  check; income rises in with a small arrow; a transfer runs a line of dots from one account to
+  the other. Back on Home the balance rolls to its new value like a fine mechanical counter
+  (only the digits that changed move, each on a faint tile; income counts up), the budget bar
   follows, and the new transaction slides into the list. All of it plays only after the
   transaction is stored, takes about a second, and is skipped when animations are off.
 * Origin-aware motion: accounts and transactions morph into their detail screens; dialogs

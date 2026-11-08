@@ -71,7 +71,8 @@ fun AnimatedSpendlyTheme(target: SpendlyPalette, reducedMotion: Boolean, content
  */
 object ThemeCache {
     private const val FILE = "spendly_theme_cache"
-    private const val KEY = "theme_choice"
+    // New key with 2.2's design reset (see PreferencesRepository): the first frame is Mono too.
+    private const val KEY = "theme_choice_v3"
 
     fun read(context: Context): ThemeChoice =
         ThemeChoice.parse(context.getSharedPreferences(FILE, Context.MODE_PRIVATE).getString(KEY, null)) ?: ThemeChoice.DEFAULT
