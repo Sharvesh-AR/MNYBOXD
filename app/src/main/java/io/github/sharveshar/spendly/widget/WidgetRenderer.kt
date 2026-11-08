@@ -130,7 +130,7 @@ object WidgetRenderer {
                 v.tint(R.id.logo_bg, p.surfaceElevated)
                 v.tint(R.id.logo, p.accent)
                 v.setOnClickPendingIntent(R.id.logo_tile, openApp(context, widgetId, WidgetKind.QUICK_ADD, MainActivity.ACTION_OPEN_HOME))
-                v.setContentDescription(R.id.logo_tile, "Open Spendly")
+                v.setContentDescription(R.id.logo_tile, "Open MNYBOXD")
             }
             R.layout.widget_quick_add_large -> {
                 v.tint(R.id.logo, p.accent)
@@ -218,7 +218,7 @@ object WidgetRenderer {
                 }
             }
             val more = d.accounts.size - rows.size
-            v.text(R.id.more, if (more > 0) "+$more more in Spendly" else "", p.textMuted)
+            v.text(R.id.more, if (more > 0) "+$more more in MNYBOXD" else "", p.textMuted)
         }
     }
 

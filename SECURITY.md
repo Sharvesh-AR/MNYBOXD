@@ -1,10 +1,10 @@
 # Security
 
-Spendly is a personal finance app, so it is designed around one rule: **your financial records
+MNYBOXD is a personal finance app, so it is designed around one rule: **your financial records
 stay on your phone, encrypted, and nothing leaves it unless you explicitly export it.**
 
-This document explains how that is achieved, what Spendly does *not* protect against, and how to
-report a problem. It is not a certification: Spendly has had no external audit or penetration
+This document explains how that is achieved, what MNYBOXD does *not* protect against, and how to
+report a problem. It is not a certification: MNYBOXD has had no external audit or penetration
 test, and no software is free of vulnerabilities. The latest internal review is in
 [`docs/SECURITY_AUDIT.md`](docs/SECURITY_AUDIT.md).
 
@@ -25,7 +25,7 @@ update.
 | Area | Approach |
 |---|---|
 | Network | **No `INTERNET` permission.** The app cannot make network requests. A restrictive Network Security Config (cleartext disabled, system CAs only) is kept as defence in depth. |
-| Accounts / sign-in | None. No server, no cloud sync, no bank or UPI integration. Spendly never moves money. |
+| Accounts / sign-in | None. No server, no cloud sync, no bank or UPI integration. MNYBOXD never moves money. |
 | Database | Room on **SQLCipher 4.20.0** (AES-256, per-page HMAC). The whole database file is encrypted. |
 | Database key | 256 random bits from `SecureRandom`, wrapped with an **AES-256-GCM key held in Android Keystore** (non-exportable; hardware-backed where the device supports it). Only the wrapped key is written to disk, in `noBackupFilesDir`. Never stored in SharedPreferences, DataStore or source code; never logged. |
 | Preferences | Jetpack DataStore holds only non-sensitive UI settings (theme, last used account id/payment method, onboarding flags). |
@@ -55,7 +55,7 @@ information. The account form explicitly tells users not to enter such data.
   associated data that binds the ciphertext to its purpose.
 * The wrapped key file is written atomically (temp file + `fsync` + rename).
 * If the Keystore key becomes unavailable (some device resets do this) the data cannot be
-  decrypted. Spendly **never deletes data automatically**: it shows a recovery screen and only
+  decrypted. MNYBOXD **never deletes data automatically**: it shows a recovery screen and only
   erases after the user types `ERASE`. Restoring an encrypted backup is the recovery path.
 * Integrity rules are also enforced inside SQLite: foreign keys (`RESTRICT`), a unique
   idempotency key per transaction (prevents duplicate saves), and triggers that reject
@@ -95,13 +95,13 @@ No custom algorithms.
 Library-declared: `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` is a signature-level permission
 added by AndroidX Core to protect its own runtime receivers; it grants nothing to other apps.
 
-Spendly does **not** request internet, location, contacts, SMS, phone, storage, notifications,
+MNYBOXD does **not** request internet, location, contacts, SMS, phone, storage, notifications,
 overlay, device-admin or any background permission.
 
 ### Optional accessibility service (volume-button shortcut)
 
-**Only in the `volumeShortcut` build** (`Spendly-volume-shortcut.apk`, source in
-`app/src/volumeShortcut/`). The standard build (`Spendly.apk`) declares no accessibility service.
+**Only in the `volumeShortcut` build** (`MNYBOXD-volume-shortcut.apk`, source in
+`app/src/volumeShortcut/`). The standard build (`MNYBOXD.apk`) declares no accessibility service.
 Google Play Protect's
 [enhanced fraud protection](https://developers.google.com/android/play-protect/warning-dev-guidance)
 blocks installing any app that declares an accessibility service, a notification listener,
@@ -129,11 +129,11 @@ Its configuration (`res/xml/button_shortcut_service.xml`) is as narrow as Androi
   it restores the media and ringer volume to their levels from before the first press.
 * It does nothing while the phone is ringing or in a call, and Android delivers no key events to
   it while the screen is off. On the lock screen, Quick Add opens only after the user unlocks
-  (`requestDismissKeyguard`); Spendly never shows over the keyguard.
+  (`requestDismissKeyguard`); MNYBOXD never shows over the keyguard.
 * `isAccessibilityTool="false"`: it is a convenience feature, not an assistive tool.
 * With no `INTERNET` permission, nothing it sees could leave the device anyway.
 
-Turning it off: Android Settings → Accessibility → *Spendly volume shortcut*.
+Turning it off: Android Settings → Accessibility → *MNYBOXD volume shortcut*.
 
 ### Exported components
 
@@ -149,24 +149,24 @@ Turning it off: Android Settings → Accessibility → *Spendly volume shortcut*
 ## Voice input and privacy
 
 * Speech is turned into text by the device's speech recognition service through the public
-  `SpeechRecognizer` API. Spendly prefers the **on-device recognizer** (Android 12+) when
+  `SpeechRecognizer` API. MNYBOXD prefers the **on-device recognizer** (Android 12+) when
   available.
 * Depending on the device and its settings, the system speech service (for example Google's)
-  **may process audio online**. Spendly states this before first use and never assumes
+  **may process audio online**. MNYBOXD states this before first use and never assumes
   on-device processing.
-* Spendly never records, stores or uploads audio itself; audio buffers are ignored.
+* MNYBOXD never records, stores or uploads audio itself; audio buffers are ignored.
 * The recognized text is parsed **locally** by a deterministic parser. No AI or cloud API is
   used. The result only pre-fills the form; the user always reviews and taps Save.
 
 ## Screen privacy
 
 Settings → Privacy → *Hide app contents* sets `FLAG_SECURE`, which blocks screenshots and hides
-Spendly's contents in the recent-apps switcher. It is off by default.
+MNYBOXD's contents in the recent-apps switcher. It is off by default.
 
 ## External links
 
 The About and Settings screens show a credit link to the developer's website. Tapping it hands
-the URL to the user's browser with a standard `ACTION_VIEW` intent; Spendly itself sends nothing.
+the URL to the user's browser with a standard `ACTION_VIEW` intent; MNYBOXD itself sends nothing.
 
 ## Dependency audit process
 
@@ -184,7 +184,7 @@ the URL to the user's browser with a standard `ACTION_VIEW` intent; Spendly itse
 5. Run Android Lint on debug and release builds of both flavors (`./gradlew lintStandardDebug
    lintVolumeShortcutDebug lintStandardRelease lintVolumeShortcutRelease`); the build fails on lint errors.
 6. Inspect both release APKs: signature (`apksigner verify`), merged manifest, permissions,
-   exported components, and that they are not debuggable. `Spendly.apk` must declare no
+   exported components, and that they are not debuggable. `MNYBOXD.apk` must declare no
    `BIND_ACCESSIBILITY_SERVICE` or `BIND_NOTIFICATION_LISTENER_SERVICE` service and no SMS permission.
 7. CI pins every GitHub Action to a full commit SHA and runs with read-only permissions, except
    the tag-triggered release job.
@@ -195,7 +195,7 @@ and review the diff before committing.
 
 ## Known limitations
 
-* **No app lock.** Anyone who can unlock your phone can open Spendly. Use a strong device lock;
+* **No app lock.** Anyone who can unlock your phone can open MNYBOXD. Use a strong device lock;
   biometric app lock is on the roadmap.
 * **Key loss means data loss.** If Android Keystore loses the key (some factory resets or OEM
   issues) or the app is uninstalled, local data is unrecoverable. Keep encrypted backups.

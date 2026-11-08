@@ -286,7 +286,7 @@ fun AccountEditScreen(viewModel: AccountEditViewModel, onDone: () -> Unit, onDel
                     value = s.amountText,
                     onValueChange = viewModel::setAmount,
                     label = if (s.type == AccountType.CREDIT_CARD) "Amount currently owed" else "Current balance",
-                    supporting = if (s.type == AccountType.CREDIT_CARD) "Your card's outstanding today. Purchases add to it; payments reduce it." else "Your balance right now. Spendly tracks changes from here.",
+                    supporting = if (s.type == AccountType.CREDIT_CARD) "Your card's outstanding today. Purchases add to it; payments reduce it." else "Your balance right now. MNYBOXD tracks changes from here.",
                 )
             }
             AnimatedVisibility(s.type == AccountType.CREDIT_CARD) {
@@ -310,7 +310,7 @@ fun AccountEditScreen(viewModel: AccountEditViewModel, onDone: () -> Unit, onDel
                 }
             }
             Text(
-                "Spendly never asks for passwords, PINs, OTPs, CVVs or full card numbers. Don't enter them anywhere in the app.",
+                "MNYBOXD never asks for passwords, PINs, OTPs, CVVs or full card numbers. Don't enter them anywhere in the app.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Spendly.colors.muted,
             )

@@ -85,7 +85,7 @@ fun WidgetsScreen(onBack: () -> Unit) {
     SubScreen("Widgets", onBack) {
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
             Text(
-                "Spendly's home-screen widgets show your real figures and update whenever your data changes. They respect your phone's widget sizes: touch and hold one to resize it.",
+                "MNYBOXD's home-screen widgets show your real figures and update whenever your data changes. They respect your phone's widget sizes: touch and hold one to resize it.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Spendly.colors.muted,
                 modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.sm),
@@ -134,7 +134,7 @@ fun WidgetsScreen(onBack: () -> Unit) {
 
             Group("Adding a widget yourself")
             Text(
-                "1. Touch and hold an empty part of your home screen.\n2. Tap Widgets.\n3. Find Spendly, then drag a widget into place.\n4. Touch and hold a widget to resize it. The Account balance widget can be set to one account from its settings.",
+                "1. Touch and hold an empty part of your home screen.\n2. Tap Widgets.\n3. Find MNYBOXD, then drag a widget into place.\n4. Touch and hold a widget to resize it. The Account balance widget can be set to one account from its settings.",
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(horizontal = Space.gutter, vertical = Space.sm),
             )

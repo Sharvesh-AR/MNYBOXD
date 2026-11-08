@@ -138,7 +138,7 @@ class UiTest {
 
     @Test fun `bottom navigation reaches every tab`() {
         launchApp()
-        shown("Spendly")
+        shown("MNYBOXD")
         compose.onNode(dockTab("Activity")).performClick()
         shown("Transactions")
         compose.onNode(dockTab("Accounts")).performClick()
@@ -148,12 +148,12 @@ class UiTest {
         compose.onNode(dockTab("Insights")).performClick()
         shown("Income vs spending")
         compose.onNode(dockTab("Home")).performClick()
-        shown("Spendly")
+        shown("MNYBOXD")
     }
 
     @Test fun `holding a dock tab and dragging it moves it, without opening it, and the order is kept`() {
         launchApp()
-        shown("Spendly")
+        shown("MNYBOXD")
         fun x(label: String) = compose.onNode(dockTab(label)).fetchSemanticsNode().boundsInRoot.center.x
         try {
             assertTrue(x("Home") < x("Activity") && x("Budgets") < x("Insights"))
@@ -169,7 +169,7 @@ class UiTest {
             compose.mainClock.advanceTimeBy(1_000)
             // Insights now sits first and Home second; holding it never navigated anywhere.
             assertTrue(x("Insights") < x("Home") && x("Home") < x("Activity") && x("Accounts") < x("Budgets"))
-            shown("Spendly")
+            shown("MNYBOXD")
             assertTrue(compose.onAllNodesWithText("Income vs spending").fetchSemanticsNodes().isEmpty())
             // A fresh read (as after restarting the app) gives the same order.
             assertEquals(listOf(AppTab.INSIGHTS, AppTab.HOME, AppTab.ACTIVITY, AppTab.ACCOUNTS, AppTab.BUDGETS), runBlocking(Dispatchers.IO) { withTimeout(5_000) { PreferencesRepository(context).preferences.first().dockOrder } })
@@ -184,7 +184,7 @@ class UiTest {
 
     @Test fun `a short hold that ends before the long-press time is a tap, and a drag released in place changes nothing`() {
         launchApp()
-        shown("Spendly")
+        shown("MNYBOXD")
         try {
             compose.onNode(dockTab("Budgets")).performTouchInput {
                 down(center)
@@ -240,7 +240,7 @@ class UiTest {
         assertEquals("Cash", runBlocking { db.accountDao().getById(saved.accountId)!!.name })
         // Then Quick Add closes by itself and the dashboard is back, with no second sheet.
         compose.waitUntil(5_000) { compose.onAllNodes(isRoot()).fetchSemanticsNodes().size == 1 }
-        shown("Spendly")
+        shown("MNYBOXD")
     }
 
     @Test fun `quick add validation blocks empty and categoryless entries`() {
@@ -350,20 +350,20 @@ class UiTest {
         assertTrue(before > 0)
         launchApp()
         compose.onNodeWithContentDescription("Settings").performClick()
-        shown("Reset Spendly")
+        shown("Reset MNYBOXD")
 
         // Step 1, cancelled: nothing happens.
-        compose.onNodeWithText("Reset Spendly").performClick()
-        shown("Reset Spendly?", scroll = false)
+        compose.onNodeWithText("Reset MNYBOXD").performClick()
+        shown("Reset MNYBOXD?", scroll = false)
         compose.onNodeWithText("Cancel").performClick()
         compose.waitForIdle()
         assertEquals(before, txCount())
 
         // Step 1, continued: the separate confirmation screen.
-        compose.onNodeWithText("Reset Spendly").performScrollTo().performClick()
-        shown("Reset Spendly?", scroll = false)
+        compose.onNodeWithText("Reset MNYBOXD").performScrollTo().performClick()
+        shown("Reset MNYBOXD?", scroll = false)
         compose.onNodeWithText("Continue").performClick()
-        shown("This will permanently delete all your Spendly data.")
+        shown("This will permanently delete all your MNYBOXD data.")
         val delete = compose.onNodeWithText("Delete everything permanently")
         delete.assertIsNotEnabled()
 

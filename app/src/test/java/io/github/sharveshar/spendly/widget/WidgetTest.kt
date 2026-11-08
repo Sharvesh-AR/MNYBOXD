@@ -106,7 +106,7 @@ class WidgetTest {
                     }
                 }
             }
-            inflate(WidgetRenderer.message(context, kind, 7, "Open Spendly to get started", Palettes.Default))
+            inflate(WidgetRenderer.message(context, kind, 7, "Open MNYBOXD to get started", Palettes.Default))
         }
     }
 

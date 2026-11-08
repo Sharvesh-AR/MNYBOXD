@@ -34,7 +34,7 @@ object BackupValidator {
         }
         if (s.accounts.size > MAX_ACCOUNTS || s.categories.size > MAX_CATEGORIES ||
             s.transactions.size > MAX_TRANSACTIONS || s.budgets.size > MAX_BUDGETS
-        ) return BackupValidation.Invalid(listOf("Backup contains more records than Spendly supports"))
+        ) return BackupValidation.Invalid(listOf("Backup contains more records than MNYBOXD supports"))
 
         // --- Accounts ---
         val accountTypes = HashMap<Long, AccountType>()
