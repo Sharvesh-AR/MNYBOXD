@@ -22,7 +22,6 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
-import androidx.compose.material.icons.rounded.ArrowUpward
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +41,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import kotlin.math.sin
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -90,15 +94,15 @@ fun momentFor(
 ): MomentSpec {
     val amount = Money.format(amountPaise)
     return when {
-        wasEdit -> MomentSpec(MomentKind.UPDATED, "Changes saved", amount, listOfNotNull(category, account).joinToString(" · ").ifEmpty { null })
+        wasEdit -> MomentSpec(MomentKind.UPDATED, "Changes Saved", amount, listOfNotNull(category, account).joinToString(" · ").ifEmpty { null })
         type == TransactionType.TRANSFER -> MomentSpec(
-            MomentKind.TRANSFER, "Transfer done", amount,
+            MomentKind.TRANSFER, "Transfer Done!", amount,
             detail = if (account != null && toAccount != null) "$account → $toAccount" else null,
             fromLabel = account, toLabel = toAccount,
         )
-        type == TransactionType.REFUND -> MomentSpec(MomentKind.INCOME, "Refund recorded", account?.let { "$amount back to $it" } ?: amount)
-        type == TransactionType.INCOME -> MomentSpec(MomentKind.INCOME, "Income added", account?.let { "$amount to $it" } ?: amount, category)
-        else -> MomentSpec(MomentKind.EXPENSE, "Expense added", category?.let { "$amount on $it" } ?: amount, account?.let { "from $it" })
+        type == TransactionType.REFUND -> MomentSpec(MomentKind.INCOME, "Refund Recorded!", account?.let { "$amount back to $it" } ?: amount)
+        type == TransactionType.INCOME -> MomentSpec(MomentKind.INCOME, "Income Added!", account?.let { "$amount to $it" } ?: amount, category)
+        else -> MomentSpec(MomentKind.EXPENSE, "Expense Added!", category?.let { "$amount from $it" } ?: amount, account?.let { "Paid with $it" })
     }
 }
 
@@ -234,102 +238,123 @@ private fun spinAt(t: Float, rising: Boolean): Float =
 @Composable
 private fun CoinStage(t: Animatable<Float, *>, rising: Boolean) {
     val c = Spendly.colors
-    val shadow = if (c.isDark) Color.Black.copy(alpha = 0.55f) else Color.Black.copy(alpha = 0.18f)
+    val shadow = if (c.isDark) Color.Black.copy(alpha = 0.6f) else Color.Black.copy(alpha = 0.18f)
     val ring = c.accent
-    Box(Modifier.size(184.dp), contentAlignment = Alignment.Center) {
-        // Orbit: a thin swoosh that draws itself around the coin, then fades.
-        Canvas(Modifier.fillMaxSize()) {
-            val p = t.value
-            val grow = FastOutSlowInEasing.transform(phase(p, 0.05f, 0.6f))
-            val alpha = phase(p, 0.05f, 0.25f) * (1f - phase(p, 0.7f, 0.95f))
-            if (alpha > 0f) {
-                rotate(-16f) {
-                    val w = size.width * 0.96f
-                    val h = size.height * 0.34f
-                    drawArc(
-                        Brush.sweepGradient(listOf(ring.copy(alpha = 0f), ring.copy(alpha = 0.55f * alpha), ring.copy(alpha = 0f))),
-                        startAngle = 200f,
-                        sweepAngle = 320f * grow,
-                        useCenter = false,
-                        topLeft = Offset((size.width - w) / 2f, (size.height - h) / 2f),
-                        size = Size(w, h),
-                        style = Stroke(width = 1.25.dp.toPx()),
-                    )
-                }
+    val measurer = rememberTextMeasurer()
+    val glyphStyle = MaterialTheme.typography.displayLarge.copy(fontSize = 54.sp, fontWeight = FontWeight.Bold)
+    val glyph = remember(glyphStyle) { measurer.measure("₹", glyphStyle) }
+    val glyphLight = remember(glyphStyle) { measurer.measure("₹", glyphStyle.copy(color = Color.White.copy(alpha = 0.75f))) }
+    Canvas(
+        Modifier
+            .size(200.dp)
+            .graphicsLayer {
+                val p = t.value
+                val move = FastOutSlowInEasing.transform(phase(p, 0f, 0.55f))
+                val away = phase(p, 0.85f, 1f)
+                // Eases into place from a little lower (income comes up from further down).
+                translationY = (1f - move) * (if (rising) 70.dp else 30.dp).toPx()
+                val sc = (0.74f + 0.26f * move) * (1f - 0.08f * away)
+                scaleX = sc
+                scaleY = sc
+                alpha = phase(p, 0f, 0.12f) * (1f - away)
+            },
+    ) {
+        val p = t.value
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val r = size.minDimension * 0.29f
+        val thickness = r * 0.17f
+        val theta = spinAt(p, rising) * PI.toFloat() / 180f
+        val cosT = cos(theta)
+        val sinT = sin(theta)
+        val rx = r * abs(cosT)
+        // The face turned towards you, and the one behind it: the coin's edge spans between.
+        val shift = thickness / 2f * sinT * (if (cosT >= 0f) 1f else -1f)
+        val front = Offset(center.x + shift, center.y)
+        val back = Offset(center.x - shift, center.y)
+
+        // Orbit: a thin ring tilted around the coin. Its far half passes behind the coin.
+        val ringAlpha = phase(p, 0.05f, 0.25f) * (1f - phase(p, 0.72f, 0.95f))
+        val ringW = size.width * 0.9f
+        val ringH = size.height * 0.27f
+        val ringTopLeft = Offset(center.x - ringW / 2f, center.y - ringH / 2f + r * 0.18f)
+        fun ringHalf(start: Float, alpha: Float) = rotate(-17f, center) {
+            drawArc(ring.copy(alpha = alpha * ringAlpha), start, 180f * FastOutSlowInEasing.transform(phase(p, 0.05f, 0.55f)), false, ringTopLeft, Size(ringW, ringH), style = Stroke(1.2.dp.toPx(), cap = StrokeCap.Round))
+        }
+        if (ringAlpha > 0f) ringHalf(180f, 0.28f)
+
+        // Speed lines over the top left while it spins fast, fading as it slows.
+        val speed = 1f - phase(p, 0.15f, 0.6f)
+        if (speed > 0f && p > 0.03f) {
+            val arcBox = Size(r * 2.6f, r * 2.6f)
+            val arcOrigin = Offset(center.x - r * 1.3f, center.y - r * 1.3f)
+            drawArc(ring.copy(alpha = 0.45f * speed), 200f, 38f, false, arcOrigin, arcBox, style = Stroke(1.4.dp.toPx(), cap = StrokeCap.Round))
+            drawArc(ring.copy(alpha = 0.3f * speed), 205f, 26f, false, arcOrigin + Offset(-r * 0.12f, -r * 0.12f), Size(arcBox.width + r * 0.24f, arcBox.height + r * 0.24f), style = Stroke(1.dp.toPx(), cap = StrokeCap.Round))
+        }
+
+        // Contact shadow.
+        val move = FastOutSlowInEasing.transform(phase(p, 0f, 0.55f))
+        val sw = r * 2.1f
+        drawOval(
+            Brush.radialGradient(listOf(shadow.copy(alpha = shadow.alpha * move), Color.Transparent), center = Offset(center.x, center.y + r * 1.42f), radius = sw / 2f),
+            topLeft = Offset(center.x - sw / 2f, center.y + r * 1.42f - sw * 0.09f),
+            size = Size(sw, sw * 0.18f),
+        )
+
+        // Edge: the back face and the band joining it to the front, with fine reeding.
+        val edgeLight = abs(sinT)
+        val edge = lerp(SilverDark, SilverMid, 0.25f + 0.5f * edgeLight)
+        val edgeBrush = Brush.verticalGradient(listOf(lerp(edge, Color.White, 0.35f), edge, lerp(edge, Color.Black, 0.35f)), startY = center.y - r, endY = center.y + r)
+        drawOval(edgeBrush, topLeft = Offset(back.x - rx, back.y - r), size = Size(rx * 2f, r * 2f))
+        val left = minOf(front.x, back.x)
+        val right = maxOf(front.x, back.x)
+        if (right - left > 0.5f) {
+            drawRect(edgeBrush, topLeft = Offset(left, center.y - r), size = Size(right - left, r * 2f))
+            val ridges = 14
+            for (i in 1 until ridges) {
+                val y = center.y - r + 2f * r * i / ridges
+                drawLine(Color.Black.copy(alpha = 0.14f), Offset(left, y), Offset(right, y), 0.8.dp.toPx())
             }
-            // Soft contact shadow under the coin.
-            val move = FastOutSlowInEasing.transform(phase(p, 0f, 0.55f))
-            val fade = 1f - phase(p, 0.82f, 1f)
-            val sw = size.width * 0.42f * (0.7f + 0.3f * move)
+        }
+
+        // Face: brushed silver that catches the light as it turns towards you.
+        if (rx > 0.5f) {
+            val faceTone = lerp(SilverDark, SilverMid, 0.4f + 0.6f * abs(cosT))
             drawOval(
-                Brush.radialGradient(listOf(shadow.copy(alpha = shadow.alpha * move * fade), Color.Transparent), center = Offset(size.width / 2f, size.height * 0.86f), radius = sw / 2f),
-                topLeft = Offset((size.width - sw) / 2f, size.height * 0.86f - sw * 0.1f),
-                size = Size(sw, sw * 0.2f),
+                Brush.radialGradient(listOf(Color.White, faceTone, lerp(faceTone, Color.Black, 0.2f)), center = Offset(front.x - rx * 0.35f, front.y - r * 0.4f), radius = r * 1.5f),
+                topLeft = Offset(front.x - rx, front.y - r),
+                size = Size(rx * 2f, r * 2f),
             )
-        }
-        // The coin: silver, embossed ₹, turning about its vertical axis.
-        Box(
-            Modifier
-                .size(112.dp)
-                .graphicsLayer {
-                    val p = t.value
-                    val move = FastOutSlowInEasing.transform(phase(p, 0f, 0.55f))
-                    val away = phase(p, 0.82f, 1f)
-                    translationY = (1f - move) * (if (rising) 64.dp else 28.dp).toPx() - (if (rising) 6.dp.toPx() * move else 0f)
-                    val s = (0.72f + 0.28f * move) * (1f - 0.08f * away)
-                    scaleX = s
-                    scaleY = s
-                    rotationY = spinAt(p, rising)
-                    rotationX = 8f
-                    cameraDistance = 14f * density
-                    alpha = (phase(p, 0f, 0.12f)) * (1f - away)
-                },
-            contentAlignment = Alignment.Center,
-        ) {
-            Canvas(Modifier.fillMaxSize()) {
-                val r = size.minDimension / 2f
-                // Face-on the coin catches the light; edge-on it dims.
-                val turn = abs(cos(spinAt(t.value, rising) * PI.toFloat() / 180f))
-                drawCircle(Brush.linearGradient(listOf(SilverLight, SilverDark, SilverMid), start = Offset.Zero, end = Offset(size.width, size.height)), r)
-                val face = lerp(SilverDark, SilverMid, 0.45f + 0.55f * turn)
-                drawCircle(
-                    Brush.radialGradient(listOf(Color.White, face, lerp(face, Color.Black, 0.18f)), center = Offset(r * 0.66f, r * 0.56f), radius = r * 1.4f),
-                    r * 0.88f,
-                )
-                drawCircle(Engraving.copy(alpha = 0.45f), r * 0.74f, style = Stroke(r * 0.03f))
-                drawCircle(Color.White.copy(alpha = 0.55f), r * 0.775f, style = Stroke(r * 0.018f))
-                // A thin specular arc, top left.
-                drawArc(
-                    Color.White.copy(alpha = 0.7f * turn), 195f, 80f, false,
-                    Offset(r * 0.2f, r * 0.2f), Size(r * 1.6f, r * 1.6f), style = Stroke(width = r * 0.05f),
-                )
+            // Raised rim and an engraved inner ring.
+            drawOval(Color.White.copy(alpha = 0.55f), topLeft = Offset(front.x - rx * 0.97f, front.y - r * 0.97f), size = Size(rx * 1.94f, r * 1.94f), style = Stroke(r * 0.03f))
+            drawOval(Engraving.copy(alpha = 0.4f), topLeft = Offset(front.x - rx * 0.8f, front.y - r * 0.8f), size = Size(rx * 1.6f, r * 1.6f), style = Stroke(r * 0.035f))
+            // The ₹, embossed, narrowing with the face.
+            scale(scaleX = abs(cosT), scaleY = 1f, pivot = front) {
+                val tl = Offset(front.x - glyph.size.width / 2f, front.y - glyph.size.height / 2f)
+                drawText(glyphLight, topLeft = tl + Offset(1.5.dp.toPx(), 1.5.dp.toPx()))
+                drawText(glyph, color = Engraving, topLeft = tl)
             }
-            Text(
-                "₹",
-                style = MaterialTheme.typography.displayLarge.copy(
-                    fontSize = 50.sp,
-                    fontWeight = FontWeight.Bold,
-                    // Embossed: a light edge below-right of the engraving.
-                    shadow = Shadow(Color.White.copy(alpha = 0.7f), Offset(2f, 2f), 1.5f),
-                ),
-                color = Engraving,
+            // A soft specular sweep across the face.
+            drawArc(
+                Color.White.copy(alpha = 0.65f * abs(cosT)), 200f, 70f, false,
+                Offset(front.x - rx * 0.78f, front.y - r * 0.78f), Size(rx * 1.56f, r * 1.56f), style = Stroke(r * 0.045f, cap = StrokeCap.Round),
             )
         }
+
+        // The near half of the orbit passes in front of the coin.
+        if (ringAlpha > 0f) ringHalf(0f, 0.7f)
+
+        // Income: a small arrow rising beside the coin.
         if (rising) {
-            Icon(
-                Icons.Rounded.ArrowUpward,
-                contentDescription = null,
-                tint = c.positive,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 18.dp, end = 34.dp)
-                    .size(22.dp)
-                    .graphicsLayer {
-                        val p = FastOutSlowInEasing.transform(phase(t.value, 0.3f, 0.55f))
-                        alpha = p * (1f - phase(t.value, 0.85f, 1f))
-                        translationY = (1f - p) * 10.dp.toPx()
-                    },
-            )
+            val a = FastOutSlowInEasing.transform(phase(p, 0.3f, 0.55f)) * (1f - phase(p, 0.85f, 1f))
+            if (a > 0f) {
+                val ax = center.x + r * 1.25f
+                val ay = center.y - r * 0.9f - (1f - a) * 10.dp.toPx()
+                val len = 16.dp.toPx()
+                val pos = c.positive.copy(alpha = a)
+                drawLine(pos, Offset(ax - len / 2f, ay + len / 2f), Offset(ax + len / 2f, ay - len / 2f), 2.dp.toPx(), StrokeCap.Round)
+                drawLine(pos, Offset(ax + len / 2f, ay - len / 2f), Offset(ax - len * 0.05f, ay - len / 2f), 2.dp.toPx(), StrokeCap.Round)
+                drawLine(pos, Offset(ax + len / 2f, ay - len / 2f), Offset(ax + len / 2f, ay + len * 0.05f), 2.dp.toPx(), StrokeCap.Round)
+            }
         }
     }
 }

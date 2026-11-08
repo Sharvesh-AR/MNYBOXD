@@ -95,6 +95,47 @@ private fun rememberChartMorph(targets: List<Float>, keys: List<Any> = targets.i
 private fun List<Long>.fractionsOf(max: Long): List<Float> = map { if (it <= 0) 0f else it.toFloat() / max }
 
 /**
+ * The faint line behind the balance on Home: spending so far this month as one smooth rising
+ * stroke, edge to edge, with a soft glow and a bright point at the latest day. Decoration with
+ * meaning; it never carries a figure the screen doesn't state in words, and glides to new values.
+ */
+@Composable
+fun FlowLine(runningTotals: List<Long>, description: String, modifier: Modifier = Modifier) {
+    val values = if (runningTotals.size >= 2) runningTotals else List(2) { runningTotals.firstOrNull() ?: 0L }
+    val max = (values.maxOrNull() ?: 0L).coerceAtLeast(1L)
+    val morph = rememberChartMorph(values.fractionsOf(max))
+    val line = Spendly.colors.accent
+    Canvas(modifier.clearAndSetSemantics { contentDescription = description }) {
+        val n = values.size
+        val top = size.height * 0.12f
+        val usable = size.height * 0.76f
+        // A gentle floor so an empty month is a quiet horizon, not a line on the edge.
+        // Runs off the left edge, but stops short of the right so the latest-day point shows whole.
+        val right = size.width - 14.dp.toPx()
+        val points = (0 until n).map { i ->
+            val f = morph.at(i).coerceIn(0f, 1f)
+            Offset(right * i / (n - 1), top + usable * (1f - (0.08f + 0.92f * f)))
+        }
+        val curve = Path().apply {
+            moveTo(points[0].x, points[0].y)
+            for (i in 1 until n) {
+                val a = points[i - 1]
+                val b = points[i]
+                val mid = (a.x + b.x) / 2f
+                cubicTo(mid, a.y, mid, b.y, b.x, b.y)
+            }
+        }
+        val fade = Brush.horizontalGradient(listOf(line.copy(alpha = 0f), line.copy(alpha = 0.10f), line.copy(alpha = 0.55f)))
+        // Glow under a hairline.
+        drawPath(curve, Brush.horizontalGradient(listOf(line.copy(alpha = 0f), line.copy(alpha = 0.05f), line.copy(alpha = 0.16f))), style = Stroke(width = 7.dp.toPx(), cap = StrokeCap.Round))
+        drawPath(curve, fade, style = Stroke(width = 1.4.dp.toPx(), cap = StrokeCap.Round))
+        val end = points.last()
+        drawCircle(line.copy(alpha = 0.18f), 7.dp.toPx(), end)
+        drawCircle(line.copy(alpha = 0.9f), 2.5.dp.toPx(), end)
+    }
+}
+
+/**
  * A quiet line for recent spending: a smooth curve with a soft fade beneath it and a dot for the
  * latest day, no axes or labels (the description carries the figures). Glides to new values like
  * the other charts.

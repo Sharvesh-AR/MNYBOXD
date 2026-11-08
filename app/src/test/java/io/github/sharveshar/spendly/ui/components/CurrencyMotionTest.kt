@@ -47,9 +47,9 @@ class CurrencyMotionTest {
     @Test fun `the confirmation is worded from what was saved`() {
         momentFor(TransactionType.EXPENSE, wasEdit = false, amountPaise = 42_000, category = "Food", account = "HDFC Savings", toAccount = null).let {
             assertEquals(MomentKind.EXPENSE, it.kind)
-            assertEquals("Expense added", it.title)
-            assertEquals("₹420 on Food", it.headline)
-            assertEquals("from HDFC Savings", it.detail)
+            assertEquals("Expense Added!", it.title)
+            assertEquals("₹420 from Food", it.headline)
+            assertEquals("Paid with HDFC Savings", it.detail)
         }
         momentFor(TransactionType.EXPENSE, false, 42_050, category = null, account = null, toAccount = null).let {
             assertEquals("₹420.50", it.headline)
@@ -57,24 +57,24 @@ class CurrencyMotionTest {
         }
         momentFor(TransactionType.INCOME, false, 15_00_000, category = "Salary", account = "SBI Salary", toAccount = null).let {
             assertEquals(MomentKind.INCOME, it.kind)
-            assertEquals("Income added", it.title)
+            assertEquals("Income Added!", it.title)
             assertEquals("₹15,000 to SBI Salary", it.headline)
         }
         momentFor(TransactionType.TRANSFER, false, 1_00_000, category = null, account = "HDFC Savings", toAccount = "ICICI Coral").let {
             assertEquals(MomentKind.TRANSFER, it.kind)
-            assertEquals("Transfer done", it.title)
+            assertEquals("Transfer Done!", it.title)
             assertEquals("₹1,000", it.headline)
             assertEquals("HDFC Savings", it.fromLabel)
             assertEquals("ICICI Coral", it.toLabel)
         }
         momentFor(TransactionType.REFUND, false, 50_000, category = "Shopping", account = "HDFC Savings", toAccount = null).let {
             assertEquals(MomentKind.INCOME, it.kind)
-            assertEquals("Refund recorded", it.title)
+            assertEquals("Refund Recorded!", it.title)
             assertEquals("₹500 back to HDFC Savings", it.headline)
         }
         momentFor(TransactionType.EXPENSE, wasEdit = true, amountPaise = 9_900, category = "Food", account = "Cash", toAccount = null).let {
             assertEquals(MomentKind.UPDATED, it.kind)
-            assertEquals("Changes saved", it.title)
+            assertEquals("Changes Saved", it.title)
         }
     }
 

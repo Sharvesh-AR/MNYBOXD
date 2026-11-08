@@ -39,6 +39,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -77,9 +83,10 @@ fun amountSlots(text: String): List<AmountSlot> {
 
 /**
  * A large amount that changes like a fine mechanical counter: only the digits that changed roll
- * (down when the amount falls, up when it rises), the units first and each place a beat later.
- * The ₹, the sign and the grouping commas never move. Digits use tabular figures, so nothing
- * shifts sideways.
+ * (down when the amount falls, up when it rises), the units first and each place a beat later,
+ * each on a faint tile while it moves. The ₹, the sign and the grouping commas never move, and
+ * digits use tabular figures, so nothing shifts sideways. A rise counts up through the figures
+ * in a few quick steps and briefly takes [riseColor].
  *
  * @param hold keep showing the previous amount until false (for example while Quick Add is still
  *   open over this screen), then roll to the latest value.
@@ -91,17 +98,35 @@ fun RollingAmount(
     modifier: Modifier = Modifier,
     color: Color = MaterialTheme.colorScheme.onSurface,
     hold: Boolean = false,
+    riseColor: Color? = null,
 ) {
     val reduced = LocalReducedMotion.current
     var shown by remember { mutableLongStateOf(paise) }
     var rising by remember { mutableStateOf(false) }
+    var counting by remember { mutableStateOf(false) }
+    val tint = remember { Animatable(0f) }
     LaunchedEffect(paise, hold) {
-        if (!hold && paise != shown) {
-            rising = paise > shown
+        if (hold || paise == shown) return@LaunchedEffect
+        val from = shown
+        rising = paise > from
+        if (reduced || !rising) {
             shown = paise
+            return@LaunchedEffect
         }
+        // Count up: a few quick steps through the figures, ending exactly on the saved amount.
+        counting = true
+        if (riseColor != null) tint.snapTo(1f)
+        for (i in 1..COUNT_STEPS) {
+            shown = interpolatePaise(from, paise, FastOutSlowInEasing.transform(i / COUNT_STEPS.toFloat()))
+            delay(COUNT_STEP_MS)
+        }
+        shown = paise
+        counting = false
+        if (riseColor != null) tint.animateTo(0f, tween(900, delayMillis = 600))
     }
+    val tile = io.github.sharveshar.spendly.ui.theme.Spendly.colors.cardElevated
     val tabular = style.copy(fontFeatureSettings = "tnum")
+    val shownColor = if (riseColor != null && tint.value > 0f) androidx.compose.ui.graphics.lerp(color, riseColor, tint.value) else color
     Row(
         // Assistive tech and tests always get the exact, final amount.
         modifier.clearAndSetSemantics {
@@ -112,14 +137,38 @@ fun RollingAmount(
         amountSlots(Money.format(shown)).forEach { slot ->
             key(slot.key) {
                 if (reduced || !slot.char.isDigit()) {
-                    Text(slot.char.toString(), style = tabular, color = color, maxLines = 1)
+                    Text(slot.char.toString(), style = tabular, color = shownColor, maxLines = 1)
                 } else {
                     val place = slot.key.drop(1).toIntOrNull() ?: 0
+                    // A faint tile shows behind a digit while it changes, then fades.
+                    val glow = remember { Animatable(0f) }
+                    var last by remember { mutableStateOf(slot.char) }
+                    LaunchedEffect(slot.char) {
+                        if (slot.char != last) {
+                            last = slot.char
+                            glow.snapTo(1f)
+                            glow.animateTo(0f, tween(700, delayMillis = if (counting) 300 else 450))
+                        }
+                    }
                     AnimatedContent(
                         targetState = slot.char,
+                        modifier = Modifier.drawBehind {
+                            if (glow.value > 0f) {
+                                val inset = 1.dp.toPx()
+                                drawRoundRect(
+                                    tile.copy(alpha = tile.alpha * glow.value),
+                                    topLeft = Offset(inset, size.height * 0.1f),
+                                    size = Size(size.width - inset * 2, size.height * 0.8f),
+                                    cornerRadius = CornerRadius(8.dp.toPx()),
+                                )
+                            }
+                        },
                         transitionSpec = {
-                            val spec = tween<androidx.compose.ui.unit.IntOffset>(380, delayMillis = (place * 45).coerceAtMost(240), easing = FastOutSlowInEasing)
-                            val fade = tween<Float>(260, delayMillis = (place * 45).coerceAtMost(240))
+                            // Counting steps are quick; a single change takes its time, units first.
+                            val duration = if (counting) 110 else 380
+                            val delay = if (counting) 0 else (place * 45).coerceAtMost(240)
+                            val spec = tween<androidx.compose.ui.unit.IntOffset>(duration, delayMillis = delay, easing = FastOutSlowInEasing)
+                            val fade = tween<Float>((duration * 0.7f).toInt(), delayMillis = delay)
                             // Rising: the new digit comes up from below. Falling: down from above.
                             (slideInVertically(spec) { h -> if (rising) h else -h } + fadeIn(fade))
                                 .togetherWith(slideOutVertically(spec) { h -> if (rising) -h else h } + fadeOut(fade))
@@ -127,39 +176,61 @@ fun RollingAmount(
                         },
                         contentAlignment = Alignment.Center,
                         label = "roll-${slot.key}",
-                    ) { c -> Text(c.toString(), style = tabular, color = color, maxLines = 1) }
+                    ) { ch -> Text(ch.toString(), style = tabular, color = shownColor, maxLines = 1) }
                 }
             }
         }
     }
 }
 
+private const val COUNT_STEPS = 12
+private const val COUNT_STEP_MS = 55L
+
 /**
  * The amount being typed in Quick Add. Each new character appears with a short fade and a slight
- * scale, never a bounce; a caret shows where the next digit goes. [empty] shows the muted "0"
- * placeholder, which the first digit replaces with the same entrance.
+ * scale (never a bounce) on a faint tile that fades away; a caret shows where the next digit
+ * goes. [empty] shows the muted "0" placeholder, which the first digit replaces the same way.
  */
 @Composable
 fun TypingAmount(text: String, empty: Boolean, style: TextStyle, color: Color, caretColor: Color, modifier: Modifier = Modifier) {
     val reduced = LocalReducedMotion.current
+    val tileColor = io.github.sharveshar.spendly.ui.theme.Spendly.colors.cardElevated
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         text.forEachIndexed { i, ch ->
             key(if (empty) "placeholder$i" else "typed$i") {
-                val appear = remember { Animatable(if (reduced || empty) 1f else 0f) }
-                LaunchedEffect(Unit) { appear.animateTo(1f, spring(dampingRatio = 0.85f, stiffness = 900f)) }
+                val fresh = !reduced && !empty
+                val appear = remember { Animatable(if (fresh) 0f else 1f) }
+                val tile = remember { Animatable(if (fresh) 1f else 0f) }
+                LaunchedEffect(Unit) {
+                    if (fresh) {
+                        launch { appear.animateTo(1f, spring(dampingRatio = 0.85f, stiffness = 900f)) }
+                        tile.animateTo(0f, tween(520, delayMillis = 220))
+                    }
+                }
                 Text(
                     ch.toString(),
                     style = style.copy(fontFeatureSettings = "tnum"),
                     color = color,
                     maxLines = 1,
-                    modifier = Modifier.graphicsLayer {
-                        val a = appear.value
-                        alpha = a
-                        val s = 0.86f + 0.14f * a
-                        scaleX = s
-                        scaleY = s
-                        translationY = (1f - a) * 6.dp.toPx()
-                    },
+                    modifier = Modifier
+                        .drawBehind {
+                            if (tile.value > 0f) {
+                                drawRoundRect(
+                                    tileColor.copy(alpha = tileColor.alpha * tile.value),
+                                    topLeft = Offset(-2.dp.toPx(), size.height * 0.08f),
+                                    size = Size(size.width + 4.dp.toPx(), size.height * 0.84f),
+                                    cornerRadius = CornerRadius(10.dp.toPx()),
+                                )
+                            }
+                        }
+                        .graphicsLayer {
+                            val a = appear.value
+                            alpha = a
+                            val sc = 0.86f + 0.14f * a
+                            scaleX = sc
+                            scaleY = sc
+                            translationY = (1f - a) * 6.dp.toPx()
+                        },
                 )
             }
         }

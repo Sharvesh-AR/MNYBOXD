@@ -114,11 +114,11 @@ class UiTest {
         }
     }
 
-    /** A button in the Quick Add sheet; Home, underneath it, has an "Add expense" button too. */
+    /** A button in the Quick Add sheet (its title has the same words, and comes first). */
     private fun sheetButton(label: String) = compose.onAllNodesWithText(label).onLast()
 
     /** A tab in the bottom dock (other text on screen can share its label). */
-    private fun dockTab(label: String) = hasText(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
+    private fun dockTab(label: String) = hasContentDescription(label) and SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab)
 
     private fun openShortcutSettings() {
         compose.onNodeWithContentDescription("Settings").performClick()
@@ -139,15 +139,15 @@ class UiTest {
     @Test fun `bottom navigation reaches every tab`() {
         launchApp()
         shown("Spendly")
-        compose.onNodeWithText("Activity").performClick()
+        compose.onNode(dockTab("Activity")).performClick()
         shown("Transactions")
-        compose.onNodeWithText("Accounts").performClick()
+        compose.onNode(dockTab("Accounts")).performClick()
         shown("Net worth")
-        compose.onNodeWithText("Budgets").performClick()
+        compose.onNode(dockTab("Budgets")).performClick()
         shown("Monthly budget")
-        compose.onNodeWithText("Insights").performClick()
+        compose.onNode(dockTab("Insights")).performClick()
         shown("Income vs spending")
-        compose.onNodeWithText("Home").performClick()
+        compose.onNode(dockTab("Home")).performClick()
         shown("Spendly")
     }
 
@@ -209,16 +209,16 @@ class UiTest {
     @Test fun `empty states are shown on a fresh install`() {
         launchApp()
         shown("Nothing recorded yet")
-        compose.onNodeWithText("Activity").performClick()
+        compose.onNode(dockTab("Activity")).performClick()
         compose.waitForIdle()
         shown("No transactions yet")
-        compose.onNodeWithText("Budgets").performClick()
+        compose.onNode(dockTab("Budgets")).performClick()
         shown("No category budgets")
     }
 
     @Test fun `quick add saves an expense with the keypad`() {
         launchApp()
-        compose.onNodeWithContentDescription("Quick add").performClick()
+        compose.onNodeWithContentDescription("Add expense").performClick()
         compose.waitForIdle()
         compose.onNodeWithContentDescription("1").performClick()
         compose.onNodeWithContentDescription("2").performClick()
@@ -229,10 +229,10 @@ class UiTest {
         // Step the clock by hand: an auto-advancing clock would play the whole save animation
         // (coin, confirmation, sheet closing) inside a single wait and never show the confirmation.
         compose.mainClock.autoAdvance = false
-        sheetButton("Add expense").performClick()
+        sheetButton("Add Expense").performClick()
         // The confirmation shows only after the transaction is committed, worded from what was saved.
-        stepUntil(5_000) { compose.onAllNodes(hasContentDescription("Expense added", substring = true)).fetchSemanticsNodes().isNotEmpty() }
-        assertTrue(compose.onAllNodes(hasContentDescription("₹120.50 on Food & Dining. from Cash", substring = true)).fetchSemanticsNodes().isNotEmpty())
+        stepUntil(5_000) { compose.onAllNodes(hasContentDescription("Expense Added!", substring = true)).fetchSemanticsNodes().isNotEmpty() }
+        assertTrue(compose.onAllNodes(hasContentDescription("₹120.50 from Food & Dining. Paid with Cash", substring = true)).fetchSemanticsNodes().isNotEmpty())
         compose.mainClock.autoAdvance = true
         val saved = runBlocking { db.transactionDao().getAll() }.single()
         assertEquals(TransactionType.EXPENSE, saved.type)
@@ -245,12 +245,12 @@ class UiTest {
 
     @Test fun `quick add validation blocks empty and categoryless entries`() {
         launchApp()
-        compose.onNodeWithContentDescription("Quick add").performClick()
+        compose.onNodeWithContentDescription("Add expense").performClick()
         compose.waitForIdle()
-        sheetButton("Add expense").performClick()
+        sheetButton("Add Expense").performClick()
         compose.waitUntil(3_000) { compose.onAllNodesWithText("Enter an amount").fetchSemanticsNodes().isNotEmpty() }
         compose.onNodeWithContentDescription("5").performClick()
-        sheetButton("Add expense").performClick()
+        sheetButton("Add Expense").performClick()
         compose.waitUntil(3_000) { compose.onAllNodesWithText("Choose a category").fetchSemanticsNodes().isNotEmpty() }
         assertTrue(runBlocking { db.transactionDao().getAll() }.isEmpty())
     }
@@ -259,7 +259,7 @@ class UiTest {
         launchApp()
         val labelled = hasContentDescriptionAny() or hasTextAny() or hasAnyDescendantLabel()
         for (tab in listOf("Home", "Activity", "Accounts", "Budgets", "Insights")) {
-            compose.onNodeWithText(tab).performClick()
+            compose.onNode(dockTab(tab)).performClick()
             compose.waitForIdle()
             val unlabeled = compose.onAllNodes(hasClickAction() and !labelled, useUnmergedTree = false).fetchSemanticsNodes()
             assertTrue("Unlabelled clickable nodes on $tab: ${unlabeled.map { it.config }}", unlabeled.isEmpty())
@@ -399,7 +399,7 @@ class UiTest {
             )
         }
         launchApp()
-        compose.onNodeWithText("Activity").performClick()
+        compose.onNode(dockTab("Activity")).performClick()
         shown("Lunch")
         compose.onNodeWithText("Lunch").performClick()
         compose.waitForIdle()
