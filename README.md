@@ -345,6 +345,19 @@ Details and limitations: [`SECURITY.md`](SECURITY.md). Latest review:
 * Translations (strings are currently English-only)
 * Bundled premium typeface (currently the system font with tabular figures)
 
+## License
+
+MNYBOXD is free software: you can redistribute it and/or modify it under the terms of the
+[GNU General Public License v3.0](LICENSE) as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version.
+
+It is distributed in the hope that it will be useful, but **without any warranty**; without even
+the implied warranty of merchantability or fitness for a particular purpose. See the
+[license](LICENSE) for details.
+
+Copyright © 2026 ARS ([Sharvesh-AR](https://github.com/Sharvesh-AR)). Third-party libraries keep
+their own licences, listed in [`DEPENDENCIES.md`](DEPENDENCIES.md).
+
 ## Credits
 
 Built with care ♥ by [**ARS**](https://ar-sharvesh.vercel.app)
