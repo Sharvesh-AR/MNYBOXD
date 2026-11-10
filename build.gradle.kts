@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 // Top-level build file. Plugin versions live in gradle/libs.versions.toml.
 plugins {
     alias(libs.plugins.android.application) apply false

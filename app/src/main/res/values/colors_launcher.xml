@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon background in light mode (dark mode: values-night). -->
+<resources>
+    <color name="launcher_background">#F4F4F5</color>
+</resources>

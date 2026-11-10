@@ -124,7 +124,9 @@ builds (`ScreenshotTest`).</sub>
 * **Mono Dark** (default): matte black, white type, soft greys and charcoal surfaces, with colour
   only where it means something (money in, money over budget, chart slices).
 * **Mono Light**: the same look inverted, paper white with ink-black type and buttons.
-* Or *Match system* (Mono Dark in dark mode, Mono Light otherwise). Each styles every screen,
+* Or *Match system* (Mono Dark in dark mode, Mono Light otherwise). The app icon follows your
+  phone's dark mode too: white bars on black in dark mode, ink bars on white in light mode (with
+  Android 13+ *Themed icons* on, it takes your wallpaper colours instead). Each styles every screen,
   sheet, dialog, chart, the dock and the widgets, applied instantly and remembered. Version 2.4
   retired Midnight, AMOLED and Ocean; if you used one, MNYBOXD opens in Mono Dark.
 
@@ -160,9 +162,10 @@ builds (`ScreenshotTest`).</sub>
 3. Tap **Install**, then **Open**.
 4. You can switch the "install unknown apps" permission off again afterwards.
 
-**Updating:** MNYBOXD has no internet permission, so it never checks for updates by itself. Open
-*Settings → Check for updates* to see the latest release (it shows the version you have), download
-`MNYBOXD.apk` and install it over the top. Don't uninstall first: that deletes your records.
+**Updating:** MNYBOXD has no internet permission, so it never checks for updates by itself. The
+version you have is shown at the bottom of *Settings*; new versions appear on the
+[Releases](https://github.com/Sharvesh-AR/MNYBOXD/releases/latest) page. Download `MNYBOXD.apk`
+and install it over the top. Don't uninstall first: that deletes your records.
 
 Requires Android 8.0 (API 26) or newer. Everything works offline. A few things depend on the
 phone:
@@ -371,12 +374,20 @@ It is distributed in the hope that it will be useful, but **without any warranty
 the implied warranty of merchantability or fitness for a particular purpose. See the
 [license](LICENSE) for details.
 
-Copyright © 2026 ARS ([Sharvesh-AR](https://github.com/Sharvesh-AR)). Third-party libraries keep
-their own licences, listed in [`DEPENDENCIES.md`](DEPENDENCIES.md).
+Copyright © 2026 ARS ([Sharvesh-AR](https://github.com/Sharvesh-AR)). Every source file carries
+this copyright notice. Third-party libraries keep their own licences, listed in
+[`DEPENDENCIES.md`](DEPENDENCIES.md).
+
+**Additional terms** (GPL-3.0 section 7, full text in [`NOTICE`](NOTICE)):
+* **Name and logo:** the licence doesn't cover the name *MNYBOXD*, its logo or the app icon. A
+  modified or repackaged version must use a different name and icon and must not pose as the
+  official app.
+* **Attribution:** copies must keep the `NOTICE` file, the copyright notices and the in-app
+  credit *Made with ❤️ by ARS*.
 
 ## Credits
 
-Made with love ❤️ by [**ARS**](https://ar-sharvesh.vercel.app)
+Made with ❤️ by [**ARS**](https://ar-sharvesh.vercel.app)
 
 <sub>The Android robot is reproduced or modified from work created and shared by Google and used
 according to terms described in the Creative Commons 3.0 Attribution License.</sub>

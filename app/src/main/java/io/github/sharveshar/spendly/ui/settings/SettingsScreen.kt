@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.ui.settings
 
 import android.content.ActivityNotFoundException
@@ -32,7 +35,6 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Restore
@@ -66,6 +68,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.input.KeyboardType
@@ -103,7 +106,6 @@ fun SettingsScreen(
     onAbout: () -> Unit,
     onReset: () -> Unit,
 ) {
-    val context = LocalContext.current
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
     val flow by viewModel.flow.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
@@ -194,11 +196,6 @@ fun SettingsScreen(
 
                 Group("About")
                 SettingRow(Icons.Rounded.Info, "About MNYBOXD", "Version, privacy, open-source licences", chevron = true, onClick = onAbout)
-                SettingRow(
-                    Icons.Rounded.NewReleases,
-                    "Check for updates",
-                    "You have ${BuildConfig.VERSION_NAME}. Opens the latest release on GitHub.",
-                ) { openInBrowser(context, LATEST_RELEASE_URL) }
                 Spacer(Modifier.height(Space.xxxl))
                 BrandFooter()
                 Spacer(Modifier.height(Space.xl))
@@ -424,11 +421,11 @@ private fun PasswordPopup(
     }
 }
 
+/** ARS's portfolio, linked from "ARS". */
 private const val BRAND_URL = "https://ar-sharvesh.vercel.app"
 private const val GITHUB_URL = "https://github.com/Sharvesh-AR/MNYBOXD"
-
-/** The newest published release. MNYBOXD can't look this up itself: it has no internet permission. */
-const val LATEST_RELEASE_URL = "https://github.com/Sharvesh-AR/MNYBOXD/releases/latest"
+private const val DEVELOPER_URL = "https://github.com/Sharvesh-AR"
+private const val WEBSITE_URL = "https://mnyboxd.vercel.app"
 
 /** Opens [url] in the browser. MNYBOXD itself has no network access. */
 fun openInBrowser(context: Context, url: String) {
@@ -446,38 +443,42 @@ fun openInBrowser(context: Context, url: String) {
 /**
  * The end of Settings, centred:
  *
- *     MNYBOXD version 2.5.0
- *     GitHub · Developer website
- *     Made with love ❤️ by ARS
+ *     MNYBOXD version 2.6.0
+ *     GitHub · Developer · Website
+ *     Made with ❤️ by ARS
  *
- * "GitHub", "Developer website" and "ARS" are links that open in the browser; their URLs are
- * never shown.
+ * The first two lines are small and quiet. "GitHub" (the repository), "Developer" (ARS's GitHub
+ * profile), "Website" (MNYBOXD's site) and "ARS" (ARS's portfolio) open in the browser; their URLs
+ * are never shown.
  */
 @Composable
 fun BrandFooter(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val muted = MaterialTheme.typography.labelLarge
+    val small = MaterialTheme.typography.labelSmall
     Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text("$APP_NAME version ${BuildConfig.VERSION_NAME}", style = muted, color = Spendly.colors.muted)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            FooterLink("GitHub", "Open MNYBOXD on GitHub in your browser") { openInBrowser(context, GITHUB_URL) }
-            Text("·", style = muted, color = Spendly.colors.muted)
-            FooterLink("Developer website", "Open the developer's website in your browser") { openInBrowser(context, BRAND_URL) }
+        Text("$APP_NAME version ${BuildConfig.VERSION_NAME}", style = small, color = Spendly.colors.muted)
+        // On one text baseline, so the separating dots sit mid-height between the words.
+        Row {
+            FooterLink("GitHub", "Open MNYBOXD on GitHub in your browser", small, Modifier.alignByBaseline()) { openInBrowser(context, GITHUB_URL) }
+            Text("·", style = small, color = Spendly.colors.muted, modifier = Modifier.alignByBaseline())
+            FooterLink("Developer", "Open the developer's GitHub profile in your browser", small, Modifier.alignByBaseline()) { openInBrowser(context, DEVELOPER_URL) }
+            Text("·", style = small, color = Spendly.colors.muted, modifier = Modifier.alignByBaseline())
+            FooterLink("Website", "Open MNYBOXD's website in your browser", small, Modifier.alignByBaseline()) { openInBrowser(context, WEBSITE_URL) }
         }
         // Both parts sit on one text baseline (the emoji would otherwise lift "ARS").
         Row {
-            Text("Made with love ❤️ by", style = muted, color = Spendly.colors.muted, modifier = Modifier.alignByBaseline())
-            FooterLink("ARS", "Open ARS's portfolio in your browser", Modifier.alignByBaseline()) { openInBrowser(context, BRAND_URL) }
+            Text("Made with ❤️ by", style = MaterialTheme.typography.labelLarge, color = Spendly.colors.muted, modifier = Modifier.alignByBaseline())
+            FooterLink("ARS", "Open ARS's portfolio in your browser", MaterialTheme.typography.labelLarge, Modifier.alignByBaseline()) { openInBrowser(context, BRAND_URL) }
         }
     }
 }
 
 /** A footer word that opens a page: semi-bold, with a full-size touch target around it. */
 @Composable
-private fun FooterLink(text: String, clickLabel: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+private fun FooterLink(text: String, clickLabel: String, style: TextStyle, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Text(
         text,
-        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+        style = style.copy(fontWeight = FontWeight.SemiBold),
         color = MaterialTheme.colorScheme.onSurface,
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))

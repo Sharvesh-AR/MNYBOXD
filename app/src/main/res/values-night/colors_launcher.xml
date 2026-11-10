@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon background in dark mode: MNYBOXD's matte black. -->
+<resources>
+    <color name="launcher_background">#0B0B0C</color>
+</resources>

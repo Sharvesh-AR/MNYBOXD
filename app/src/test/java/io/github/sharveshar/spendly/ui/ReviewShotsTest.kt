@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.ui
 
 import android.content.Context
@@ -148,7 +151,7 @@ class ReviewShotsTest {
         // Settings footer.
         compose.onNodeWithContentDescription("Settings").performClick()
         settle()
-        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Made with love", substring = true))
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Made with", substring = true))
         settle(); save("g-settings-footer")
         db.close()
     }
@@ -343,7 +346,7 @@ class ReviewShotsTest {
         compose.onNodeWithText("Categories").performClick(); shot("12-categories"); back()
         compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("About MNYBOXD"))
         compose.onNodeWithText("About MNYBOXD").performClick(); shot("13-about"); back()
-        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Made with love", substring = true))
+        compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Made with", substring = true))
         shot("14-settings-bottom")
         back()
         tourPalette = io.github.sharveshar.spendly.ui.theme.Palettes.Light

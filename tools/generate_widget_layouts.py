@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+# SPDX-License-Identifier: GPL-3.0-or-later
 """Generates Spendly's home-screen widget layouts (app/src/main/res/layout/widget_*.xml).
 
 The layouts share one structure, spacing and type scale, so they are written from this script

@@ -1,6 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launcher icon in light mode: ink bars on paper white (dark mode: drawable-night). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#F5F5F7" android:pathData="M38,39h32a4,4 0,0 1,4 4v0a4,4 0,0 1,-4 4h-32a4,4 0,0 1,-4 -4v0a4,4 0,0 1,4 -4z" />
-    <path android:fillColor="#A1A1A6" android:pathData="M38,51h22a4,4 0,0 1,4 4v0a4,4 0,0 1,-4 4h-22a4,4 0,0 1,-4 -4v0a4,4 0,0 1,4 -4z" />
-    <path android:fillColor="#A1A1A6" android:fillAlpha="0.55" android:pathData="M38,63h12a4,4 0,0 1,4 4v0a4,4 0,0 1,-4 4h-12a4,4 0,0 1,-4 -4v0a4,4 0,0 1,4 -4z" />
+    <path android:fillColor="#0B0B0C" android:pathData="M38,39h32a4,4 0,0 1,4 4v0a4,4 0,0 1,-4 4h-32a4,4 0,0 1,-4 -4v0a4,4 0,0 1,4 -4z" />
+    <path android:fillColor="#5C5C62" android:pathData="M38,51h22a4,4 0,0 1,4 4v0a4,4 0,0 1,-4 4h-22a4,4 0,0 1,-4 -4v0a4,4 0,0 1,4 -4z" />
+    <path android:fillColor="#5C5C62" android:fillAlpha="0.55" android:pathData="M38,63h12a4,4 0,0 1,4 4v0a4,4 0,0 1,-4 4h-12a4,4 0,0 1,-4 -4v0a4,4 0,0 1,4 -4z" />
 </vector>

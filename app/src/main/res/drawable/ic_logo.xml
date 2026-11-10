@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  MNYBOXD's logo on its own (the launcher icon's three bars, without the icon's background), for
+  use inside the app. White with stepped transparency: tint it with the theme's text colour and
+  the bars keep their bright, grey and faint steps on any background.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp" android:height="32dp" android:viewportWidth="40" android:viewportHeight="32">
+    <path android:fillColor="#FFFFFFFF" android:pathData="M4,0h32a4,4 0,0 1,4 4v0a4,4 0,0 1,-4 4h-32a4,4 0,0 1,-4 -4v0a4,4 0,0 1,4 -4z" />
+    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.62" android:pathData="M4,12h22a4,4 0,0 1,4 4v0a4,4 0,0 1,-4 4h-22a4,4 0,0 1,-4 -4v0a4,4 0,0 1,4 -4z" />
+    <path android:fillColor="#FFFFFFFF" android:fillAlpha="0.34" android:pathData="M4,24h12a4,4 0,0 1,4 4v0a4,4 0,0 1,-4 4h-12a4,4 0,0 1,-4 -4v0a4,4 0,0 1,4 -4z" />
+</vector>

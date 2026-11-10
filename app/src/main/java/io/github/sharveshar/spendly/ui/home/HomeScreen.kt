@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.ui.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -169,7 +172,7 @@ fun HomeScreen(
         item(key = "top") {
             Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.sm, top = Space.sm), verticalAlignment = Alignment.CenterVertically) {
                 // Just the app logo: the app doesn't need to introduce itself on every visit.
-                AppLogo(Modifier.clearAndSetSemantics { heading(); contentDescription = APP_NAME }, size = 36.dp)
+                AppLogo(Modifier.clearAndSetSemantics { heading(); contentDescription = APP_NAME }, height = 22.dp)
                 Spacer(Modifier.weight(1f))
                 // Bell: budgets that need attention, with a dot when there are any.
                 IconButton(onClick = { showAlerts = true }, modifier = Modifier.originAnchor(bell)) {
