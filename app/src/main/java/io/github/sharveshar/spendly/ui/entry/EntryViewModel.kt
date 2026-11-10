@@ -192,7 +192,7 @@ class EntryViewModel(
                     amountText = AmountInput.fromPaise(remaining).text,
                     categoryId = original.categoryId,
                     accountId = original.instrumentAccountId ?: original.accountId,
-                    channel = original.channel?.takeIf { it != PaymentChannel.DEBIT_CARD || original.instrumentAccountId != null },
+                    channel = original.channel,
                     provider = original.provider,
                     note = if (original.description.isNotBlank()) "Refund: ${original.description}".take(TransactionRules.MAX_DESCRIPTION) else "",
                     refundOf = original.id,

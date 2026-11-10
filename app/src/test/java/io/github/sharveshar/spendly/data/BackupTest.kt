@@ -50,6 +50,10 @@ class BackupTest {
         txs.save(TransactionDraft(TransactionType.REFUND, 250_00, cc, null, null, null, null, exp, "partial", now), "b")
         txs.save(TransactionDraft(TransactionType.EXPENSE, 99_99, card, null, food, null, null, null, "Lunch, \"office\"", now), "c")
         txs.save(TransactionDraft(TransactionType.TRANSFER, 750_00, bank, cc, null, null, null, null, "repay", now), "d")
+        val budgets = io.github.sharveshar.spendly.data.repo.BudgetRepository(db) { now }
+        budgets.setLimit(null, 20_000_00)
+        budgets.setMonthLimit(java.time.YearMonth.of(2026, 12), null, 45_000_00)
+        budgets.setMonthLimit(java.time.YearMonth.of(2026, 12), food, 9_000_00)
         return db to bank
     }
 
@@ -72,6 +76,7 @@ class BackupTest {
         BackupRepository(target).restore(validation as BackupValidation.Valid)
         assertEquals(balances(source), balances(target))
         assertEquals(source.transactionDao().getAll(), target.transactionDao().getAll())
+        assertEquals(source.budgetDao().getOverrides(), target.budgetDao().getOverrides())
         source.close(); target.close()
     }
 
@@ -117,6 +122,12 @@ class BackupTest {
         invalid(good.copy(accounts = good.accounts.map { if (it.id == bank) it.copy(type = "WALLET") else it }))
         invalid(good.copy(accounts = good.accounts.map { it.copy(name = "x".repeat(41)) }))
         invalid(good.copy(transactions = good.transactions.map { it.copy(description = "evil\u0000") }))
+        invalid(good.copy(budgetOverrides = good.budgetOverrides.map { it.copy(month = "2026-13") }))
+        invalid(good.copy(budgetOverrides = good.budgetOverrides + good.budgetOverrides.first().copy(id = 99)))
+        invalid(good.copy(budgetOverrides = good.budgetOverrides.map { it.copy(amountPaise = 0) }))
+        // Backups made before month budgets existed still restore.
+        assertTrue(BackupValidator.validate(good.copy(budgetOverrides = emptyList())) is BackupValidation.Valid)
+        assertEquals(2, good.budgetOverrides.size)
     }
 
     @Test fun `failed restore rolls back and keeps existing data`() = runTest {

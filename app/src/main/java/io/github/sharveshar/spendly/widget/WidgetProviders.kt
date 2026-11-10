@@ -138,7 +138,7 @@ object WidgetUpdater {
                         val repos = container.repositories
                         combine(
                             repos.accounts.observeWithBalances(),
-                            repos.budgets.observeAll(),
+                            repos.budgets.observeBook(),
                             repos.transactions.observeCount(),
                             container.preferences.preferences.map { it.theme to it.onboardingDone },
                         ) { a, b, c, t -> listOf(a, b, c, t) }

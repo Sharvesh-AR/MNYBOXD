@@ -187,6 +187,10 @@ class LedgerTest {
         assertEquals(listOf(ValidationError.CHANNEL_MISMATCH), errors(resolve(draft(account = 1, channel = PaymentChannel.CASH))))
         assertEquals(listOf(ValidationError.CHANNEL_MISMATCH), errors(resolve(draft(account = 2, channel = PaymentChannel.UPI))))
         assertEquals(listOf(ValidationError.CHANNEL_MISMATCH), errors(resolve(draft(account = 1, channel = PaymentChannel.CREDIT_CARD))))
+        // "Paid by card" straight from a bank account (no separate card account) is valid.
+        assertEquals(PaymentChannel.DEBIT_CARD, valid(resolve(draft(account = 1, channel = PaymentChannel.DEBIT_CARD))).channel)
+        assertTrue(PaymentChannel.DEBIT_CARD in TransactionRules.channelsFor(AccountType.SAVINGS))
+        assertEquals(listOf(ValidationError.CHANNEL_MISMATCH), errors(resolve(draft(account = 2, channel = PaymentChannel.DEBIT_CARD))))
         // RuPay credit card on UPI is valid.
         valid(resolve(draft(account = 3, channel = PaymentChannel.UPI, provider = PaymentProvider.PHONEPE)))
         assertTrue(ValidationError.PROVIDER_UNEXPECTED in errors(resolve(draft(account = 2, channel = PaymentChannel.CASH, provider = PaymentProvider.PAYTM))))

@@ -17,6 +17,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.heading
@@ -29,6 +34,7 @@ import androidx.lifecycle.viewModelScope
 import io.github.sharveshar.spendly.Repositories
 import io.github.sharveshar.spendly.core.money.Money
 import io.github.sharveshar.spendly.domain.insights.Insights
+import io.github.sharveshar.spendly.domain.insights.Recap
 import io.github.sharveshar.spendly.domain.insights.TimeRange
 import io.github.sharveshar.spendly.domain.model.PaymentChannel
 import io.github.sharveshar.spendly.ui.common.CategoryUi
@@ -39,8 +45,6 @@ import io.github.sharveshar.spendly.ui.components.CategoryIcons
 import io.github.sharveshar.spendly.ui.components.DonutChart
 import io.github.sharveshar.spendly.ui.components.EmptyState
 import io.github.sharveshar.spendly.ui.components.IconBadge
-import io.github.sharveshar.spendly.ui.components.LabeledAmount
-import io.github.sharveshar.spendly.ui.components.LabeledValue
 import io.github.sharveshar.spendly.ui.components.MonthSwitcher
 import io.github.sharveshar.spendly.ui.components.PairedBarChart
 import io.github.sharveshar.spendly.ui.components.ProportionRow
@@ -81,6 +85,11 @@ data class InsightsUiState(
     val categories: List<Pair<CategoryUi?, Long>> = emptyList(),
     val channels: List<Pair<PaymentChannel?, Long>> = emptyList(),
     val hasData: Boolean = false,
+    /** The week up to today (or the month's last week) and the month, each against the period before. */
+    val week: Recap? = null,
+    val monthRecap: Recap? = null,
+    val today: LocalDate = LocalDate.now(),
+    val names: Map<Long, CategoryUi> = emptyMap(),
 ) {
     val change: Int? get() = Insights.percentChange(spent, previousSpent)
 }
@@ -126,6 +135,10 @@ class InsightsViewModel(repos: Repositories, private val handle: SavedStateHandl
                     categories = Insights.byCategory(monthRecords).map { (id, v) -> id?.let { catById[it] }?.let(CategoryUi::from) to v },
                     channels = Insights.byChannel(monthRecords),
                     hasData = monthRecords.isNotEmpty(),
+                    week = Insights.weekRecap(records, lastDay, zone),
+                    monthRecap = Insights.monthRecap(records, month, today, zone),
+                    today = today,
+                    names = cats.associate { it.id to CategoryUi.from(it) },
                 )
             }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), InsightsUiState())
@@ -145,37 +158,11 @@ fun InsightsScreen(viewModel: InsightsViewModel, contentPadding: PaddingValues) 
                 MonthSwitcher(state.month.format(Formats.monthYear), viewModel::previousMonth, viewModel::nextMonth, canGoNext = !state.isCurrentMonth)
             }
         }
-        item(key = "summary") {
-            run {
-                Column(Modifier.padding(horizontal = Space.gutter, vertical = Space.lg)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(Space.xl)) {
-                        LabeledAmount("Spent", state.spent, Modifier.weight(1f))
-                        LabeledAmount("Income", state.income, Modifier.weight(1f), valueColor = Spendly.colors.positive)
-                    }
-                    Spacer(Modifier.height(Space.lg))
-                    Row(horizontalArrangement = Arrangement.spacedBy(Space.xl)) {
-                        val net = state.income - state.spent
-                        LabeledAmount("Saved", net, Modifier.weight(1f), valueColor = if (net < 0) Spendly.colors.negative else MaterialTheme.colorScheme.onSurface)
-                        LabeledAmount("Daily average", state.dailyAverage, Modifier.weight(1f))
-                    }
-                    Spacer(Modifier.height(Space.md))
-                    val prevLabel = state.month.minusMonths(1).format(Formats.month)
-                    val change = state.change
-                    Text(
-                        when {
-                            change == null -> "No spending recorded in $prevLabel to compare with."
-                            change > 0 -> "$change% more than $prevLabel (${Money.format(state.previousSpent)})"
-                            change < 0 -> "${-change}% less than $prevLabel (${Money.format(state.previousSpent)})"
-                            else -> "Same as $prevLabel"
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = when {
-                            change == null || change == 0 -> Spendly.colors.muted
-                            change > 0 -> Spendly.colors.negative
-                            else -> Spendly.colors.positive
-                        },
-                    )
-                }
+        val week = state.week
+        val monthRecap = state.monthRecap
+        if (week != null && monthRecap != null) {
+            item(key = "recap") {
+                RecapPager(week, monthRecap, state.month, state.today, state.names, Modifier.staggered(stagger, 0).padding(top = Space.md, bottom = Space.sm))
             }
         }
         if (!state.loading && !state.hasData) {
@@ -184,34 +171,14 @@ fun InsightsScreen(viewModel: InsightsViewModel, contentPadding: PaddingValues) 
             }
         }
         if (state.hasData) {
-            item(key = "daily") {
-                SectionCard(Modifier.staggered(stagger, 1).padding(horizontal = Space.gutter, vertical = Space.sm)) {
-                    Text("Daily spending", style = MaterialTheme.typography.titleMedium)
-                    Spacer(Modifier.height(Space.lg))
-                    val labels = state.daily.indices.map { (it + 1).toString() }
-                    val todayIdx = if (state.isCurrentMonth) LocalDate.now().dayOfMonth - 1 else null
-                    BarChart(state.daily, labels, highlight = todayIdx, showLabelEvery = 7, height = 120.dp, description = compactAxisDescription("Daily spending", labels, state.daily))
-                }
-            }
             item(key = "cats") {
                 SectionCard(Modifier.staggered(stagger, 2).padding(horizontal = Space.gutter, vertical = Space.sm)) {
                     Text("By category", style = MaterialTheme.typography.titleMedium)
+                    Text("Tap a slice or a row to focus it", style = MaterialTheme.typography.bodySmall, color = Spendly.colors.muted)
                     Spacer(Modifier.height(Space.lg))
-                    val palette = Spendly.colors.categoryPalette
                     val total = state.categories.sumOf { it.second }
                     if (total > 0) {
-                        val top = state.categories.take(6)
-                        val rest = state.categories.drop(6).sumOf { it.second }
-                        val slices = top.map { (c, v) -> Slice(c?.name ?: "Uncategorised", v, palette[(c?.colorIndex ?: 9).coerceIn(0, 9)]) } +
-                            (if (rest > 0) listOf(Slice("Everything else", rest, Spendly.colors.muted)) else emptyList())
-                        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-                            DonutChart(slices, centerLabel = "Spent", centerValue = Money.formatCompact(total))
-                        }
-                        Spacer(Modifier.height(Space.lg))
-                        state.categories.forEach { (c, v) ->
-                            val color = palette[(c?.colorIndex ?: 9).coerceIn(0, 9)]
-                            ProportionRow(c?.name ?: "Uncategorised", v, total, color, leading = { IconBadge(CategoryIcons.forKey(c?.iconKey), color, size = 32.dp) })
-                        }
+                        CategoryBreakdown(state.categories, total, state.month)
                     } else {
                         Text("Refunds cancelled out this month's spending.", color = Spendly.colors.muted, style = MaterialTheme.typography.bodySmall)
                     }
@@ -247,3 +214,52 @@ fun InsightsScreen(viewModel: InsightsViewModel, contentPadding: PaddingValues) 
         }
     }
 }
+
+/**
+ * The month's spending by category: a donut whose slices use the theme's validated chart colours
+ * in order (largest first), so neighbouring slices are always easy to tell apart, and below it
+ * every category with the same colour, its amount and share. The largest [CHART_SLOTS]
+ * categories get their own colour; the rest share a grey "Everything else" slice.
+ */
+@Composable
+private fun CategoryBreakdown(categories: List<Pair<CategoryUi?, Long>>, total: Long, month: YearMonth) {
+    val colors = Spendly.colors.chartPalette
+    val other = Spendly.colors.muted
+    val haptics = LocalHapticFeedback.current
+    var focused by rememberSaveable(month.toString()) { mutableStateOf<Int?>(null) }
+    val slots = minOf(colors.size, CHART_SLOTS)
+    // Only one leftover category: show it by name rather than as "Everything else".
+    val own = if (categories.size == slots + 1) slots + 1 else slots
+    val top = categories.take(own)
+    val rest = categories.drop(own).sumOf { it.second }
+    fun colorAt(i: Int) = if (i < slots) colors[i] else other
+    val slices = top.mapIndexed { i, (c, v) -> Slice(c?.name ?: "Uncategorised", v, colorAt(i)) } +
+        (if (rest > 0) listOf(Slice("Everything else", rest, other)) else emptyList())
+    fun focus(i: Int?) {
+        if (i != focused) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+        focused = i
+    }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
+        DonutChart(
+            slices,
+            centerLabel = "Spent",
+            centerValue = Money.formatCompact(total),
+            selected = focused?.takeIf { it in slices.indices },
+            onSelect = ::focus,
+        )
+    }
+    Spacer(Modifier.height(Space.lg))
+    categories.forEachIndexed { i, (c, v) ->
+        val slice = if (i < top.size) i else top.size
+        val color = if (i < top.size) colorAt(i) else other
+        ProportionRow(
+            c?.name ?: "Uncategorised", v, total, color,
+            leading = { IconBadge(CategoryIcons.forKey(c?.iconKey), color, size = 32.dp) },
+            emphasised = focused == null || focused == slice,
+            onClick = { focus(if (focused == slice) null else slice) },
+        )
+    }
+}
+
+/** Categories that get their own colour in the breakdown; the rest share "Everything else". */
+private const val CHART_SLOTS = 6

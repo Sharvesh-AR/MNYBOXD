@@ -73,7 +73,7 @@ fun SelectChip(
                 selected = selected,
                 enabled = enabled,
                 interactionSource = interaction,
-                indication = androidx.compose.material3.ripple(),
+                indication = null,
                 role = Role.RadioButton,
             ) {
                 if (!selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)

@@ -120,7 +120,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TimeInput
 import androidx.compose.material3.rememberTimePickerState
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -689,7 +688,7 @@ private fun CategoryTile(icon: androidx.compose.ui.graphics.vector.ImageVector, 
             .clip(shape)
             .background(bg)
             .then(if (outline) Modifier.border(1.5.dp, c.accent, shape) else Modifier)
-            .selectable(selected = selected, interactionSource = interaction, indication = ripple(), role = Role.RadioButton) {
+            .selectable(selected = selected, interactionSource = interaction, indication = null, role = Role.RadioButton) {
                 if (!selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                 onClick()
             }
@@ -713,7 +712,7 @@ private fun MoreButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
             .size(52.dp)
             .clip(CircleShape)
             .background(Spendly.colors.card)
-            .clickable(interactionSource = interaction, indication = ripple(), role = Role.Button, onClickLabel = "Show all categories", onClick = onClick)
+            .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClickLabel = "Show all categories", onClick = onClick)
             .semantics { contentDescription = "More categories" },
         contentAlignment = Alignment.Center,
     ) {
@@ -901,7 +900,7 @@ private fun Keypad(keyHeight: androidx.compose.ui.unit.Dp, onDigit: (Char) -> Un
                                 .background(Spendly.colors.card)
                                 .combinedClickable(
                                     interactionSource = interaction,
-                                    indication = ripple(),
+                                    indication = null,
                                     role = Role.Button,
                                     onClickLabel = null,
                                     onLongClick = if (k == '<') ({ haptics.performHapticFeedback(HapticFeedbackType.LongPress); onClear() }) else null,

@@ -74,7 +74,8 @@ builds (`ScreenshotTest`).</sub>
 * All amounts are integer paise (`Long`); floating point is never used for money.
 * Expenses, income, transfers and refunds, with correct balance effects:
   * UPI from a bank account reduces that bank once ("Google Pay → HDFC → ₹500" is one expense).
-  * Debit card payments come out of the linked bank account.
+  * Debit card payments come out of the linked bank account. Pick *Debit card* as the method
+    on a savings or current account, or keep the card as its own account.
   * Credit card purchases increase the card's outstanding; paying the bill is a transfer from
     your bank to the card.
   * Bank-to-bank transfers are neither spending nor income.
@@ -83,10 +84,10 @@ builds (`ScreenshotTest`).</sub>
   amounts, and atomic transactions.
 
 **Understand your spending**
-* **Home**: where you stand in two seconds. Your balance (everything in your accounts minus
+* **Home**: where you stand in two seconds. Just the MNYBOXD mark at the top, then your balance (everything in your accounts minus
   what you owe on cards, the same figure as Accounts) in large type, what you spent today, a
   faint line of the month's spending, one big **+** (tap to add, hold to speak), your budget,
-  and your latest transactions. Pick a month (*November ⌄*) to see that month's budget and
+  a *This week* glance (tap it for the full recap) and your latest transactions. Pick a month (*November ⌄*) to see that month's budget and
   spending; the bell lists budgets that have passed 80%; the profile icon opens Settings. Tap the
   balance for the breakdown.
 * **Activity**: search notes, categories, accounts or amounts; filter by type, category,
@@ -95,10 +96,19 @@ builds (`ScreenshotTest`).</sub>
 * **Accounts**: savings, current, cash, wallets, debit and credit cards; net worth, assets and
   card dues; credit limit usage; archive or delete.
 * **Budgets**: monthly overall and per-category limits with 80% and 100% warnings (also shown
-  right after saving an expense that crosses a threshold).
-* **Insights**: monthly spent, income, saved and daily average; comparison with last month;
-  daily, weekly and 6-month charts; category and payment-method breakdowns. All from your real
-  records.
+  right after saving an expense that crosses a threshold). Each limit applies *Every month* or
+  *Only this month*: give a festival month, a trip or a tight month its own amount, and every
+  other month keeps the usual one. Months ahead can be planned too; *Use usual* undoes it.
+* **Insights**: swipeable **weekly and monthly recaps** at the top (total spent and how it
+  compares with the same days of the week or month before, a bar for each day, your top
+  category, biggest expense, busiest day and no-spend days); then monthly
+  spent, income, saved and daily average; daily, weekly and 6-month charts; category and
+  payment-method breakdowns. The category donut uses six colours chosen to stay distinct for
+  colour-blind eyes and on both themes, with smaller categories grouped as *Everything else*.
+  Tap a slice or a row to bring it forward and see its amount. All from your real records.
+* **Categories**: add your own, with a colour and an icon from a picker grouped the way people
+  spend: food and drink, habits (cigarettes, vape, alcohol, beer, wine), getting around, home and
+  bills, shopping, health, fun, travel, people and family, money and work.
 
 **Your data, your control**
 * Encrypted database (SQLCipher, key protected by Android Keystore).
@@ -110,13 +120,12 @@ builds (`ScreenshotTest`).</sub>
 * Optional screenshot blocking (*Hide app contents*).
 
 **Themes**
-* **Mono** (default): matte black, white type, soft greys and charcoal surfaces, with colour only
-  where it means something (money in, money over budget). Version 2.2 moves everyone to Mono
-  once, with the new design; pick another theme any time.
-* Also **Midnight** (charcoal and emerald), **Light** (off-white and emerald), **AMOLED** (true
-  black, restrained accents) and **Ocean** (deep navy, soft blue), or *Match system* (Mono in
-  dark mode, Light otherwise). Each styles every screen, sheet, dialog, chart, the dock and the
-  widgets. Applied instantly and remembered.
+* **Mono Dark** (default): matte black, white type, soft greys and charcoal surfaces, with colour
+  only where it means something (money in, money over budget, chart slices).
+* **Mono Light**: the same look inverted, paper white with ink-black type and buttons.
+* Or *Match system* (Mono Dark in dark mode, Mono Light otherwise). Each styles every screen,
+  sheet, dialog, chart, the dock and the widgets, applied instantly and remembered. Version 2.4
+  retired Midnight, AMOLED and Ocean; if you used one, MNYBOXD opens in Mono Dark.
 
 **Design and accessibility**
 * **Your dock, your order**: the bottom dock is icons only (screen readers hear each name). Touch
@@ -130,6 +139,8 @@ builds (`ScreenshotTest`).</sub>
   (only the digits that changed move, each on a faint tile; income counts up), the budget bar
   follows, and the new transaction slides into the list. All of it plays only after the
   transaction is stored, takes about a second, and is skipped when animations are off.
+* **No touch highlight**: nothing flashes grey when you tap. Whatever you touch presses in
+  slightly and springs back.
 * Origin-aware motion: accounts and transactions morph into their detail screens; dialogs
   expand from the control that opened them and collapse back into it; charts glide to new
   values. Everything respects Android's *Remove animations* setting.

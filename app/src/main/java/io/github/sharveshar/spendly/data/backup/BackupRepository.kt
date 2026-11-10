@@ -4,6 +4,7 @@ import androidx.room.withTransaction
 import io.github.sharveshar.spendly.core.money.Money
 import io.github.sharveshar.spendly.data.db.AccountEntity
 import io.github.sharveshar.spendly.data.db.BudgetEntity
+import io.github.sharveshar.spendly.data.db.BudgetOverrideEntity
 import io.github.sharveshar.spendly.data.db.CategoryEntity
 import io.github.sharveshar.spendly.data.db.SeedData
 import io.github.sharveshar.spendly.data.db.SpendlyDatabase
@@ -42,6 +43,7 @@ class BackupRepository(
                 )
             },
             budgets = db.budgetDao().getAll().map { BackupBudget(it.id, it.categoryId, it.amountPaise, it.updatedAt) },
+            budgetOverrides = db.budgetDao().getOverrides().map { BackupBudgetOverride(it.id, it.month, it.categoryId, it.amountPaise, it.updatedAt) },
         )
     }
 
@@ -64,6 +66,7 @@ class BackupRepository(
             m.deleteRefunds()
             m.deleteTransactions()
             m.deleteBudgets()
+            m.deleteBudgetOverrides()
             m.deleteLinkedAccounts()
             m.deleteAccounts()
             m.deleteCategories()
@@ -88,6 +91,7 @@ class BackupRepository(
             m.insertTransactions(txs.filter { it.refundOfId == null })
             m.insertTransactions(txs.filter { it.refundOfId != null })
             m.insertBudgets(s.budgets.map { BudgetEntity(it.id, it.categoryId, it.amountPaise, it.updatedAt) })
+            m.insertBudgetOverrides(s.budgetOverrides.map { BudgetOverrideEntity(it.id, it.month, it.categoryId, it.amountPaise, it.updatedAt) })
         }
     }
 
@@ -102,6 +106,7 @@ class BackupRepository(
             m.deleteRefunds()
             m.deleteTransactions()
             m.deleteBudgets()
+            m.deleteBudgetOverrides()
             m.deleteLinkedAccounts()
             m.deleteAccounts()
             m.deleteCategories()

@@ -34,7 +34,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -109,7 +108,7 @@ private fun FollowSystemRow(on: Boolean, onChange: (Boolean) -> Unit) {
         Column(Modifier.weight(1f)) {
             Text("Match system", style = MaterialTheme.typography.bodyLarge)
             Text(
-                "Mono when your phone is in dark mode, Light when it's light",
+                "Mono Dark when your phone is in dark mode, Mono Light when it's light",
                 style = MaterialTheme.typography.bodySmall,
                 color = Spendly.colors.muted,
             )

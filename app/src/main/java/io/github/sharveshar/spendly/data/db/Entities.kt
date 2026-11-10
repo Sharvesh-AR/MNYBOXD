@@ -100,6 +100,25 @@ data class TransactionEntity(
     @ColumnInfo(name = "client_ref") val clientRef: String,
 )
 
+/**
+ * A limit for one particular month ([month] is "2026-12"), used instead of the recurring one:
+ * a festival, a trip, a tight month. [categoryId] null means the overall budget for that month.
+ */
+@Entity(
+    tableName = "budget_overrides",
+    foreignKeys = [
+        ForeignKey(entity = CategoryEntity::class, parentColumns = ["id"], childColumns = ["category_id"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index(value = ["month", "category_id"], unique = true), Index("category_id")],
+)
+data class BudgetOverrideEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val month: String,
+    @ColumnInfo(name = "category_id") val categoryId: Long? = null,
+    @ColumnInfo(name = "amount_paise") val amountPaise: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
+)
+
 /** A recurring monthly limit. [categoryId] null means the overall monthly budget. */
 @Entity(
     tableName = "budgets",

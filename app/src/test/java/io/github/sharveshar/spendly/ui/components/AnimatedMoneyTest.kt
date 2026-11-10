@@ -41,26 +41,38 @@ class AnimatedMoneyTest {
         assertEquals(ThemeChoice.DEFAULT, legacyTheme("SOMETHING_ELSE"))
     }
 
-    @Test fun `match system resolves to Mono at night and Light by day`() {
+    @Test fun `match system resolves to Mono Dark at night and Mono Light by day`() {
         assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.MONO, ThemeChoice.SYSTEM.resolve(systemDark = true))
         assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.LIGHT, ThemeChoice.SYSTEM.resolve(systemDark = false))
-        assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.OCEAN_BLUE, ThemeChoice.OCEAN_BLUE.resolve(systemDark = false))
+        assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.MONO, ThemeChoice.MONO.resolve(systemDark = false))
     }
 
-    @Test fun `themes from earlier betas open as the closest of the four`() {
-        assertEquals(ThemeChoice.PURE_AMOLED, ThemeChoice.parse("OBSIDIAN"))
-        assertEquals(ThemeChoice.MIDNIGHT_EMERALD, ThemeChoice.parse("FOREST"))
-        assertEquals(ThemeChoice.MIDNIGHT_EMERALD, ThemeChoice.parse("LAVENDER_NIGHT"))
+    @Test fun `retired themes open as Mono Dark or Mono Light`() {
+        // Midnight, AMOLED and Ocean (2.0–2.3) and the earlier beta themes.
+        assertEquals(ThemeChoice.MONO, ThemeChoice.parse("MIDNIGHT_EMERALD"))
+        assertEquals(ThemeChoice.MONO, ThemeChoice.parse("PURE_AMOLED"))
+        assertEquals(ThemeChoice.MONO, ThemeChoice.parse("OCEAN_BLUE"))
+        assertEquals(ThemeChoice.MONO, ThemeChoice.parse("OBSIDIAN"))
+        assertEquals(ThemeChoice.MONO, ThemeChoice.parse("FOREST"))
+        assertEquals(ThemeChoice.MONO, ThemeChoice.parse("LAVENDER_NIGHT"))
         assertEquals(ThemeChoice.LIGHT, ThemeChoice.parse("WARM_SAND"))
+        assertEquals(ThemeChoice.LIGHT, ThemeChoice.parse("LIGHT"))
         assertEquals(ThemeChoice.SYSTEM, ThemeChoice.parse("SYSTEM"))
-        assertEquals(ThemeChoice.OCEAN_BLUE, ThemeChoice.parse("OCEAN_BLUE"))
         assertEquals(null, ThemeChoice.parse("NOPE"))
         // Widget theme settings are stored as theme names too.
         assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.LIGHT, io.github.sharveshar.spendly.ui.theme.AppTheme.parse("WARM_SAND"))
-        assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.PURE_AMOLED, io.github.sharveshar.spendly.ui.theme.AppTheme.parse("OBSIDIAN"))
-        assertEquals(5, io.github.sharveshar.spendly.ui.theme.Palettes.all.size)
-        // Monochrome is the default look; a theme someone picked is kept.
+        assertEquals(io.github.sharveshar.spendly.ui.theme.AppTheme.MONO, io.github.sharveshar.spendly.ui.theme.AppTheme.parse("OCEAN_BLUE"))
+        assertEquals(listOf(io.github.sharveshar.spendly.ui.theme.AppTheme.MONO, io.github.sharveshar.spendly.ui.theme.AppTheme.LIGHT), io.github.sharveshar.spendly.ui.theme.Palettes.all.map { it.theme })
+        // Monochrome is the default look.
         assertEquals(ThemeChoice.MONO, ThemeChoice.DEFAULT)
-        assertEquals(ThemeChoice.MIDNIGHT_EMERALD, ThemeChoice.parse("MIDNIGHT_EMERALD"))
+    }
+
+    @Test fun `each theme has a chart palette and invert-style selection`() {
+        for (p in io.github.sharveshar.spendly.ui.theme.Palettes.all) {
+            assertEquals(6, p.chart.size)
+            assertEquals(6, p.chart.toSet().size)
+            assertEquals(10, p.categories.size)
+            org.junit.Assert.assertTrue(p.invertSelection)
+        }
     }
 }

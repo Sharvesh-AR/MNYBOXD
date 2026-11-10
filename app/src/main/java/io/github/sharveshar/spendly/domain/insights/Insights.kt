@@ -61,7 +61,107 @@ data class BudgetStatus(val limitPaise: Long, val spentPaise: Long) {
     }
 }
 
+/**
+ * A look back at one stretch of time (a week or a month) and how it compares. [elapsedDays] of
+ * the period's [totalDays] have happened; the comparison uses the same number of days at the
+ * start of the previous period, so "this week so far" is never set against a whole week.
+ */
+data class Recap(
+    val start: LocalDate,
+    val totalDays: Int,
+    val elapsedDays: Int,
+    val spentPaise: Long,
+    /** Spending over the same number of days at the start of the previous period. */
+    val previousPaise: Long,
+    val incomePaise: Long,
+    /** Expenses recorded in the period. */
+    val expenseCount: Int,
+    /** Net spend per day, [totalDays] long (days still to come are 0). */
+    val daily: List<Long>,
+    /** The category with the most net spending, and that amount. */
+    val topCategoryId: Long?,
+    val topCategoryPaise: Long,
+    /** The single largest expense. */
+    val biggestPaise: Long,
+    val biggestCategoryId: Long?,
+    val biggestDay: LocalDate?,
+    /** The day with the most net spending. */
+    val busiestDay: LocalDate?,
+    val busiestPaise: Long,
+    /** Elapsed days with no net spending. */
+    val noSpendDays: Int,
+) {
+    val change: Int? get() = Insights.percentChange(spentPaise, previousPaise)
+    val hasSpending: Boolean get() = expenseCount > 0
+    val topShare: Int get() = if (spentPaise <= 0) 0 else (topCategoryPaise * 100 / spentPaise).toInt().coerceIn(0, 100)
+
+    /** Average net spend per elapsed day, rounded half-up to the paisa. */
+    val dailyAverage: Long
+        get() {
+            if (elapsedDays <= 0) return 0
+            val q = spentPaise / elapsedDays
+            val r = spentPaise % elapsedDays
+            return if (r * 2 >= elapsedDays) q + 1 else q
+        }
+}
+
 object Insights {
+    /**
+     * Builds a [Recap] for the [totalDays] from [start], of which [elapsedDays] have happened,
+     * compared with the same number of days from [previousStart]. [records] must cover both.
+     */
+    fun recap(records: List<SpendRecord>, start: LocalDate, totalDays: Int, elapsedDays: Int, previousStart: LocalDate, zone: ZoneId): Recap {
+        val elapsed = elapsedDays.coerceIn(0, totalDays)
+        val range = TimeRange.days(start, elapsed, zone)
+        val inPeriod = records.filter { it.occurredAt in range }
+        val previous = records.filter { it.occurredAt in TimeRange.days(previousStart, elapsed, zone) }
+        val daily = dailyNetSpend(inPeriod, start, totalDays, zone)
+        val top = byCategory(inPeriod).firstOrNull()
+        val biggest = inPeriod.filter { it.type == TransactionType.EXPENSE }.maxWithOrNull(compareBy<SpendRecord> { it.amountPaise }.thenBy { -it.occurredAt })
+        val busiest = daily.take(elapsed).withIndex().filter { it.value > 0 }.maxByOrNull { it.value }
+        return Recap(
+            start = start,
+            totalDays = totalDays,
+            elapsedDays = elapsed,
+            spentPaise = netSpend(inPeriod),
+            previousPaise = netSpend(previous),
+            incomePaise = income(inPeriod),
+            expenseCount = inPeriod.count { it.type == TransactionType.EXPENSE },
+            daily = daily,
+            topCategoryId = top?.first,
+            topCategoryPaise = top?.second ?: 0,
+            biggestPaise = biggest?.amountPaise ?: 0,
+            biggestCategoryId = biggest?.categoryId,
+            biggestDay = biggest?.let { Instant.ofEpochMilli(it.occurredAt).atZone(zone).toLocalDate() },
+            busiestDay = busiest?.let { start.plusDays(it.index.toLong()) },
+            busiestPaise = busiest?.value ?: 0,
+            noSpendDays = daily.take(elapsed).count { it <= 0 },
+        )
+    }
+
+    /** This week (Monday to Sunday) up to [day], against the same days of the week before. */
+    fun weekRecap(records: List<SpendRecord>, day: LocalDate, zone: ZoneId): Recap {
+        val start = day.with(java.time.temporal.TemporalAdjusters.previousOrSame(java.time.DayOfWeek.MONDAY))
+        return recap(records, start, 7, (day.toEpochDay() - start.toEpochDay() + 1).toInt(), start.minusWeeks(1), zone)
+    }
+
+    /** [month] up to [today] (or all of it, if it's over), against the same days of the month before. */
+    fun monthRecap(records: List<SpendRecord>, month: YearMonth, today: LocalDate, zone: ZoneId): Recap {
+        val elapsed = when {
+            YearMonth.from(today) == month -> today.dayOfMonth
+            month.isAfter(YearMonth.from(today)) -> 0
+            else -> month.lengthOfMonth()
+        }
+        val previous = month.minusMonths(1)
+        return recap(records, month.atDay(1), month.lengthOfMonth(), minOf(elapsed, month.lengthOfMonth()), previous.atDay(1), zone)
+            .let { r ->
+                // A month longer than the one before is compared with the whole of that month.
+                if (elapsed > previous.lengthOfMonth()) {
+                    r.copy(previousPaise = netSpend(records.filter { it.occurredAt in TimeRange.month(previous, zone) }))
+                } else r
+            }
+    }
+
     /** Net spending: expenses minus refunds. Transfers and income are ignored. */
     fun netSpend(records: Iterable<SpendRecord>): Long {
         var total = 0L

@@ -52,6 +52,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.semantics.Role
@@ -156,6 +162,7 @@ private fun CategoryEditor(viewModel: CategoriesViewModel, e: CategoryEdit, visi
     var color by remember(e) { mutableIntStateOf(e.existing?.colorIndex ?: 0) }
     var error by remember(e) { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    val haptics = LocalHapticFeedback.current
     OriginPopup(visible = visible, anchor = e.anchor, onDismissRequest = onDismiss) {
         Column(Modifier.padding(Space.xxl).verticalScroll(rememberScrollState())) {
             Text(if (e.existing == null) "New category" else "Edit category", style = MaterialTheme.typography.titleLarge)
@@ -164,23 +171,6 @@ private fun CategoryEditor(viewModel: CategoriesViewModel, e: CategoryEdit, visi
                 name, { name = it.take(30); error = null }, label = { Text("Name") }, singleLine = true,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Words), modifier = Modifier.fillMaxWidth(),
             )
-            Spacer(Modifier.height(Space.lg))
-            Text("Icon", style = MaterialTheme.typography.labelMedium, color = Spendly.colors.muted)
-            Spacer(Modifier.height(Space.sm))
-            val tint = Spendly.colors.categoryPalette[color]
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.xs), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
-                CategoryIcons.all.forEach { (key, vector) ->
-                    Box(
-                        Modifier
-                            .size(48.dp)
-                            .clip(CircleShape)
-                            .border(2.dp, if (key == icon) tint else Color.Transparent, CircleShape)
-                            .selectable(key == icon, role = Role.RadioButton) { icon = key }
-                            .semantics { contentDescription = key },
-                        contentAlignment = Alignment.Center,
-                    ) { IconBadge(vector, tint, size = 38.dp) }
-                }
-            }
             Spacer(Modifier.height(Space.lg))
             Text("Colour", style = MaterialTheme.typography.labelMedium, color = Spendly.colors.muted)
             Spacer(Modifier.height(Space.sm))
@@ -193,6 +183,36 @@ private fun CategoryEditor(viewModel: CategoriesViewModel, e: CategoryEdit, visi
                     ) { Box(Modifier.size(26.dp).clip(CircleShape).background(c)) }
                 }
             }
+            Spacer(Modifier.height(Space.lg))
+            val tint = Spendly.colors.categoryPalette[color]
+            // Every icon, grouped the way people think about spending (habits included).
+            CategoryIcons.groups.forEach { group ->
+                Text(group.title, style = MaterialTheme.typography.labelMedium, color = Spendly.colors.muted)
+                Spacer(Modifier.height(Space.xs))
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.xs), verticalArrangement = Arrangement.spacedBy(Space.xs)) {
+                    group.icons.forEach { item ->
+                        val picked = item.key == icon
+                        val ring by animateColorAsState(if (picked) MaterialTheme.colorScheme.onSurface else Color.Transparent, label = "iconRing")
+                        val scale by animateFloatAsState(if (picked) 1.08f else 1f, spring(dampingRatio = 0.5f, stiffness = 600f), label = "iconPick")
+                        Box(
+                            Modifier
+                                .size(48.dp)
+                                .graphicsLayer { scaleX = scale; scaleY = scale }
+                                .clip(CircleShape)
+                                .border(2.dp, ring, CircleShape)
+                                .selectable(picked, role = Role.RadioButton) {
+                                    if (!picked) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                    icon = item.key
+                                    if (name.isBlank()) name = item.label
+                                }
+                                .semantics { contentDescription = item.label },
+                            contentAlignment = Alignment.Center,
+                        ) { IconBadge(item.vector, tint, size = 38.dp) }
+                    }
+                }
+                Spacer(Modifier.height(Space.md))
+            }
+            Spacer(Modifier.height(Space.lg))
             error?.let {
                 Spacer(Modifier.height(Space.sm))
                 Text(it, color = Spendly.colors.negative, style = MaterialTheme.typography.bodySmall)

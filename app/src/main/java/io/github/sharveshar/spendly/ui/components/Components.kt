@@ -34,7 +34,6 @@ import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ripple
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -113,7 +112,7 @@ fun SectionCard(
             .fillMaxWidth()
             .let { if (onClick != null) it.pressScale(interaction, 0.98f) else it }
             .layeredSurface(RoundedCornerShape(22.dp))
-            .let { if (onClick != null) it.clickable(interactionSource = interaction, indication = ripple(), onClick = onClick) else it }
+            .let { if (onClick != null) it.clickable(interactionSource = interaction, indication = null, onClick = onClick) else it }
             .padding(padding),
         content = content,
     )
@@ -153,7 +152,7 @@ fun PrimaryButton(
             .border(1.dp, Brush.verticalGradient(0f to Color.White.copy(alpha = 0.22f), 0.45f to Color.Transparent), shape)
             .clickable(
                 interactionSource = interaction,
-                indication = ripple(color = content),
+                indication = null,
                 enabled = enabled && !loading,
                 role = Role.Button,
                 onClick = onClick,

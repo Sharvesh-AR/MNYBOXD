@@ -22,7 +22,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Stable
@@ -179,7 +178,7 @@ fun GlidingAddButton(
                     .combinedClickable(
                         enabled = visible,
                         interactionSource = interaction,
-                        indication = ripple(color = c.onAccent),
+                        indication = null,
                         role = Role.Button,
                         onClickLabel = "Add expense",
                         onLongClickLabel = "Add by voice",

@@ -8,6 +8,8 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.click
+import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
@@ -264,7 +266,7 @@ class ReviewShotsTest {
         runBlocking { DebugTools.loadSampleData(container.repositories) }
         val data = runBlocking { io.github.sharveshar.spendly.widget.WidgetSnapshot.load(container.repositories) }
         val density = context.resources.displayMetrics.density
-        for (palette in listOf(io.github.sharveshar.spendly.ui.theme.Palettes.Mono, io.github.sharveshar.spendly.ui.theme.Palettes.Light, io.github.sharveshar.spendly.ui.theme.Palettes.OceanBlue)) {
+        for (palette in listOf(io.github.sharveshar.spendly.ui.theme.Palettes.Mono, io.github.sharveshar.spendly.ui.theme.Palettes.Light)) {
             for (kind in io.github.sharveshar.spendly.widget.WidgetKind.entries) {
                 for (bp in io.github.sharveshar.spendly.widget.WidgetRenderer.sizesFor(kind, context, 3)) {
                     // Render at a typical launcher cell size for this breakpoint.
@@ -306,9 +308,10 @@ class ReviewShotsTest {
             container.preferences.setOnboardingDone()
             DebugTools.loadSampleData(container.repositories)
         }
+        var tourPalette by androidx.compose.runtime.mutableStateOf(io.github.sharveshar.spendly.ui.theme.Palettes.Mono)
         compose.setContent {
             CompositionLocalProvider(LocalAppContainer provides container, LocalRippleConfiguration provides null) {
-                SpendlyTheme { SpendlyApp(container, emptyFlow()) }
+                SpendlyTheme(tourPalette) { SpendlyApp(container, emptyFlow()) }
             }
         }
         fun settle() {
@@ -325,6 +328,12 @@ class ReviewShotsTest {
         compose.onAllNodesWithText("HDFC Savings").onFirst().performClick(); shot("05-account-detail"); back()
         compose.onNode(tab("Budgets")).performClick(); shot("06-budgets")
         compose.onNode(tab("Insights")).performClick(); shot("07-insights")
+        val insightsList = hasScrollAction() and !androidx.compose.ui.test.hasAnyAncestor(hasScrollAction())
+        val recapPager = hasScrollAction() and androidx.compose.ui.test.hasAnyDescendant(hasText("This week")) and !androidx.compose.ui.test.hasAnyDescendant(hasText("Insights"))
+        compose.onNode(recapPager).performTouchInput { swipeLeft() }; shot("07b-month-recap")
+        compose.onNode(insightsList).performScrollToNode(androidx.compose.ui.test.hasContentDescription("Spent", substring = true)); shot("07c-categories")
+        compose.onNode(androidx.compose.ui.test.hasContentDescription("Spent", substring = true)).performTouchInput { click(androidx.compose.ui.geometry.Offset(width * 0.92f, height * 0.5f)) }
+        shot("07d-category-focus")
         compose.onNode(tab("Home")).performClick(); settle()
         compose.onNodeWithContentDescription("Settings").performClick(); shot("08-settings")
         compose.onNodeWithText("Themes").performClick(); shot("09-themes"); back()
@@ -336,6 +345,12 @@ class ReviewShotsTest {
         compose.onNodeWithText("About MNYBOXD").performClick(); shot("13-about"); back()
         compose.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText("Built with", substring = true))
         shot("14-settings-bottom")
+        back()
+        tourPalette = io.github.sharveshar.spendly.ui.theme.Palettes.Light
+        compose.onNode(tab("Home")).performClick(); shot("15-home-light")
+        compose.onNode(tab("Insights")).performClick()
+        compose.onNode(insightsList).performScrollToNode(androidx.compose.ui.test.hasContentDescription("Spent", substring = true)); shot("16-categories-light")
+        compose.onNode(tab("Budgets")).performClick(); shot("17-budgets-light")
         db.close()
     }
 

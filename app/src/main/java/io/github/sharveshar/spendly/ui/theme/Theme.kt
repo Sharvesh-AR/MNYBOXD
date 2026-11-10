@@ -1,6 +1,9 @@
 package io.github.sharveshar.spendly.ui.theme
 
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.material3.ColorScheme
+import androidx.compose.material3.LocalRippleConfiguration
+import io.github.sharveshar.spendly.ui.components.PressIndication
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.Typography
@@ -35,6 +38,8 @@ data class SpendlyColors(
     val hairline: Color,
     val chartMuted: Color,
     val categoryPalette: List<Color>,
+    /** Breakdown-chart slice colours, in slice order (see [SpendlyPalette.chart]). */
+    val chartPalette: List<Color>,
     val isDark: Boolean,
     val background: Color,
     val surfaceHighest: Color,
@@ -61,6 +66,7 @@ fun SpendlyPalette.toColors() = SpendlyColors(
     hairline = hairline,
     chartMuted = track,
     categoryPalette = categories,
+    chartPalette = chart,
     isDark = isDark,
     background = background,
     surfaceHighest = surfaceHighest,
@@ -177,11 +183,18 @@ fun SpendlyTheme(palette: SpendlyPalette = Palettes.Default, content: @Composabl
     val colors = remember(palette) { palette.toColors() }
     val scheme = remember(palette) { palette.toColorScheme() }
     CompositionLocalProvider(LocalSpendlyColors provides colors) {
-        MaterialTheme(colorScheme = scheme, typography = SpendlyTypography, shapes = SpendlyShapes, content = content)
+        MaterialTheme(colorScheme = scheme, typography = SpendlyTypography, shapes = SpendlyShapes) {
+            // No ripple or highlight anywhere: a touch gently presses the thing you touched.
+            CompositionLocalProvider(
+                LocalRippleConfiguration provides null,
+                LocalIndication provides PressIndication,
+                content = content,
+            )
+        }
     }
 }
 
-/** Light/dark shorthand used by tests and previews: Mono or Light. */
+/** Light/dark shorthand used by tests and previews: Mono Dark or Mono Light. */
 @Composable
 fun SpendlyTheme(dark: Boolean, content: @Composable () -> Unit) =
     SpendlyTheme(if (dark) Palettes.Mono else Palettes.Light, content)

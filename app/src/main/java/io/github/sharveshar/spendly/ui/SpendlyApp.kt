@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.zIndex
 import io.github.sharveshar.spendly.AppTab
 import io.github.sharveshar.spendly.ui.components.LocalReducedMotion
+import io.github.sharveshar.spendly.ui.components.PressIndication
 import io.github.sharveshar.spendly.ui.navigation.DockOrder
 import kotlinx.coroutines.flow.collectLatest
 import kotlin.math.roundToInt
@@ -77,7 +78,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.ripple
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -353,6 +353,7 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
                                     onSeeAllTransactions = { nav.switchTab(TransactionsRoute) },
                                     onSeeAccounts = { nav.switchTab(AccountsRoute) },
                                     onBudgets = { nav.switchTab(BudgetsRoute) },
+                                    onInsights = { nav.switchTab(InsightsRoute) },
                                     onSettings = { nav.navigate(SettingsRoute) },
                                 )
                             }
@@ -669,7 +670,7 @@ private fun BottomDock(
                             }
                         }
                         .clip(RoundedCornerShape(18.dp))
-                        .indication(interaction, ripple(bounded = true))
+                        .indication(interaction, PressIndication)
                         .pointerInput(tabKey, slotPx) {
                             awaitEachGesture {
                                 val down = awaitFirstDown()

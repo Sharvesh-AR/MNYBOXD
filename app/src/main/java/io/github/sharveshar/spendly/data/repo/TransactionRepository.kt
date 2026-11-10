@@ -123,7 +123,7 @@ class TransactionRepository(
 
         val month = YearMonth.from(Instant.ofEpochMilli(t.occurredAt).atZone(zone()))
         val range = TimeRange.month(month, zone())
-        val before = if (affectsBudgets(t.type)) budgetStatuses(range) else emptyMap()
+        val before = if (affectsBudgets(t.type)) budgetStatuses(month, range) else emptyMap()
 
         val entity = TransactionEntity(
             id = existing?.id ?: 0,
@@ -150,7 +150,7 @@ class TransactionRepository(
         }
 
         val alert = if (affectsBudgets(t.type)) {
-            val after = budgetStatuses(range)
+            val after = budgetStatuses(month, range)
             worstCrossing(before, after, t.categoryId)
         } else null
         SaveResult.Saved(id, alert)
@@ -197,8 +197,8 @@ class TransactionRepository(
     private fun affectsBudgets(type: TransactionType) = type == TransactionType.EXPENSE || type == TransactionType.REFUND
 
     /** Budget status keyed by category id (null = overall) for budgets that exist. */
-    private suspend fun budgetStatuses(range: TimeRange): Map<Long?, BudgetStatus> {
-        val budgets = db.budgetDao().getAll()
+    private suspend fun budgetStatuses(month: YearMonth, range: TimeRange): Map<Long?, BudgetStatus> {
+        val budgets = BudgetBook(db.budgetDao().getAll(), db.budgetDao().getOverridesFor(month.toString())).forMonth(month)
         if (budgets.isEmpty()) return emptyMap()
         val records = dao.getSpendRecords(range.startMillis, range.endMillis)
         val total = Insights.netSpend(records)

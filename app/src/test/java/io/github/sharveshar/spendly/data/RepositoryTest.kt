@@ -217,6 +217,50 @@ class RepositoryTest {
         assertTrue(budgets.setLimit(null, 0) is WriteResult.Rejected)
     }
 
+    @Test fun `a budget set for one month overrides the usual one only in that month`() = runTest {
+        val nov = java.time.YearMonth.of(2026, 11)
+        val dec = nov.plusMonths(1)
+        ok(budgets.setLimit(null, 20_000_00))
+        ok(budgets.setMonthLimit(dec, null, 45_000_00))
+        ok(budgets.setMonthLimit(dec, foodId, 8_000_00))
+        var book = budgets.observeBook().first()
+        assertEquals(20_000_00L, book.overall(nov)?.amountPaise)
+        assertEquals(false, book.overall(nov)?.custom)
+        assertEquals(45_000_00L, book.overall(dec)?.amountPaise)
+        assertEquals(true, book.overall(dec)?.custom)
+        assertEquals(20_000_00L, book.overall(dec)?.usualPaise)
+        // A category budget only for December, with no usual one.
+        assertEquals(listOf<Long?>(null), book.forMonth(nov).map { it.categoryId })
+        assertEquals(8_000_00L, book.forMonth(dec).single { it.categoryId == foodId }.amountPaise)
+        // Setting it again replaces rather than duplicates.
+        ok(budgets.setMonthLimit(dec, null, 40_000_00))
+        assertEquals(2, db.budgetDao().getOverrides().size)
+        // "Every month" from December: the usual amount changes and December follows it again.
+        ok(budgets.setLimitFrom(dec, null, 25_000_00))
+        book = budgets.book()
+        assertEquals(25_000_00L, book.overall(dec)?.amountPaise)
+        assertEquals(false, book.overall(dec)?.custom)
+        assertEquals(25_000_00L, book.overall(nov)?.amountPaise)
+        // Back to usual for food in December means no food budget there.
+        budgets.clearMonthLimit(dec, foodId)
+        assertTrue(budgets.book().forMonth(dec).none { it.categoryId == foodId })
+        assertTrue(budgets.setMonthLimit(dec, salaryId, 100) is WriteResult.Rejected)
+        assertTrue(budgets.setMonthLimit(dec, null, 0) is WriteResult.Rejected)
+        // Removing the usual budget keeps months that have their own.
+        ok(budgets.setMonthLimit(dec, null, 30_000_00))
+        budgets.removeUsual(null)
+        assertEquals(null, budgets.book().overall(nov))
+        assertEquals(30_000_00L, budgets.book().overall(dec)?.amountPaise)
+    }
+
+    @Test fun `budget alerts use the amount set for that month`() = runTest {
+        val month = java.time.YearMonth.from(java.time.Instant.ofEpochMilli(now).atZone(ZoneId.of("UTC")))
+        ok(budgets.setLimit(foodId, 100_000_00))
+        ok(budgets.setMonthLimit(month, foodId, 1_000_00))
+        val r = txs.save(draft(TransactionType.EXPENSE, 900_00, cashId, category = foodId), "m1") as SaveResult.Saved
+        assertEquals(BudgetLevel.WARNING, r.alert?.level)
+    }
+
     @Test fun `search treats wildcards literally and matches amounts`() = runTest {
         save(draft(TransactionType.EXPENSE, 120_50, cashId, category = foodId).copy(description = "Lunch 100% veg"))
         save(draft(TransactionType.EXPENSE, 99_00, cashId, category = foodId).copy(description = "Coffee"))
@@ -306,6 +350,7 @@ class RepositoryTest {
         save(draft(TransactionType.EXPENSE, 300_00, debitId, category = shoppingId))
         ok(budgets.setLimit(null, 20_000_00))
         ok(budgets.setLimit(foodId, 5_000_00))
+        ok(budgets.setMonthLimit(java.time.YearMonth.of(2026, 12), null, 40_000_00))
         val custom = io.github.sharveshar.spendly.data.repo.CategoryRepository(db)
         ok(custom.create("Pets", io.github.sharveshar.spendly.domain.model.CategoryKind.EXPENSE, "other", 3))
 
@@ -313,6 +358,7 @@ class RepositoryTest {
 
         assertTrue(db.transactionDao().getAll().isEmpty())
         assertTrue(db.budgetDao().getAll().isEmpty())
+        assertTrue(db.budgetDao().getOverrides().isEmpty())
         val accountsLeft = db.accountDao().getAll()
         assertEquals(listOf("Cash"), accountsLeft.map { it.name })
         assertEquals(AccountType.CASH, accountsLeft.single().type)
