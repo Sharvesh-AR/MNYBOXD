@@ -83,7 +83,7 @@ import io.github.sharveshar.spendly.ui.components.OriginPopup
 import io.github.sharveshar.spendly.ui.components.RollingAmount
 import io.github.sharveshar.spendly.ui.components.SectionCard
 import io.github.sharveshar.spendly.ui.components.SectionHeader
-import io.github.sharveshar.spendly.ui.components.BrandMark
+import io.github.sharveshar.spendly.ui.components.AppLogo
 import io.github.sharveshar.spendly.ui.components.APP_NAME
 import io.github.sharveshar.spendly.ui.insights.WeekGlanceCard
 import io.github.sharveshar.spendly.ui.components.TransactionListItem
@@ -168,8 +168,8 @@ fun HomeScreen(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
         item(key = "top") {
             Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.sm, top = Space.sm), verticalAlignment = Alignment.CenterVertically) {
-                // Just the mark: the app doesn't need to introduce itself on every visit.
-                BrandMark(Modifier.clearAndSetSemantics { heading(); contentDescription = APP_NAME }, size = 34.dp)
+                // Just the app logo: the app doesn't need to introduce itself on every visit.
+                AppLogo(Modifier.clearAndSetSemantics { heading(); contentDescription = APP_NAME }, size = 36.dp)
                 Spacer(Modifier.weight(1f))
                 // Bell: budgets that need attention, with a dot when there are any.
                 IconButton(onClick = { showAlerts = true }, modifier = Modifier.originAnchor(bell)) {

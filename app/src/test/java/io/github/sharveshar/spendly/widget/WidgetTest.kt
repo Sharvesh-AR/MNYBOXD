@@ -128,4 +128,19 @@ class WidgetTest {
         assertTrue(shown.contains("₹52,000"))
         assertTrue(shown.contains("₹12,500"))
     }
+
+    @Test fun `Add income and Expense + Income widgets show their buttons at every size`() {
+        fun shown(kind: WidgetKind) = WidgetRenderer.sizesFor(kind, context, 12).map { bp ->
+            texts(inflate(WidgetRenderer.layout(context, kind, 12, bp, snapshot(), Palettes.Default))).filter { it.isNotBlank() }
+        }
+        val income = shown(WidgetKind.ADD_INCOME)
+        assertEquals(listOf("Income"), income[0])
+        assertEquals(listOf("Add income"), income[1])
+        assertTrue(income[2].containsAll(listOf("Add income", "+₹80,000 this month")))
+
+        val both = shown(WidgetKind.ADD_BOTH)
+        assertEquals(emptyList<String>(), both[0]) // just the two arrows when narrow
+        assertEquals(listOf("Expense", "Income"), both[1])
+        assertTrue(both[2].containsAll(listOf("Expense", "Income", "Today ₹400")))
+    }
 }

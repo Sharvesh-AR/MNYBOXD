@@ -11,6 +11,8 @@ OUT = sys.argv[1]
 A = 'xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools"'
 # Static labels in real widgets come from string resources (amounts are set at runtime).
 STRINGS = {"Add": "widget_text_add", "Add expense": "widget_text_add_expense", "Spendly": "app_name",
+           "Add income": "widget_text_add_income", "Income": "widget_text_income", "Expense": "widget_text_expense",
+           "Note it as it comes in": "widget_text_income_tagline",
            "Record it while you remember": "widget_text_tagline", "Last 7 days": "widget_text_last_7_days",
            "Available": "widget_text_available", "Owed on cards": "widget_text_owed_on_cards"}
 def label(text, preview):
@@ -18,9 +20,9 @@ def label(text, preview):
         return text
     return "@string/" + STRINGS[text]
 
-# Midnight Emerald colours, used only for static launcher-picker previews.
-P = dict(bg="#0D1117", surface="#151B23", elevated="#1D2630", text="#F5F7F8", muted="#8D98A3",
-         accent="#67D6A0", onAccent="#07130D", track="#2B3540", negative="#E58B8B")
+# Mono Dark colours (the default theme), used only for static launcher-picker previews.
+P = dict(bg="#0B0B0C", surface="#151517", elevated="#1F1F22", text="#F5F5F7", muted="#8E8E93",
+         accent="#F5F5F7", onAccent="#0B0B0C", track="#2A2A2E", negative="#EE8E8E", positive="#86D3A3")
 
 def tv(id, size, text="", color="text", medium=False, extra="", preview=False, sample=""):
     t = sample if preview else label(text, preview)
@@ -57,10 +59,10 @@ def root(inner, preview=False, pad="@dimen/widget_padding", orient="vertical", g
             f'  <LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="{orient}"{' android:baselineAligned="false"' if orient == "horizontal" else ""} android:padding="{pad}" {g}>\n'
             f'{inner}\n  </LinearLayout>\n</FrameLayout>\n')
 
-def button(id, width, label_id=None, label_text="", icon="ic_w_add", icon_id="add_icon", bg_id="add_bg", weight=False, height="match_parent", extra="", preview=False, accent=True, icon_size="22dp", text_size=15):
+def button(id, width, label_id=None, label_text="", icon="ic_w_add", icon_id="add_icon", bg_id="add_bg", weight=False, height="match_parent", extra="", preview=False, accent=True, icon_size="22dp", text_size=15, fg=None):
     w = 'android:layout_width="0dp" android:layout_weight="1"' if weight else f'android:layout_width="{width}"'
     tint_bg = "accent" if accent else "elevated"
-    tint_fg = "onAccent" if accent else "accent"
+    tint_fg = fg or ("onAccent" if accent else "accent")
     lab = ''
     if label_id:
         col = f'android:textColor="{P[tint_fg]}"' if preview else ''
@@ -76,6 +78,18 @@ def button(id, width, label_id=None, label_text="", icon="ic_w_add", icon_id="ad
 def space(): return '<FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>'
 def hspace(): return '<FrameLayout android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>'
 
+def logo_tile(pv):
+    return ('<FrameLayout android:id="@+id/logo_tile" android:layout_width="48dp" android:layout_height="match_parent">' +
+            img("logo_bg", "match_parent", "match_parent", "widget_inner", 'android:scaleType="fitXY"', pv, "elevated") +
+            img("logo", "22dp", "22dp", "ic_w_logo", 'android:layout_gravity="center"', pv, "accent") + '</FrameLayout>')
+
+def header(pv, right_sample):
+    """Logo, the app name and one live figure on the right (the large layouts' top row)."""
+    return ('<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:baselineAligned="false" android:gravity="center_vertical">' +
+            img("logo", "20dp", "20dp", "ic_w_logo", "", pv, "accent") +
+            tv("brand", 15, "Spendly", "text", True, 'android:layout_marginStart="8dp" android:layout_width="0dp" android:layout_weight="1"', pv, "MNYBOXD") +
+            tv("today", 13, "", "muted", False, 'android:fontFeatureSettings="tnum"', pv, right_sample) + '</LinearLayout>')
+
 def layouts(pv):
     L = {}
     # Quick Add ---------------------------------------------------------------------------
@@ -84,9 +98,7 @@ def layouts(pv):
         button("voice_button", "52dp", icon="ic_w_mic", icon_id="voice_icon", bg_id="voice_bg", extra='android:layout_marginStart="8dp"', preview=pv, accent=False),
         pv, pad="8dp", orient="horizontal", gravity="center_vertical")
     L['widget_quick_add'] = root(
-        '<FrameLayout android:id="@+id/logo_tile" android:layout_width="48dp" android:layout_height="match_parent">' +
-        img("logo_bg", "match_parent", "match_parent", "widget_inner", 'android:scaleType="fitXY"', pv, "elevated") +
-        img("logo", "22dp", "22dp", "ic_w_logo", 'android:layout_gravity="center"', pv, "accent") + '</FrameLayout>\n' +
+        logo_tile(pv) + '\n' +
         button("add_button", "", "add_label", "Add expense", weight=True, extra='android:layout_marginStart="8dp"', preview=pv) + "\n" +
         button("voice_button", "56dp", icon="ic_w_mic", icon_id="voice_icon", bg_id="voice_bg", extra='android:layout_marginStart="8dp"', preview=pv, accent=False),
         pv, pad="8dp", orient="horizontal", gravity="center_vertical")
@@ -100,6 +112,37 @@ def layouts(pv):
         '<LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:orientation="horizontal" android:baselineAligned="false">' +
         button("add_button", "", "add_label", "Add expense", weight=True, preview=pv, text_size=16) +
         button("voice_button", "56dp", icon="ic_w_mic", icon_id="voice_icon", bg_id="voice_bg", extra='android:layout_marginStart="10dp"', preview=pv, accent=False) +
+        '</LinearLayout>', pv)
+    # Add income: the same shape as Quick Add, opening Quick Add on Income ---------------------
+    def income_button(label_text, weight=True, extra="", accent=True, text_size=15):
+        return button("income_button", "", "income_label" if label_text else None, label_text, icon="ic_w_income", icon_id="income_icon",
+                      bg_id="income_bg", weight=weight, extra=extra, preview=pv, accent=accent, text_size=text_size,
+                      fg=None if accent else "positive")
+    L['widget_add_income_small'] = root(income_button("Income"), pv, pad="8dp", orient="horizontal", gravity="center_vertical")
+    L['widget_add_income'] = root(
+        logo_tile(pv) + '\n' + income_button("Add income", extra='android:layout_marginStart="8dp"'),
+        pv, pad="8dp", orient="horizontal", gravity="center_vertical")
+    L['widget_add_income_large'] = root(
+        header(pv, "+₹80,000 this month") + "\n" +
+        tv("caption", 12, "Note it as it comes in", "muted", False, 'android:layout_marginTop="4dp"', pv, "Note it as it comes in") + "\n" +
+        space() + "\n" +
+        '<LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:orientation="horizontal" android:baselineAligned="false">' +
+        income_button("Add income", text_size=16) + '</LinearLayout>', pv)
+    # Expense + Income: two buttons side by side ------------------------------------------------
+    def expense_button(label_text, text_size=15):
+        return button("add_button", "", "add_label" if label_text else None, label_text, icon="ic_w_expense", weight=True, preview=pv, text_size=text_size)
+    L['widget_add_both_small'] = root(
+        expense_button("") + "\n" + income_button("", extra='android:layout_marginStart="8dp"', accent=False),
+        pv, pad="8dp", orient="horizontal", gravity="center_vertical")
+    L['widget_add_both'] = root(
+        expense_button("Expense", 14) + "\n" + income_button("Income", extra='android:layout_marginStart="8dp"', accent=False, text_size=14),
+        pv, pad="8dp", orient="horizontal", gravity="center_vertical")
+    L['widget_add_both_large'] = root(
+        header(pv, "Today ₹345") + "\n" +
+        tv("caption", 12, "Record it while you remember", "muted", False, 'android:layout_marginTop="4dp"', pv, "Record it while you remember") + "\n" +
+        space() + "\n" +
+        '<LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:orientation="horizontal" android:baselineAligned="false">' +
+        expense_button("Expense", 16) + income_button("Income", extra='android:layout_marginStart="10dp"', accent=False, text_size=16) +
         '</LinearLayout>', pv)
     # Monthly overview ----------------------------------------------------------------------
     L['widget_monthly_small'] = root(
@@ -207,7 +250,8 @@ real = layouts(False)
 for name, xml in real.items():
     open(os.path.join(OUT, name + ".xml"), "w").write(xml)
 previews = layouts(True)
-for name in ["widget_quick_add", "widget_monthly", "widget_accounts", "widget_trend", "widget_stats"]:
+PREVIEWS = ["widget_quick_add", "widget_add_income", "widget_add_both", "widget_monthly", "widget_accounts", "widget_trend", "widget_stats"]
+for name in PREVIEWS:
     xml = previews[name].replace("<!-- Generated", "<!-- Launcher widget-picker preview: illustrative figures only, never shown in a placed widget. Generated")
     open(os.path.join(OUT, name + "_preview.xml"), "w").write(xml)
-print(len(real), "layouts +", 5, "previews")
+print(len(real), "layouts +", len(PREVIEWS), "previews")

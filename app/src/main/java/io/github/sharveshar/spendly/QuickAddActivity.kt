@@ -31,6 +31,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import io.github.sharveshar.spendly.data.db.DatabaseState
+import io.github.sharveshar.spendly.domain.model.TransactionType
 import io.github.sharveshar.spendly.ui.components.LocalReducedMotion
 import io.github.sharveshar.spendly.ui.components.LocalSecureWindows
 import io.github.sharveshar.spendly.ui.components.rememberReducedMotion
@@ -48,7 +49,7 @@ import io.github.sharveshar.spendly.ui.theme.ThemeCache
  * "Add expense" icon. Transparent window in its own task, excluded from recents: when Quick Add
  * closes the activity finishes and the user is back exactly where they were.
  *
- * Like MainActivity it honours only two fixed actions and ignores extras and data. A second launch
+ * Like MainActivity it honours only fixed actions (add, speak, add income) and ignores extras and data. A second launch
  * while Quick Add is already showing is ignored, so a shortcut can never stack two pop-ups.
  */
 class QuickAddActivity : ComponentActivity() {
@@ -60,8 +61,10 @@ class QuickAddActivity : ComponentActivity() {
         enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         super.onCreate(savedInstanceState)
         val voice = intent?.action == MainActivity.ACTION_VOICE_ADD
+        val income = intent?.action == MainActivity.ACTION_ADD_INCOME
         if (savedInstanceState == null) {
-            runCatching { ShortcutManagerCompat.reportShortcutUsed(this, if (voice) MainActivity.SHORTCUT_VOICE else MainActivity.SHORTCUT_ADD) }
+            // Income has no launcher shortcut of its own to rank.
+            if (!income) runCatching { ShortcutManagerCompat.reportShortcutUsed(this, if (voice) MainActivity.SHORTCUT_VOICE else MainActivity.SHORTCUT_ADD) }
             // Spendly never shows over the lock screen: ask to unlock first.
             val keyguard = getSystemService(KeyguardManager::class.java)
             if (keyguard?.isKeyguardLocked == true) keyguard.requestDismissKeyguard(this, null)
@@ -82,7 +85,7 @@ class QuickAddActivity : ComponentActivity() {
                         db is DatabaseState.Opening || p == null -> Unit
                         // First run, or the database needs attention: the full app handles those.
                         db !is DatabaseState.Ready || !p.onboardingDone -> LaunchedEffect(Unit) { openAppInstead() }
-                        else -> QuickAddPopup(startVoice = voice, onFinished = ::finishQuietly)
+                        else -> QuickAddPopup(startVoice = voice, income = income, onFinished = ::finishQuietly)
                     }
                 }
             }
@@ -106,14 +109,17 @@ class QuickAddActivity : ComponentActivity() {
     }
 
     companion object {
-        /** Opens Quick Add (or voice entry for [MainActivity.ACTION_VOICE_ADD]) as a pop-up. */
+        /**
+         * Opens Quick Add as a pop-up: on Expense, by voice ([MainActivity.ACTION_VOICE_ADD]) or on
+         * Income ([MainActivity.ACTION_ADD_INCOME]).
+         */
         fun launchIntent(context: Context, action: String = MainActivity.ACTION_QUICK_ADD): Intent =
             Intent(action).setClass(context, QuickAddActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }
 
 @Composable
-private fun QuickAddPopup(startVoice: Boolean, onFinished: () -> Unit) {
+private fun QuickAddPopup(startVoice: Boolean, income: Boolean, onFinished: () -> Unit) {
     val nav = rememberNavController()
     val finished by rememberUpdatedState(onFinished)
     var opened by rememberSaveable { mutableStateOf(false) }
@@ -125,7 +131,7 @@ private fun QuickAddPopup(startVoice: Boolean, onFinished: () -> Unit) {
     LaunchedEffect(Unit) {
         if (!opened) {
             opened = true
-            nav.navigate(EntryRoute(startVoice = startVoice))
+            nav.navigate(EntryRoute(startVoice = startVoice, type = if (income) TransactionType.INCOME.name else TransactionType.EXPENSE.name))
         }
     }
     // When Quick Add (and any account editor it opened) is gone, so is the pop-up: the empty

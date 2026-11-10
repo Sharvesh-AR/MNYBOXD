@@ -25,8 +25,8 @@ import io.github.sharveshar.spendly.domain.model.AccountType
 import io.github.sharveshar.spendly.ui.theme.SpendlyPalette
 import kotlin.math.max
 
-/** The five home-screen widgets. [id] is stable: it's part of PendingIntent request codes. */
-enum class WidgetKind(val id: Int) { QUICK_ADD(1), MONTHLY(2), ACCOUNTS(3), TREND(4), STATS(5) }
+/** The home-screen widgets. [id] is stable: it's part of PendingIntent request codes. */
+enum class WidgetKind(val id: Int) { QUICK_ADD(1), MONTHLY(2), ACCOUNTS(3), TREND(4), STATS(5), ADD_INCOME(6), ADD_BOTH(7) }
 
 /**
  * Builds the RemoteViews for each widget, its sizes and the active theme.
@@ -96,6 +96,17 @@ object WidgetRenderer {
             Breakpoint(200f, 40f, R.layout.widget_stats_wide),
             Breakpoint(100f, 100f, R.layout.widget_stats),
         )
+        WidgetKind.ADD_INCOME -> listOf(
+            Breakpoint(100f, 40f, R.layout.widget_add_income_small),
+            Breakpoint(200f, 40f, R.layout.widget_add_income),
+            Breakpoint(200f, 110f, R.layout.widget_add_income_large),
+        )
+        // Labelled buttons need about 100dp each; narrower, they show just the arrows.
+        WidgetKind.ADD_BOTH -> listOf(
+            Breakpoint(100f, 40f, R.layout.widget_add_both_small),
+            Breakpoint(220f, 40f, R.layout.widget_add_both),
+            Breakpoint(220f, 110f, R.layout.widget_add_both_large),
+        )
     }
 
     @androidx.annotation.VisibleForTesting
@@ -108,6 +119,8 @@ object WidgetRenderer {
             WidgetKind.ACCOUNTS -> accounts(context, v, widgetId, bp, d, p)
             WidgetKind.TREND -> trend(context, v, widgetId, bp, d, p)
             WidgetKind.STATS -> stats(context, v, widgetId, bp, d, p)
+            WidgetKind.ADD_INCOME -> addIncome(context, v, widgetId, bp, d, p)
+            WidgetKind.ADD_BOTH -> addBoth(context, v, widgetId, bp, d, p)
         }
         return v
     }
@@ -126,12 +139,7 @@ object WidgetRenderer {
         v.setContentDescription(R.id.voice_button, "Add expense by voice")
         v.setOnClickPendingIntent(android.R.id.background, openApp(context, widgetId, WidgetKind.QUICK_ADD, MainActivity.ACTION_OPEN_HOME))
         when (bp.layout) {
-            R.layout.widget_quick_add -> {
-                v.tint(R.id.logo_bg, p.surfaceElevated)
-                v.tint(R.id.logo, p.accent)
-                v.setOnClickPendingIntent(R.id.logo_tile, openApp(context, widgetId, WidgetKind.QUICK_ADD, MainActivity.ACTION_OPEN_HOME))
-                v.setContentDescription(R.id.logo_tile, "Open MNYBOXD")
-            }
+            R.layout.widget_quick_add -> logoTile(context, v, widgetId, WidgetKind.QUICK_ADD, p)
             R.layout.widget_quick_add_large -> {
                 v.tint(R.id.logo, p.accent)
                 v.setTextColor(R.id.brand, p.text.toArgb())
@@ -139,6 +147,57 @@ object WidgetRenderer {
                 v.text(R.id.today, if (d.spentTodayPaise != 0L) "Today ${Money.format(d.spentTodayPaise)}" else "Nothing spent today", p.textMuted)
             }
         }
+    }
+
+    /** Like Quick Add, but the button opens Quick Add on Income. */
+    private fun addIncome(context: Context, v: RemoteViews, widgetId: Int, bp: Breakpoint, d: WidgetSnapshot, p: SpendlyPalette) {
+        v.tint(R.id.income_bg, p.accent)
+        v.tint(R.id.income_icon, p.onAccent)
+        v.setTextColor(R.id.income_label, p.onAccent.toArgb())
+        v.setOnClickPendingIntent(R.id.income_button, addIncomeIntent(context, widgetId))
+        v.setContentDescription(R.id.income_button, "Add income")
+        v.setOnClickPendingIntent(android.R.id.background, openApp(context, widgetId, WidgetKind.ADD_INCOME, MainActivity.ACTION_OPEN_HOME))
+        when (bp.layout) {
+            R.layout.widget_add_income -> logoTile(context, v, widgetId, WidgetKind.ADD_INCOME, p)
+            R.layout.widget_add_income_large -> {
+                v.tint(R.id.logo, p.accent)
+                v.setTextColor(R.id.brand, p.text.toArgb())
+                v.setTextColor(R.id.caption, p.textMuted.toArgb())
+                val inThisMonth = d.incomeMonthPaise
+                v.text(R.id.today, if (inThisMonth > 0) "+${Money.format(inThisMonth)} this month" else "Nothing in yet this month", if (inThisMonth > 0) p.positive else p.textMuted)
+            }
+        }
+    }
+
+    /** Two buttons: Expense (the main, filled one) and Income (money in, in the positive colour). */
+    private fun addBoth(context: Context, v: RemoteViews, widgetId: Int, bp: Breakpoint, d: WidgetSnapshot, p: SpendlyPalette) {
+        v.tint(R.id.add_bg, p.accent)
+        v.tint(R.id.add_icon, p.onAccent)
+        v.tint(R.id.income_bg, p.surfaceElevated)
+        v.tint(R.id.income_icon, p.positive)
+        // The narrowest size shows only the arrows, so there are no labels to colour.
+        if (bp.layout != R.layout.widget_add_both_small) {
+            v.setTextColor(R.id.add_label, p.onAccent.toArgb())
+            v.setTextColor(R.id.income_label, p.positive.toArgb())
+        }
+        v.setOnClickPendingIntent(R.id.add_button, quickAddIntent(context, widgetId, voice = false))
+        v.setOnClickPendingIntent(R.id.income_button, addIncomeIntent(context, widgetId))
+        v.setContentDescription(R.id.add_button, "Add expense")
+        v.setContentDescription(R.id.income_button, "Add income")
+        v.setOnClickPendingIntent(android.R.id.background, openApp(context, widgetId, WidgetKind.ADD_BOTH, MainActivity.ACTION_OPEN_HOME))
+        if (bp.layout == R.layout.widget_add_both_large) {
+            v.tint(R.id.logo, p.accent)
+            v.setTextColor(R.id.brand, p.text.toArgb())
+            v.setTextColor(R.id.caption, p.textMuted.toArgb())
+            v.text(R.id.today, if (d.spentTodayPaise != 0L) "Today ${Money.format(d.spentTodayPaise)}" else "Nothing spent today", p.textMuted)
+        }
+    }
+
+    private fun logoTile(context: Context, v: RemoteViews, widgetId: Int, kind: WidgetKind, p: SpendlyPalette) {
+        v.tint(R.id.logo_bg, p.surfaceElevated)
+        v.tint(R.id.logo, p.accent)
+        v.setOnClickPendingIntent(R.id.logo_tile, openApp(context, widgetId, kind, MainActivity.ACTION_OPEN_HOME))
+        v.setContentDescription(R.id.logo_tile, "Open MNYBOXD")
     }
 
     private fun monthly(context: Context, v: RemoteViews, widgetId: Int, bp: Breakpoint, d: WidgetSnapshot, p: SpendlyPalette) {
@@ -298,13 +357,19 @@ object WidgetRenderer {
     /**
      * Unique, stable request codes so each widget's buttons keep their own PendingIntent (extras
      * aren't part of a PendingIntent's identity, so two account rows must never share a code).
-     * Slots: 1 add, 2 voice, 3..8 open app, 10 single account, 20..29 account rows.
+     * Slots: 1 add, 2 voice, 3 + kind id (4..10) open app, 10 single account (only in the
+     * account widget, never alongside kind 7's), 20..29 account rows, 30 add income.
      */
     private fun requestCode(widgetId: Int, slot: Int) = widgetId * 64 + slot
 
     private fun quickAddIntent(context: Context, widgetId: Int, voice: Boolean): PendingIntent {
         val intent = QuickAddActivity.launchIntent(context, if (voice) MainActivity.ACTION_VOICE_ADD else MainActivity.ACTION_QUICK_ADD)
         return PendingIntent.getActivity(context, requestCode(widgetId, if (voice) 2 else 1), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+    }
+
+    private fun addIncomeIntent(context: Context, widgetId: Int): PendingIntent {
+        val intent = QuickAddActivity.launchIntent(context, MainActivity.ACTION_ADD_INCOME)
+        return PendingIntent.getActivity(context, requestCode(widgetId, 30), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
     private fun openApp(context: Context, widgetId: Int, kind: WidgetKind, action: String): PendingIntent {

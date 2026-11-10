@@ -67,8 +67,8 @@ class EntryViewModelTest {
         db.close()
     }
 
-    private fun handle(editId: Long = 0, refundOf: Long = 0) = SavedStateHandle(
-        mapOf("editId" to editId, "refundOf" to refundOf, "startVoice" to false, "type" to "EXPENSE", "accountId" to 0L, "origin" to ""),
+    private fun handle(editId: Long = 0, refundOf: Long = 0, type: String = "EXPENSE") = SavedStateHandle(
+        mapOf("editId" to editId, "refundOf" to refundOf, "startVoice" to false, "type" to type, "accountId" to 0L, "origin" to ""),
     )
 
     /** Waits for the ViewModel's initial load (Room + DataStore run on background threads). */
@@ -175,5 +175,13 @@ class EntryViewModelTest {
         ShadowLooper.idleMainLooper()
         assertEquals(PaymentChannel.CASH, vm.state.value.form.channel)
         assertNull(vm.state.value.form.provider)
+    }
+
+    @Test fun `Quick Add opened on Income (the income widgets) starts on Income with income categories`() {
+        val vm = newVm(handle(type = TransactionType.INCOME.name)).awaitReady()
+        assertEquals(TransactionType.INCOME, vm.state.value.form.type)
+        val names = vm.state.value.categories.map { it.name }
+        assertTrue("Salary" in names)
+        assertTrue("Food & Dining" !in names)
     }
 }

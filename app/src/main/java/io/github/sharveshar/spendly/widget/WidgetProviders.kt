@@ -55,6 +55,8 @@ abstract class SpendlyWidgetProvider(private val kind: WidgetKind) : AppWidgetPr
 }
 
 class QuickAddWidget : SpendlyWidgetProvider(WidgetKind.QUICK_ADD)
+class AddIncomeWidget : SpendlyWidgetProvider(WidgetKind.ADD_INCOME)
+class AddBothWidget : SpendlyWidgetProvider(WidgetKind.ADD_BOTH)
 class MonthlyWidget : SpendlyWidgetProvider(WidgetKind.MONTHLY)
 class AccountsWidget : SpendlyWidgetProvider(WidgetKind.ACCOUNTS)
 class TrendWidget : SpendlyWidgetProvider(WidgetKind.TREND)
@@ -81,6 +83,8 @@ object WidgetUpdater {
         WidgetKind.ACCOUNTS -> AccountsWidget::class.java
         WidgetKind.TREND -> TrendWidget::class.java
         WidgetKind.STATS -> StatsWidget::class.java
+        WidgetKind.ADD_INCOME -> AddIncomeWidget::class.java
+        WidgetKind.ADD_BOTH -> AddBothWidget::class.java
     }
 
     fun component(context: Context, kind: WidgetKind) = ComponentName(context, providerClass(kind))

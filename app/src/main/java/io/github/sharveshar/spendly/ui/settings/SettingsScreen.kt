@@ -1,6 +1,7 @@
 package io.github.sharveshar.spendly.ui.settings
 
 import android.content.ActivityNotFoundException
+import android.content.Context
 import android.content.Intent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -31,6 +32,7 @@ import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.TouchApp
 import androidx.compose.material.icons.rounded.Widgets
 import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.NewReleases
 import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Restore
@@ -73,6 +75,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.sharveshar.spendly.BuildConfig
+import io.github.sharveshar.spendly.ui.components.APP_NAME
 import io.github.sharveshar.spendly.data.backup.BackupCodec
 import io.github.sharveshar.spendly.shortcut.ShortcutSettings
 import io.github.sharveshar.spendly.ui.common.Formats
@@ -99,6 +103,7 @@ fun SettingsScreen(
     onAbout: () -> Unit,
     onReset: () -> Unit,
 ) {
+    val context = LocalContext.current
     val prefs by viewModel.preferences.collectAsStateWithLifecycle()
     val flow by viewModel.flow.collectAsStateWithLifecycle()
     val message by viewModel.message.collectAsStateWithLifecycle()
@@ -146,7 +151,7 @@ fun SettingsScreen(
                     chevron = true,
                     onClick = onShortcuts,
                 )
-                SettingRow(Icons.Rounded.Widgets, "Home-screen widgets", "Quick Add, monthly overview, balances, trend and stats", chevron = true, onClick = onWidgets)
+                SettingRow(Icons.Rounded.Widgets, "Home-screen widgets", "Add expense or income, monthly overview, balances, trend and stats", chevron = true, onClick = onWidgets)
 
                 Group("Privacy")
                 Row(
@@ -189,6 +194,11 @@ fun SettingsScreen(
 
                 Group("About")
                 SettingRow(Icons.Rounded.Info, "About MNYBOXD", "Version, privacy, open-source licences", chevron = true, onClick = onAbout)
+                SettingRow(
+                    Icons.Rounded.NewReleases,
+                    "Check for updates",
+                    "You have ${BuildConfig.VERSION_NAME}. Opens the latest release on GitHub.",
+                ) { openInBrowser(context, LATEST_RELEASE_URL) }
                 Spacer(Modifier.height(Space.xxxl))
                 BrandFooter()
                 Spacer(Modifier.height(Space.xl))
@@ -415,45 +425,64 @@ private fun PasswordPopup(
 }
 
 private const val BRAND_URL = "https://ar-sharvesh.vercel.app"
+private const val GITHUB_URL = "https://github.com/Sharvesh-AR/MNYBOXD"
+
+/** The newest published release. MNYBOXD can't look this up itself: it has no internet permission. */
+const val LATEST_RELEASE_URL = "https://github.com/Sharvesh-AR/MNYBOXD/releases/latest"
+
+/** Opens [url] in the browser. MNYBOXD itself has no network access. */
+fun openInBrowser(context: Context, url: String) {
+    try {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, url.toUri())
+                .addCategory(Intent.CATEGORY_BROWSABLE)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    } catch (_: ActivityNotFoundException) {
+        // No browser installed; nothing else to do.
+    }
+}
 
 /**
- * "Built with care ♥ by ARS". Only "ARS" is a link (it opens the author's portfolio in the
- * browser; the app itself has no network access). The URL is never shown.
+ * The end of Settings, centred:
+ *
+ *     MNYBOXD version 2.5.0
+ *     GitHub · Developer website
+ *     Made with love ❤️ by ARS
+ *
+ * "GitHub", "Developer website" and "ARS" are links that open in the browser; their URLs are
+ * never shown.
  */
 @Composable
 fun BrandFooter(modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    // Both parts sit on one text baseline (the ♥ glyph would otherwise lift "ARS").
-    Row(modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center) {
-        Text(
-            modifier = Modifier.alignByBaseline(),
-            text = buildAnnotatedString {
-                withStyle(SpanStyle(color = Spendly.colors.muted)) { append("Built with care ") }
-                withStyle(SpanStyle(color = Spendly.colors.negative)) { append("♥") }
-                withStyle(SpanStyle(color = Spendly.colors.muted)) { append(" by") }
-            },
-            style = MaterialTheme.typography.labelLarge,
-        )
-        Text(
-            "ARS",
-            style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier
-                .alignByBaseline()
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(role = Role.Button, onClickLabel = "Open ARS's portfolio in your browser") {
-                    try {
-                        context.startActivity(
-                            Intent(Intent.ACTION_VIEW, BRAND_URL.toUri())
-                                .addCategory(Intent.CATEGORY_BROWSABLE)
-                                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                        )
-                    } catch (_: ActivityNotFoundException) {
-                        // No browser installed; nothing else to do.
-                    }
-                }
-                .heightIn(min = 48.dp)
-                .padding(horizontal = 6.dp, vertical = Space.md),
-        )
+    val muted = MaterialTheme.typography.labelLarge
+    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("$APP_NAME version ${BuildConfig.VERSION_NAME}", style = muted, color = Spendly.colors.muted)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            FooterLink("GitHub", "Open MNYBOXD on GitHub in your browser") { openInBrowser(context, GITHUB_URL) }
+            Text("·", style = muted, color = Spendly.colors.muted)
+            FooterLink("Developer website", "Open the developer's website in your browser") { openInBrowser(context, BRAND_URL) }
+        }
+        // Both parts sit on one text baseline (the emoji would otherwise lift "ARS").
+        Row {
+            Text("Made with love ❤️ by", style = muted, color = Spendly.colors.muted, modifier = Modifier.alignByBaseline())
+            FooterLink("ARS", "Open ARS's portfolio in your browser", Modifier.alignByBaseline()) { openInBrowser(context, BRAND_URL) }
+        }
     }
+}
+
+/** A footer word that opens a page: semi-bold, with a full-size touch target around it. */
+@Composable
+private fun FooterLink(text: String, clickLabel: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(role = Role.Button, onClickLabel = clickLabel, onClick = onClick)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 6.dp, vertical = Space.md),
+    )
 }

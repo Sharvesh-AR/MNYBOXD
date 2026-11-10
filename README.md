@@ -63,7 +63,8 @@ builds (`ScreenshotTest`).</sub>
 * **"Add expense" app icon** (optional): a second icon that opens Quick Add directly, so your
   phone's own gestures can launch it, such as back tap (Pixel *Quick Tap*) or double-pressing
   the side key (Samsung).
-* **Home-screen widgets**: *Quick Add* (add or speak an expense), *Monthly overview* (spent this
+* **Home-screen widgets**: *Quick Add* (add or speak an expense), *Add income* (opens Quick Add
+  on Income), *Expense + Income* (both buttons side by side), *Monthly overview* (spent this
   month, budget used and left, progress bar, last 7 days), *Account balance* (all accounts, or
   one account you pick; tap an account to open it), plus *Spending trend* and *Quick stats*.
   Each adapts to its size (touch and hold to resize), follows the app theme or one you choose,
@@ -84,7 +85,7 @@ builds (`ScreenshotTest`).</sub>
   amounts, and atomic transactions.
 
 **Understand your spending**
-* **Home**: where you stand in two seconds. Just the MNYBOXD mark at the top, then your balance (everything in your accounts minus
+* **Home**: where you stand in two seconds. Just the MNYBOXD logo at the top, then your balance (everything in your accounts minus
   what you owe on cards, the same figure as Accounts) in large type, what you spent today, a
   faint line of the month's spending, one big **+** (tap to add, hold to speak), your budget,
   a *This week* glance (tap it for the full recap) and your latest transactions. Pick a month (*November ⌄*) to see that month's budget and
@@ -158,6 +159,10 @@ builds (`ScreenshotTest`).</sub>
    **install unknown apps** (Settings → Apps → *your browser* → Install unknown apps).
 3. Tap **Install**, then **Open**.
 4. You can switch the "install unknown apps" permission off again afterwards.
+
+**Updating:** MNYBOXD has no internet permission, so it never checks for updates by itself. Open
+*Settings → Check for updates* to see the latest release (it shows the version you have), download
+`MNYBOXD.apk` and install it over the top. Don't uninstall first: that deletes your records.
 
 Requires Android 8.0 (API 26) or newer. Everything works offline. A few things depend on the
 phone:
@@ -371,7 +376,7 @@ their own licences, listed in [`DEPENDENCIES.md`](DEPENDENCIES.md).
 
 ## Credits
 
-Built with care ♥ by [**ARS**](https://ar-sharvesh.vercel.app)
+Made with love ❤️ by [**ARS**](https://ar-sharvesh.vercel.app)
 
 <sub>The Android robot is reproduced or modified from work created and shared by Google and used
 according to terms described in the Creative Commons 3.0 Attribution License.</sub>
