@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.ui.components
 
 import android.provider.Settings
@@ -11,6 +14,9 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.spring
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.node.currentValueOf
+import kotlinx.coroutines.launch
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -276,4 +282,55 @@ fun Modifier.pressScale(interactionSource: MutableInteractionSource, pressed: Fl
         label = "press",
     )
     graphicsLayer { scaleX = scale; scaleY = scale }
+}
+
+/**
+ * The app's touch feedback, used instead of Material's ripple: no highlight or flash, just a
+ * quick spring "press" of whatever was touched, released with a slight bounce. Provided as
+ * LocalIndication, so every clickable gets it. Skipped when animations are off.
+ */
+object PressIndication : androidx.compose.foundation.IndicationNodeFactory {
+    override fun create(interactionSource: androidx.compose.foundation.interaction.InteractionSource): androidx.compose.ui.node.DelegatableNode =
+        PressIndicationNode(interactionSource)
+
+    override fun equals(other: Any?): Boolean = other === this
+    override fun hashCode(): Int = 7
+}
+
+private class PressIndicationNode(
+    private val source: androidx.compose.foundation.interaction.InteractionSource,
+) : Modifier.Node(), androidx.compose.ui.node.DrawModifierNode, androidx.compose.ui.node.CompositionLocalConsumerModifierNode {
+    private val amount = Animatable(1f)
+
+    override fun onAttach() {
+        coroutineScope.launch {
+            var pressed = 0
+            source.interactions.collect { i ->
+                when (i) {
+                    is androidx.compose.foundation.interaction.PressInteraction.Press -> pressed++
+                    is androidx.compose.foundation.interaction.PressInteraction.Release,
+                    is androidx.compose.foundation.interaction.PressInteraction.Cancel,
+                    -> pressed = (pressed - 1).coerceAtLeast(0)
+                    else -> return@collect
+                }
+                if (currentValueOf(LocalReducedMotion)) return@collect
+                val down = pressed > 0
+                launch {
+                    amount.animateTo(
+                        if (down) 0.965f else 1f,
+                        if (down) spring(dampingRatio = 1f, stiffness = 1400f) else spring(dampingRatio = 0.5f, stiffness = 700f),
+                    )
+                }
+            }
+        }
+    }
+
+    override fun androidx.compose.ui.graphics.drawscope.ContentDrawScope.draw() {
+        val s = amount.value
+        if (s == 1f) {
+            drawContent()
+        } else {
+            scale(s) { this@draw.drawContent() }
+        }
+    }
 }

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.domain.insights
 
 import io.github.sharveshar.spendly.domain.model.PaymentChannel
@@ -113,5 +116,71 @@ class InsightsTest {
         assertEquals(BudgetLevel.EXCEEDED, BudgetStatus.crossed(BudgetStatus(100, 10), BudgetStatus(100, 120)))
         assertNull(BudgetStatus.crossed(BudgetStatus(100, 85), BudgetStatus(100, 90)))
         assertNull(BudgetStatus.crossed(BudgetStatus(100, 85), BudgetStatus(100, 10)))
+    }
+
+    @Test fun `week recap compares the days so far with the same days last week`() {
+        // Wednesday 11 November 2026: the week runs Monday 9 to Sunday 15.
+        val r = listOf(
+            rec(TransactionType.EXPENSE, 500_00, cat = 1, date = "2026-11-09"),
+            rec(TransactionType.EXPENSE, 1_500_00, cat = 2, date = "2026-11-11"),
+            rec(TransactionType.EXPENSE, 200_00, cat = 1, date = "2026-11-11"),
+            rec(TransactionType.REFUND, 100_00, cat = 1, date = "2026-11-11"),
+            rec(TransactionType.INCOME, 9_000_00, cat = null, date = "2026-11-10"),
+            rec(TransactionType.EXPENSE, 9_999_00, cat = 1, date = "2026-11-12"), // tomorrow: not yet
+            // Last week: Monday to Wednesday count, Thursday doesn't.
+            rec(TransactionType.EXPENSE, 1_000_00, cat = 1, date = "2026-11-02"),
+            rec(TransactionType.EXPENSE, 1_000_00, cat = 1, date = "2026-11-04"),
+            rec(TransactionType.EXPENSE, 5_000_00, cat = 1, date = "2026-11-05"),
+        )
+        val w = Insights.weekRecap(r, LocalDate.parse("2026-11-11"), zone)
+        assertEquals(LocalDate.parse("2026-11-09"), w.start)
+        assertEquals(7, w.totalDays)
+        assertEquals(3, w.elapsedDays)
+        assertEquals(2_100_00L, w.spentPaise)
+        assertEquals(2_000_00L, w.previousPaise)
+        assertEquals(5, w.change)
+        assertEquals(9_000_00L, w.incomePaise)
+        assertEquals(3, w.expenseCount)
+        assertEquals(listOf(500_00L, 0L, 1_600_00L, 0L, 0L, 0L, 0L), w.daily)
+        assertEquals(2L, w.topCategoryId)
+        assertEquals(1_500_00L, w.topCategoryPaise)
+        assertEquals(71, w.topShare)
+        assertEquals(1_500_00L, w.biggestPaise)
+        assertEquals(LocalDate.parse("2026-11-11"), w.biggestDay)
+        assertEquals(LocalDate.parse("2026-11-11"), w.busiestDay)
+        assertEquals(1, w.noSpendDays)
+        assertEquals(700_00L, w.dailyAverage)
+    }
+
+    @Test fun `month recap of the current month uses the same days of last month`() {
+        val r = listOf(
+            rec(TransactionType.EXPENSE, 3_000_00, date = "2026-11-02"),
+            rec(TransactionType.EXPENSE, 1_000_00, date = "2026-10-05"),
+            rec(TransactionType.EXPENSE, 7_000_00, date = "2026-10-20"),
+        )
+        val m = Insights.monthRecap(r, YearMonth.of(2026, 11), LocalDate.parse("2026-11-11"), zone)
+        assertEquals(11, m.elapsedDays)
+        assertEquals(30, m.totalDays)
+        assertEquals(3_000_00L, m.spentPaise)
+        assertEquals(1_000_00L, m.previousPaise)
+        assertEquals(10, m.noSpendDays)
+        // A finished month is compared with all of the month before.
+        val oct = Insights.monthRecap(r, YearMonth.of(2026, 10), LocalDate.parse("2026-11-11"), zone)
+        assertEquals(31, oct.elapsedDays)
+        assertEquals(8_000_00L, oct.spentPaise)
+        // March has more days than February: compared with the whole of February.
+        val feb = listOf(rec(TransactionType.EXPENSE, 400_00, date = "2026-02-27"), rec(TransactionType.EXPENSE, 100_00, date = "2026-03-31"))
+        assertEquals(400_00L, Insights.monthRecap(feb, YearMonth.of(2026, 3), LocalDate.parse("2026-04-02"), zone).previousPaise)
+    }
+
+    @Test fun `recap of a quiet period has no top category or change`() {
+        val w = Insights.weekRecap(emptyList(), LocalDate.parse("2026-11-15"), zone)
+        assertEquals(7, w.elapsedDays)
+        assertEquals(0L, w.spentPaise)
+        assertNull(w.change)
+        assertNull(w.topCategoryId)
+        assertNull(w.busiestDay)
+        assertEquals(7, w.noSpendDays)
+        assertEquals(false, w.hasSpending)
     }
 }

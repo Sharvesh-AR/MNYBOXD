@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.data.db
 
 import androidx.room.ColumnInfo
@@ -257,6 +260,24 @@ interface BudgetDao {
 
     @Query("DELETE FROM budgets WHERE id = :id")
     suspend fun deleteById(id: Long)
+
+    @Query("SELECT * FROM budget_overrides")
+    fun observeOverrides(): Flow<List<BudgetOverrideEntity>>
+
+    @Query("SELECT * FROM budget_overrides ORDER BY id")
+    suspend fun getOverrides(): List<BudgetOverrideEntity>
+
+    @Query("SELECT * FROM budget_overrides WHERE month = :month")
+    suspend fun getOverridesFor(month: String): List<BudgetOverrideEntity>
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertOverride(override: BudgetOverrideEntity): Long
+
+    @Update
+    suspend fun updateOverride(override: BudgetOverrideEntity)
+
+    @Query("DELETE FROM budget_overrides WHERE id = :id")
+    suspend fun deleteOverrideById(id: Long)
 }
 
 /** Bulk operations used only by backup restore, always inside a single transaction. */
@@ -270,6 +291,9 @@ interface MaintenanceDao {
 
     @Query("DELETE FROM budgets")
     suspend fun deleteBudgets()
+
+    @Query("DELETE FROM budget_overrides")
+    suspend fun deleteBudgetOverrides()
 
     @Query("DELETE FROM accounts WHERE linked_account_id IS NOT NULL")
     suspend fun deleteLinkedAccounts()
@@ -291,4 +315,7 @@ interface MaintenanceDao {
 
     @Insert(onConflict = OnConflictStrategy.ABORT)
     suspend fun insertBudgets(items: List<BudgetEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertBudgetOverrides(items: List<BudgetOverrideEntity>)
 }

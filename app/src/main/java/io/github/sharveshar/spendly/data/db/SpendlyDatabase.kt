@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.data.db
 
 import android.content.ContentValues
@@ -9,7 +12,7 @@ import io.github.sharveshar.spendly.domain.model.AccountType
 import io.github.sharveshar.spendly.domain.model.CategoryKind
 
 @Database(
-    entities = [AccountEntity::class, CategoryEntity::class, TransactionEntity::class, BudgetEntity::class],
+    entities = [AccountEntity::class, CategoryEntity::class, TransactionEntity::class, BudgetEntity::class, BudgetOverrideEntity::class],
     version = SpendlyDatabase.VERSION,
     exportSchema = true,
 )
@@ -21,7 +24,7 @@ abstract class SpendlyDatabase : RoomDatabase() {
     abstract fun maintenanceDao(): MaintenanceDao
 
     companion object {
-        const val VERSION = 1
+        const val VERSION = 2
         const val FILE_NAME = "spendly.db"
 
         /**
@@ -29,7 +32,20 @@ abstract class SpendlyDatabase : RoomDatabase() {
          * migration is missing the open fails and the app shows a recovery screen instead of
          * deleting financial data.
          */
-        val MIGRATIONS = emptyArray<androidx.room.migration.Migration>()
+        val MIGRATIONS = arrayOf<androidx.room.migration.Migration>(
+            // 2: budgets for one particular month (budget_overrides). Nothing existing changes.
+            object : androidx.room.migration.Migration(1, 2) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS `budget_overrides` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `month` TEXT NOT NULL, " +
+                            "`category_id` INTEGER, `amount_paise` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL, " +
+                            "FOREIGN KEY(`category_id`) REFERENCES `categories`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+                    )
+                    db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_budget_overrides_month_category_id` ON `budget_overrides` (`month`, `category_id`)")
+                    db.execSQL("CREATE INDEX IF NOT EXISTS `index_budget_overrides_category_id` ON `budget_overrides` (`category_id`)")
+                }
+            },
+        )
     }
 }
 
@@ -132,6 +148,12 @@ object IntegrityTriggers {
            BEGIN SELECT RAISE(ABORT, 'invalid budget'); END""",
         """CREATE TRIGGER IF NOT EXISTS trg_budget_amount_upd BEFORE UPDATE ON budgets
            WHEN NEW.amount_paise <= 0 OR NEW.amount_paise > $MAX
+           BEGIN SELECT RAISE(ABORT, 'invalid budget'); END""",
+        """CREATE TRIGGER IF NOT EXISTS trg_budget_override_ins BEFORE INSERT ON budget_overrides
+           WHEN NEW.amount_paise <= 0 OR NEW.amount_paise > $MAX OR NEW.month NOT GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]'
+           BEGIN SELECT RAISE(ABORT, 'invalid budget'); END""",
+        """CREATE TRIGGER IF NOT EXISTS trg_budget_override_upd BEFORE UPDATE ON budget_overrides
+           WHEN NEW.amount_paise <= 0 OR NEW.amount_paise > $MAX OR NEW.month NOT GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]'
            BEGIN SELECT RAISE(ABORT, 'invalid budget'); END""",
     )
 }

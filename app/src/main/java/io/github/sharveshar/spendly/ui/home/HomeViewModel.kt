@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.ui.home
 
 import androidx.compose.runtime.Immutable
@@ -8,6 +11,7 @@ import io.github.sharveshar.spendly.data.db.TransactionRow
 import io.github.sharveshar.spendly.domain.insights.BudgetLevel
 import io.github.sharveshar.spendly.domain.insights.BudgetStatus
 import io.github.sharveshar.spendly.domain.insights.Insights
+import io.github.sharveshar.spendly.domain.insights.Recap
 import io.github.sharveshar.spendly.domain.insights.TimeRange
 import io.github.sharveshar.spendly.ui.common.AccountUi
 import io.github.sharveshar.spendly.ui.common.Today
@@ -19,7 +23,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import java.time.DayOfWeek
 import java.time.YearMonth
+import java.time.temporal.TemporalAdjusters
 import java.time.ZoneId
 
 /** A budget that needs attention, for the bell on Home. */
@@ -47,6 +53,8 @@ data class HomeUiState(
     val monthToDate: List<Long> = emptyList(),
     /** Budgets at 80% or more this month. */
     val alerts: List<HomeAlert> = emptyList(),
+    /** This week so far against the same days last week. */
+    val week: Recap? = null,
     val recent: List<TransactionRow> = emptyList(),
     val transactionCount: Int = 0,
 )
@@ -75,29 +83,33 @@ class HomeViewModel(repos: Repositories, private val zone: () -> ZoneId = { Zone
         val monthRange = TimeRange.month(month, zone())
         val currentRange = TimeRange.month(current, zone())
         val todayRange = TimeRange.day(today, zone())
+        // From the earlier of the picked month and last week's Monday (for the week card).
+        val lastMonday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1)
+        val from = minOf(monthRange.startMillis, TimeRange.day(lastMonday, zone()).startMillis)
         combine(
-            repos.transactions.observeSpendRecords(TimeRange(monthRange.startMillis, maxOf(currentRange.endMillis, todayRange.endMillis))),
+            repos.transactions.observeSpendRecords(TimeRange(from, maxOf(currentRange.endMillis, todayRange.endMillis))),
             repos.accounts.observeWithBalances(),
-            combine(repos.budgets.observeAll(), repos.categories.observeAll()) { b, c -> b to c },
+            combine(repos.budgets.observeBook(), repos.categories.observeAll()) { b, c -> b to c },
             repos.transactions.observeRecent(5),
             repos.transactions.observeCount(),
-        ) { records, accountRows, (budgets, categories), recent, count ->
+        ) { records, accountRows, (book, categories), recent, count ->
             val inMonth = records.filter { it.occurredAt in monthRange }
             val inCurrent = records.filter { it.occurredAt in currentRange }
             val spent = Insights.netSpend(inMonth)
             val accounts = AccountUi.from(accountRows)
-            val overall = budgets.firstOrNull { it.categoryId == null }
+            val overall = book.overall(month)
+            val budgetsNow = book.forMonth(current)
             val days = if (month == current) today.dayOfMonth else month.lengthOfMonth()
 
             // Alerts are about now: this month's budgets at 80% or more.
             val names = categories.associate { it.id to it.name }
             val byCategory = Insights.byCategory(inCurrent).toMap()
             val alerts = buildList {
-                overall?.let { b ->
+                budgetsNow.firstOrNull { it.categoryId == null }?.let { b ->
                     val s = BudgetStatus(b.amountPaise, Insights.netSpend(inCurrent))
                     if (s.level != BudgetLevel.OK) add(alertFor("Monthly budget", s))
                 }
-                budgets.filter { it.categoryId != null }.forEach { b ->
+                budgetsNow.filter { it.categoryId != null }.forEach { b ->
                     val s = BudgetStatus(b.amountPaise, byCategory[b.categoryId] ?: 0L)
                     if (s.level != BudgetLevel.OK) add(alertFor("${names[b.categoryId] ?: "Category"} budget", s))
                 }
@@ -115,6 +127,7 @@ class HomeViewModel(repos: Repositories, private val zone: () -> ZoneId = { Zone
                 budget = overall?.let { BudgetStatus(it.amountPaise, spent) },
                 monthToDate = runningTotal(Insights.dailyNetSpend(inMonth, month.atDay(1), days, zone())),
                 alerts = alerts,
+                week = Insights.weekRecap(records, today, zone()),
                 recent = recent,
                 transactionCount = count,
             )

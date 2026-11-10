@@ -1,5 +1,9 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.ui.budgets
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -33,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -66,6 +71,7 @@ import io.github.sharveshar.spendly.ui.components.OriginPopup
 import io.github.sharveshar.spendly.ui.components.SectionCard
 import io.github.sharveshar.spendly.ui.components.SectionHeader
 import io.github.sharveshar.spendly.ui.components.SelectChip
+import io.github.sharveshar.spendly.ui.components.SegmentedSelector
 import io.github.sharveshar.spendly.ui.components.budgetColor
 import io.github.sharveshar.spendly.ui.components.originAnchor
 import io.github.sharveshar.spendly.ui.components.rememberOriginAnchor
@@ -84,8 +90,12 @@ import kotlinx.coroutines.launch
 import java.time.YearMonth
 import java.time.ZoneId
 
+/**
+ * A category's budget in the month shown. [custom] means it was set for this month only;
+ * [usualPaise] is the recurring amount, if there is one.
+ */
 @Immutable
-data class CategoryBudgetUi(val budgetId: Long, val category: CategoryUi, val status: BudgetStatus)
+data class CategoryBudgetUi(val category: CategoryUi, val status: BudgetStatus, val custom: Boolean = false, val usualPaise: Long? = null)
 
 @Immutable
 data class BudgetsUiState(
@@ -93,7 +103,12 @@ data class BudgetsUiState(
     val month: YearMonth = YearMonth.now(),
     val isCurrentMonth: Boolean = true,
     val overall: BudgetStatus? = null,
-    val overallId: Long? = null,
+    /** The overall budget was set for this month only. */
+    val overallCustom: Boolean = false,
+    /** The recurring overall budget, if any (shown when this month has its own). */
+    val overallUsual: Long? = null,
+    /** Budgets can be planned up to a year ahead. */
+    val canGoNext: Boolean = true,
     val spent: Long = 0,
     val categoryBudgets: List<CategoryBudgetUi> = emptyList(),
     val unbudgeted: List<Pair<CategoryUi, Long>> = emptyList(),
@@ -109,16 +124,17 @@ class BudgetsViewModel(private val repos: Repositories, private val handle: Save
         .flatMapLatest { (month, current) ->
             combine(
                 repos.transactions.observeSpendRecords(TimeRange.month(month, ZoneId.systemDefault())),
-                repos.budgets.observeAll(),
+                repos.budgets.observeBook(),
                 repos.categories.observeAll(),
-            ) { records, budgets, cats ->
+            ) { records, book, cats ->
+                val budgets = book.forMonth(month)
                 val spent = Insights.netSpend(records)
                 val byCat = Insights.byCategory(records).toMap()
                 val catById = cats.associateBy { it.id }
                 val overall = budgets.firstOrNull { it.categoryId == null }
                 val catBudgets = budgets.filter { it.categoryId != null }.mapNotNull { b ->
                     val c = catById[b.categoryId] ?: return@mapNotNull null
-                    CategoryBudgetUi(b.id, CategoryUi.from(c), BudgetStatus(b.amountPaise, byCat[c.id] ?: 0L))
+                    CategoryBudgetUi(CategoryUi.from(c), BudgetStatus(b.amountPaise, byCat[c.id] ?: 0L), b.custom, b.usualPaise)
                 }.sortedByDescending { it.status.percentUsed }
                 val budgetedIds = catBudgets.map { it.category.id }.toSet()
                 BudgetsUiState(
@@ -126,7 +142,9 @@ class BudgetsViewModel(private val repos: Repositories, private val handle: Save
                     month = month,
                     isCurrentMonth = month == current,
                     overall = overall?.let { BudgetStatus(it.amountPaise, spent) },
-                    overallId = overall?.id,
+                    overallCustom = overall?.custom == true,
+                    overallUsual = overall?.usualPaise,
+                    canGoNext = month.isBefore(current.plusMonths(MONTHS_AHEAD)),
                     spent = spent,
                     categoryBudgets = catBudgets,
                     unbudgeted = byCat.filterKeys { it != null && it !in budgetedIds }.mapNotNull { (id, amt) -> catById[id]?.let { CategoryUi.from(it) to amt } }.sortedByDescending { it.second },
@@ -138,22 +156,43 @@ class BudgetsViewModel(private val repos: Repositories, private val handle: Save
     fun previousMonth() { handle[KEY_MONTH] = YearMonth.parse(monthFlow.value).minusMonths(1).toString() }
     fun nextMonth() { handle[KEY_MONTH] = YearMonth.parse(monthFlow.value).plusMonths(1).toString() }
 
-    /** Returns null on success or an error message. */
-    suspend fun save(categoryId: Long?, text: String): String? {
+    private val month: YearMonth get() = YearMonth.parse(monthFlow.value)
+
+    /**
+     * Saves a limit: for [onlyThisMonth], just the month on screen (a festival, a trip, a tight
+     * month); otherwise the recurring one, which this month then follows too. Returns null on
+     * success or an error message.
+     */
+    suspend fun save(categoryId: Long?, text: String, onlyThisMonth: Boolean): String? {
         val paise = Money.parseRupees(text) ?: return "Enter a valid amount"
-        return when (val r = repos.budgets.setLimit(categoryId, paise)) {
-            is WriteResult.Ok -> null
-            is WriteResult.Rejected -> r.reason
-        }
+        val r = if (onlyThisMonth) repos.budgets.setMonthLimit(month, categoryId, paise) else repos.budgets.setLimitFrom(month, categoryId, paise)
+        return (r as? WriteResult.Rejected)?.reason
     }
 
-    fun remove(id: Long) { viewModelScope.launch { repos.budgets.remove(id) } }
+    /** Drops this month's own amount: it follows the usual budget again (or has none). */
+    fun useUsual(categoryId: Long?) { viewModelScope.launch { repos.budgets.clearMonthLimit(month, categoryId) } }
 
-    private companion object { const val KEY_MONTH = "month" }
+    /** Removes the recurring budget. Months with their own amount keep it. */
+    fun removeUsual(categoryId: Long?) { viewModelScope.launch { repos.budgets.removeUsual(categoryId) } }
+
+    private companion object {
+        const val KEY_MONTH = "month"
+        const val MONTHS_AHEAD = 12L
+    }
 }
 
-/** Which budget the editor popup is for. [categoryId] null = overall; [isNew] = choose a category. */
-private data class EditTarget(val categoryId: Long?, val budgetId: Long?, val currentPaise: Long?, val isNew: Boolean, val anchor: OriginAnchor)
+/**
+ * Which budget the editor popup is for. [categoryId] null = overall; [isNew] = choose a category.
+ * [custom]: the amount shown was set for this month only; [usualPaise]: the recurring amount.
+ */
+private data class EditTarget(
+    val categoryId: Long?,
+    val currentPaise: Long?,
+    val isNew: Boolean,
+    val anchor: OriginAnchor,
+    val custom: Boolean = false,
+    val usualPaise: Long? = null,
+)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -170,7 +209,7 @@ fun BudgetsScreen(viewModel: BudgetsViewModel, contentPadding: PaddingValues) {
         item(key = "title") {
             Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.xs, top = Space.lg), verticalAlignment = Alignment.CenterVertically) {
                 Text("Budgets", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f).semantics { heading() })
-                MonthSwitcher(state.month.format(Formats.monthYear), viewModel::previousMonth, viewModel::nextMonth, canGoNext = !state.isCurrentMonth)
+                MonthSwitcher(state.month.format(Formats.monthYear), viewModel::previousMonth, viewModel::nextMonth, canGoNext = state.canGoNext)
             }
         }
         item(key = "overall") {
@@ -178,9 +217,12 @@ fun BudgetsScreen(viewModel: BudgetsViewModel, contentPadding: PaddingValues) {
             SectionCard(
                 Modifier.staggered(stagger, 0).padding(horizontal = Space.gutter, vertical = Space.md).originAnchor(overallAnchor),
                 padding = Space.xl,
-                onClick = { open(EditTarget(null, state.overallId, o?.limitPaise, false, overallAnchor)) },
+                onClick = { open(EditTarget(null, o?.limitPaise, false, overallAnchor, state.overallCustom, state.overallUsual)) },
             ) {
-                Text("Monthly budget", style = MaterialTheme.typography.labelLarge, color = Spendly.colors.muted)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("Monthly budget", style = MaterialTheme.typography.labelLarge, color = Spendly.colors.muted, modifier = Modifier.weight(1f))
+                    if (o != null) ScopeTag(state.overallCustom, state.month, state.overallUsual)
+                }
                 Spacer(Modifier.height(Space.xs))
                 if (o == null) {
                     Text("Not set", style = MaterialTheme.typography.titleLarge)
@@ -204,7 +246,7 @@ fun BudgetsScreen(viewModel: BudgetsViewModel, contentPadding: PaddingValues) {
             Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.sm), verticalAlignment = Alignment.CenterVertically) {
                 SectionHeader("By category", Modifier.weight(1f))
                 if (state.availableCategories.isNotEmpty()) {
-                    TextButton(onClick = { open(EditTarget(null, null, null, true, addAnchor)) }, modifier = Modifier.originAnchor(addAnchor)) {
+                    TextButton(onClick = { open(EditTarget(null, null, true, addAnchor)) }, modifier = Modifier.originAnchor(addAnchor)) {
                         Icon(Icons.Rounded.Add, contentDescription = null)
                         Spacer(Modifier.width(Space.xs))
                         Text("Add")
@@ -217,10 +259,10 @@ fun BudgetsScreen(viewModel: BudgetsViewModel, contentPadding: PaddingValues) {
                 EmptyState(Icons.Rounded.Savings, "No category budgets", "Set limits for the categories you want to keep an eye on, like Food or Shopping.")
             }
         }
-        items(state.categoryBudgets, key = { it.budgetId }) { b ->
+        items(state.categoryBudgets, key = { it.category.id }) { b ->
             val anchor = rememberOriginAnchor()
-            CategoryBudgetRow(b, Modifier.animateItem().originAnchor(anchor)) {
-                open(EditTarget(b.category.id, b.budgetId, b.status.limitPaise, false, anchor))
+            CategoryBudgetRow(b, state.month, Modifier.animateItem().originAnchor(anchor)) {
+                open(EditTarget(b.category.id, b.status.limitPaise, false, anchor, b.custom, b.usualPaise))
             }
         }
         if (state.unbudgeted.isNotEmpty()) {
@@ -238,10 +280,12 @@ fun BudgetsScreen(viewModel: BudgetsViewModel, contentPadding: PaddingValues) {
         BudgetEditor(
             visible = shown,
             target = t,
+            month = state.month,
             categories = state.availableCategories,
             categoryName = state.categoryBudgets.firstOrNull { it.category.id == t.categoryId }?.category?.name,
-            onSave = { cat, text -> viewModel.save(cat, text) },
-            onRemove = { id -> viewModel.remove(id); shown = false },
+            onSave = { cat, text, only -> viewModel.save(cat, text, only) },
+            onUseUsual = { viewModel.useUsual(t.categoryId); shown = false },
+            onRemove = { viewModel.removeUsual(t.categoryId); shown = false },
             onDismiss = { shown = false },
         )
     }
@@ -257,8 +301,24 @@ private fun LevelLabel(s: BudgetStatus) {
     Text(text, style = MaterialTheme.typography.labelMedium, color = if (s.level == BudgetLevel.OK) Spendly.colors.muted else budgetColor(s.level))
 }
 
+/** "Only November" for a one-month budget, "Every month" otherwise. */
 @Composable
-private fun CategoryBudgetRow(b: CategoryBudgetUi, modifier: Modifier, onClick: () -> Unit) {
+private fun ScopeTag(custom: Boolean, month: YearMonth, usualPaise: Long?) {
+    val text = if (custom) "Only ${month.format(Formats.shortMonth)}" + (usualPaise?.let { " · usually ${Money.formatCompact(it)}" } ?: "") else "Every month"
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = if (custom) Spendly.colors.onSelectedFill else Spendly.colors.muted,
+        maxLines = 1,
+        modifier = Modifier
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(50))
+            .background(if (custom) Spendly.colors.selectedFill else Spendly.colors.cardElevated)
+            .padding(horizontal = Space.sm, vertical = 3.dp),
+    )
+}
+
+@Composable
+private fun CategoryBudgetRow(b: CategoryBudgetUi, month: YearMonth, modifier: Modifier, onClick: () -> Unit) {
     val color = Spendly.colors.categoryPalette[b.category.colorIndex.coerceIn(0, 9)]
     SectionCard(
         modifier.padding(horizontal = Space.gutter, vertical = Space.xs).semantics(mergeDescendants = true) {
@@ -273,7 +333,13 @@ private fun CategoryBudgetRow(b: CategoryBudgetUi, modifier: Modifier, onClick: 
                 Text(b.category.name, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text("${Money.format(b.status.spentPaise)} of ${Money.format(b.status.limitPaise)}", style = AmountStyle.compact, color = Spendly.colors.muted)
             }
-            LevelLabel(b.status)
+            Column(horizontalAlignment = Alignment.End) {
+                LevelLabel(b.status)
+                if (b.custom) {
+                    Spacer(Modifier.height(Space.xs))
+                    ScopeTag(true, month, null)
+                }
+            }
         }
         Spacer(Modifier.height(Space.md))
         BudgetBar(b.status.fraction, b.status.level)
@@ -285,16 +351,20 @@ private fun CategoryBudgetRow(b: CategoryBudgetUi, modifier: Modifier, onClick: 
 private fun BudgetEditor(
     visible: Boolean,
     target: EditTarget,
+    month: YearMonth,
     categories: List<CategoryUi>,
     categoryName: String?,
-    onSave: suspend (Long?, String) -> String?,
-    onRemove: (Long) -> Unit,
+    onSave: suspend (Long?, String, Boolean) -> String?,
+    onUseUsual: () -> Unit,
+    onRemove: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     var text by remember(target) { mutableStateOf(target.currentPaise?.let { AmountInput.fromPaise(it).text }.orEmpty()) }
     var chosen by remember(target) { mutableStateOf(target.categoryId) }
+    var onlyThisMonth by remember(target) { mutableStateOf(target.custom) }
     var error by remember(target) { mutableStateOf<String?>(null) }
     val scope = androidx.compose.runtime.rememberCoroutineScope()
+    val monthName = month.format(Formats.month)
     OriginPopup(visible = visible, anchor = target.anchor, onDismissRequest = onDismiss) {
         Column(Modifier.padding(Space.xxl).verticalScroll(rememberScrollState())) {
             Text(
@@ -316,11 +386,35 @@ private fun BudgetEditor(
                 }
                 Spacer(Modifier.height(Space.lg))
             }
-            AmountField(text, { text = it; error = null }, "Limit per month", error = error)
+            AmountField(text, { text = it; error = null }, if (onlyThisMonth) "Limit for $monthName" else "Limit per month", error = error)
+            Spacer(Modifier.height(Space.md))
+            // Special months (a festival, a trip, a wedding) get their own amount without
+            // touching the usual budget.
+            Text("Applies to", style = MaterialTheme.typography.labelMedium, color = Spendly.colors.muted)
+            Spacer(Modifier.height(Space.sm))
+            SegmentedSelector(
+                listOf(false, true), onlyThisMonth,
+                { only -> if (only) "Only $monthName" else "Every month" },
+                { onlyThisMonth = it },
+                Modifier.fillMaxWidth(),
+            )
+            Spacer(Modifier.height(Space.sm))
+            Text(
+                when {
+                    onlyThisMonth && target.usualPaise != null -> "Other months keep the usual ${Money.format(target.usualPaise)}."
+                    onlyThisMonth -> "Just for $monthName. Other months stay without this budget."
+                    else -> "Repeats every month, including $monthName."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = Spendly.colors.muted,
+            )
             Spacer(Modifier.height(Space.lg))
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                if (target.budgetId != null) {
-                    TextButton(onClick = { onRemove(target.budgetId) }) { Text("Remove", color = Spendly.colors.negative) }
+                when {
+                    target.isNew || target.currentPaise == null -> Unit
+                    target.custom && target.usualPaise != null -> TextButton(onClick = onUseUsual) { Text("Use usual") }
+                    target.custom -> TextButton(onClick = onUseUsual) { Text("Remove", color = Spendly.colors.negative) }
+                    else -> TextButton(onClick = onRemove) { Text("Remove", color = Spendly.colors.negative) }
                 }
                 Spacer(Modifier.weight(1f))
                 TextButton(onClick = onDismiss) { Text("Cancel") }
@@ -328,7 +422,7 @@ private fun BudgetEditor(
                 Button(onClick = {
                     if (target.isNew && chosen == null) { error = "Choose a category"; return@Button }
                     scope.launch {
-                        val e = onSave(if (target.isNew) chosen else target.categoryId, text)
+                        val e = onSave(if (target.isNew) chosen else target.categoryId, text, onlyThisMonth)
                         if (e == null) onDismiss() else error = e
                     }
                 }) { Text("Save") }

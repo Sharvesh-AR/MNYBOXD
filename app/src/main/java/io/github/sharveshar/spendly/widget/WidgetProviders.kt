@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.widget
 
 import android.app.AlarmManager
@@ -55,6 +58,8 @@ abstract class SpendlyWidgetProvider(private val kind: WidgetKind) : AppWidgetPr
 }
 
 class QuickAddWidget : SpendlyWidgetProvider(WidgetKind.QUICK_ADD)
+class AddIncomeWidget : SpendlyWidgetProvider(WidgetKind.ADD_INCOME)
+class AddBothWidget : SpendlyWidgetProvider(WidgetKind.ADD_BOTH)
 class MonthlyWidget : SpendlyWidgetProvider(WidgetKind.MONTHLY)
 class AccountsWidget : SpendlyWidgetProvider(WidgetKind.ACCOUNTS)
 class TrendWidget : SpendlyWidgetProvider(WidgetKind.TREND)
@@ -81,6 +86,8 @@ object WidgetUpdater {
         WidgetKind.ACCOUNTS -> AccountsWidget::class.java
         WidgetKind.TREND -> TrendWidget::class.java
         WidgetKind.STATS -> StatsWidget::class.java
+        WidgetKind.ADD_INCOME -> AddIncomeWidget::class.java
+        WidgetKind.ADD_BOTH -> AddBothWidget::class.java
     }
 
     fun component(context: Context, kind: WidgetKind) = ComponentName(context, providerClass(kind))
@@ -138,7 +145,7 @@ object WidgetUpdater {
                         val repos = container.repositories
                         combine(
                             repos.accounts.observeWithBalances(),
-                            repos.budgets.observeAll(),
+                            repos.budgets.observeBook(),
                             repos.transactions.observeCount(),
                             container.preferences.preferences.map { it.theme to it.onboardingDone },
                         ) { a, b, c, t -> listOf(a, b, c, t) }

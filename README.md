@@ -13,13 +13,13 @@ Free. No ads. No tracking. No internet permission.
 <h2 align="center">Download</h2>
 
 <p align="center">
-  <a href="https://github.com/Sharvesh-AR/Spendly/releases/latest/download/MNYBOXD.apk">
+  <a href="https://github.com/Sharvesh-AR/MNYBOXD/releases/latest/download/MNYBOXD.apk">
     <img src="docs/badges/available-on-android.svg" height="56" alt="Available on Android: download the MNYBOXD APK">
   </a>
 </p>
 
 <p align="center">
-  Grab the latest signed APK from the <a href="https://github.com/Sharvesh-AR/Spendly/releases/latest">Releases</a> page.
+  Grab the latest signed APK from the <a href="https://github.com/Sharvesh-AR/MNYBOXD/releases/latest">Releases</a> page.
   Sideloading requires enabling "Install unknown apps" for whichever app you download it with.
 </p>
 
@@ -63,7 +63,8 @@ builds (`ScreenshotTest`).</sub>
 * **"Add expense" app icon** (optional): a second icon that opens Quick Add directly, so your
   phone's own gestures can launch it, such as back tap (Pixel *Quick Tap*) or double-pressing
   the side key (Samsung).
-* **Home-screen widgets**: *Quick Add* (add or speak an expense), *Monthly overview* (spent this
+* **Home-screen widgets**: *Quick Add* (add or speak an expense), *Add income* (opens Quick Add
+  on Income), *Expense + Income* (both buttons side by side), *Monthly overview* (spent this
   month, budget used and left, progress bar, last 7 days), *Account balance* (all accounts, or
   one account you pick; tap an account to open it), plus *Spending trend* and *Quick stats*.
   Each adapts to its size (touch and hold to resize), follows the app theme or one you choose,
@@ -74,7 +75,8 @@ builds (`ScreenshotTest`).</sub>
 * All amounts are integer paise (`Long`); floating point is never used for money.
 * Expenses, income, transfers and refunds, with correct balance effects:
   * UPI from a bank account reduces that bank once ("Google Pay → HDFC → ₹500" is one expense).
-  * Debit card payments come out of the linked bank account.
+  * Debit card payments come out of the linked bank account. Pick *Debit card* as the method
+    on a savings or current account, or keep the card as its own account.
   * Credit card purchases increase the card's outstanding; paying the bill is a transfer from
     your bank to the card.
   * Bank-to-bank transfers are neither spending nor income.
@@ -83,10 +85,10 @@ builds (`ScreenshotTest`).</sub>
   amounts, and atomic transactions.
 
 **Understand your spending**
-* **Home**: where you stand in two seconds. Your balance (everything in your accounts minus
+* **Home**: where you stand in two seconds. Just the MNYBOXD logo at the top, then your balance (everything in your accounts minus
   what you owe on cards, the same figure as Accounts) in large type, what you spent today, a
   faint line of the month's spending, one big **+** (tap to add, hold to speak), your budget,
-  and your latest transactions. Pick a month (*November ⌄*) to see that month's budget and
+  a *This week* glance (tap it for the full recap) and your latest transactions. Pick a month (*November ⌄*) to see that month's budget and
   spending; the bell lists budgets that have passed 80%; the profile icon opens Settings. Tap the
   balance for the breakdown.
 * **Activity**: search notes, categories, accounts or amounts; filter by type, category,
@@ -95,10 +97,19 @@ builds (`ScreenshotTest`).</sub>
 * **Accounts**: savings, current, cash, wallets, debit and credit cards; net worth, assets and
   card dues; credit limit usage; archive or delete.
 * **Budgets**: monthly overall and per-category limits with 80% and 100% warnings (also shown
-  right after saving an expense that crosses a threshold).
-* **Insights**: monthly spent, income, saved and daily average; comparison with last month;
-  daily, weekly and 6-month charts; category and payment-method breakdowns. All from your real
-  records.
+  right after saving an expense that crosses a threshold). Each limit applies *Every month* or
+  *Only this month*: give a festival month, a trip or a tight month its own amount, and every
+  other month keeps the usual one. Months ahead can be planned too; *Use usual* undoes it.
+* **Insights**: swipeable **weekly and monthly recaps** at the top (total spent and how it
+  compares with the same days of the week or month before, a bar for each day, your top
+  category, biggest expense, busiest day and no-spend days); then monthly
+  spent, income, saved and daily average; daily, weekly and 6-month charts; category and
+  payment-method breakdowns. The category donut uses six colours chosen to stay distinct for
+  colour-blind eyes and on both themes, with smaller categories grouped as *Everything else*.
+  Tap a slice or a row to bring it forward and see its amount. All from your real records.
+* **Categories**: add your own, with a colour and an icon from a picker grouped the way people
+  spend: food and drink, habits (cigarettes, vape, alcohol, beer, wine), getting around, home and
+  bills, shopping, health, fun, travel, people and family, money and work.
 
 **Your data, your control**
 * Encrypted database (SQLCipher, key protected by Android Keystore).
@@ -110,13 +121,14 @@ builds (`ScreenshotTest`).</sub>
 * Optional screenshot blocking (*Hide app contents*).
 
 **Themes**
-* **Mono** (default): matte black, white type, soft greys and charcoal surfaces, with colour only
-  where it means something (money in, money over budget). Version 2.2 moves everyone to Mono
-  once, with the new design; pick another theme any time.
-* Also **Midnight** (charcoal and emerald), **Light** (off-white and emerald), **AMOLED** (true
-  black, restrained accents) and **Ocean** (deep navy, soft blue), or *Match system* (Mono in
-  dark mode, Light otherwise). Each styles every screen, sheet, dialog, chart, the dock and the
-  widgets. Applied instantly and remembered.
+* **Mono Dark** (default): matte black, white type, soft greys and charcoal surfaces, with colour
+  only where it means something (money in, money over budget, chart slices).
+* **Mono Light**: the same look inverted, paper white with ink-black type and buttons.
+* Or *Match system* (Mono Dark in dark mode, Mono Light otherwise). The app icon follows your
+  phone's dark mode too: white bars on black in dark mode, ink bars on white in light mode (with
+  Android 13+ *Themed icons* on, it takes your wallpaper colours instead). Each styles every screen,
+  sheet, dialog, chart, the dock and the widgets, applied instantly and remembered. Version 2.4
+  retired Midnight, AMOLED and Ocean; if you used one, MNYBOXD opens in Mono Dark.
 
 **Design and accessibility**
 * **Your dock, your order**: the bottom dock is icons only (screen readers hear each name). Touch
@@ -130,6 +142,8 @@ builds (`ScreenshotTest`).</sub>
   (only the digits that changed move, each on a faint tile; income counts up), the budget bar
   follows, and the new transaction slides into the list. All of it plays only after the
   transaction is stored, takes about a second, and is skipped when animations are off.
+* **No touch highlight**: nothing flashes grey when you tap. Whatever you touch presses in
+  slightly and springs back.
 * Origin-aware motion: accounts and transactions morph into their detail screens; dialogs
   expand from the control that opened them and collapse back into it; charts glide to new
   values. Everything respects Android's *Remove animations* setting.
@@ -141,12 +155,17 @@ builds (`ScreenshotTest`).</sub>
 ## Install on your phone
 
 1. On your phone, tap the **Available on Android** badge above (or open
-   [Releases](https://github.com/Sharvesh-AR/Spendly/releases/latest)) to download `MNYBOXD.apk`. (Optionally compare its SHA-256 with
+   [Releases](https://github.com/Sharvesh-AR/MNYBOXD/releases/latest)) to download `MNYBOXD.apk`. (Optionally compare its SHA-256 with
    `SHA256SUMS.txt` on the release page.)
 2. Open the downloaded file. If Android asks, allow your browser or file manager to
    **install unknown apps** (Settings → Apps → *your browser* → Install unknown apps).
 3. Tap **Install**, then **Open**.
 4. You can switch the "install unknown apps" permission off again afterwards.
+
+**Updating:** MNYBOXD has no internet permission, so it never checks for updates by itself. The
+version you have is shown at the bottom of *Settings*; new versions appear on the
+[Releases](https://github.com/Sharvesh-AR/MNYBOXD/releases/latest) page. Download `MNYBOXD.apk`
+and install it over the top. Don't uninstall first: that deletes your records.
 
 Requires Android 8.0 (API 26) or newer. Everything works offline. A few things depend on the
 phone:
@@ -345,9 +364,30 @@ Details and limitations: [`SECURITY.md`](SECURITY.md). Latest review:
 * Translations (strings are currently English-only)
 * Bundled premium typeface (currently the system font with tabular figures)
 
+## License
+
+MNYBOXD is free software: you can redistribute it and/or modify it under the terms of the
+[GNU General Public License v3.0](LICENSE) as published by the Free Software Foundation, either
+version 3 of the License, or (at your option) any later version.
+
+It is distributed in the hope that it will be useful, but **without any warranty**; without even
+the implied warranty of merchantability or fitness for a particular purpose. See the
+[license](LICENSE) for details.
+
+Copyright © 2026 ARS ([Sharvesh-AR](https://github.com/Sharvesh-AR)). Every source file carries
+this copyright notice. Third-party libraries keep their own licences, listed in
+[`DEPENDENCIES.md`](DEPENDENCIES.md).
+
+**Additional terms** (GPL-3.0 section 7, full text in [`NOTICE`](NOTICE)):
+* **Name and logo:** the licence doesn't cover the name *MNYBOXD*, its logo or the app icon. A
+  modified or repackaged version must use a different name and icon and must not pose as the
+  official app.
+* **Attribution:** copies must keep the `NOTICE` file, the copyright notices and the in-app
+  credit *Made with ❤️ by ARS*.
+
 ## Credits
 
-Built with care ♥ by [**ARS**](https://ar-sharvesh.vercel.app)
+Made with ❤️ by [**ARS**](https://ar-sharvesh.vercel.app)
 
 <sub>The Android robot is reproduced or modified from work created and shared by Google and used
 according to terms described in the Creative Commons 3.0 Attribution License.</sub>

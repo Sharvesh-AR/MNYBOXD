@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly
 
 import android.app.KeyguardManager
@@ -140,6 +143,8 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val ACTION_QUICK_ADD = "io.github.sharveshar.spendly.action.QUICK_ADD"
         const val ACTION_VOICE_ADD = "io.github.sharveshar.spendly.action.VOICE_ADD"
+        /** Quick Add with Income selected (the Add income and Expense + Income widgets). */
+        const val ACTION_ADD_INCOME = "io.github.sharveshar.spendly.action.ADD_INCOME"
         const val ACTION_OPEN_HOME = "io.github.sharveshar.spendly.action.OPEN_HOME"
         const val ACTION_OPEN_BUDGETS = "io.github.sharveshar.spendly.action.OPEN_BUDGETS"
         const val ACTION_OPEN_ACCOUNTS = "io.github.sharveshar.spendly.action.OPEN_ACCOUNTS"

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.ui.home
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -53,7 +56,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.ripple
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -63,6 +65,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -83,8 +86,9 @@ import io.github.sharveshar.spendly.ui.components.OriginPopup
 import io.github.sharveshar.spendly.ui.components.RollingAmount
 import io.github.sharveshar.spendly.ui.components.SectionCard
 import io.github.sharveshar.spendly.ui.components.SectionHeader
-import io.github.sharveshar.spendly.ui.components.BrandMark
-import io.github.sharveshar.spendly.ui.components.Wordmark
+import io.github.sharveshar.spendly.ui.components.AppLogo
+import io.github.sharveshar.spendly.ui.components.APP_NAME
+import io.github.sharveshar.spendly.ui.insights.WeekGlanceCard
 import io.github.sharveshar.spendly.ui.components.TransactionListItem
 import io.github.sharveshar.spendly.ui.components.originAnchor
 import io.github.sharveshar.spendly.ui.components.pressScale
@@ -115,6 +119,7 @@ fun HomeScreen(
     onSeeAllTransactions: () -> Unit,
     onSeeAccounts: () -> Unit,
     onBudgets: () -> Unit,
+    onInsights: () -> Unit,
     onSettings: () -> Unit,
 ) {
     LifecycleResumeEffect(Unit) { Today.refresh(); onPauseOrDispose { } }
@@ -143,6 +148,7 @@ fun HomeScreen(
     val line = rememberHeld(state.monthToDate, holdBudget)
     val budget = rememberHeld(state.budget, holdBudget)
     val recent = rememberHeld(state.recent, holdList)
+    val week = rememberHeld(state.week, holdBudget)
 
     // Money coming in gets a brief "↑ ₹2,000" beside the balance (spending already shows as today).
     var lastBalance by remember { mutableStateOf<Long?>(null) }
@@ -165,9 +171,9 @@ fun HomeScreen(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
         item(key = "top") {
             Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.sm, top = Space.sm), verticalAlignment = Alignment.CenterVertically) {
-                BrandMark(size = 28.dp)
-                Spacer(Modifier.width(Space.sm))
-                Wordmark(Modifier.weight(1f).semantics { heading() })
+                // Just the app logo: the app doesn't need to introduce itself on every visit.
+                AppLogo(Modifier.clearAndSetSemantics { heading(); contentDescription = APP_NAME }, height = 22.dp)
+                Spacer(Modifier.weight(1f))
                 // Bell: budgets that need attention, with a dot when there are any.
                 IconButton(onClick = { showAlerts = true }, modifier = Modifier.originAnchor(bell)) {
                     Box {
@@ -205,7 +211,7 @@ fun HomeScreen(
                         .padding(horizontal = Space.gutter - Space.sm)
                         .pressScale(interaction, 0.98f)
                         .clip(RoundedCornerShape(20.dp))
-                        .clickable(interactionSource = interaction, indication = ripple(), role = Role.Button, onClickLabel = "Open accounts", onClick = onSeeAccounts)
+                        .clickable(interactionSource = interaction, indication = null, role = Role.Button, onClickLabel = "Open accounts", onClick = onSeeAccounts)
                         .padding(horizontal = Space.sm, vertical = Space.xs),
                 ) {
                     BoxWithConstraints(Modifier.fillMaxWidth()) {
@@ -279,6 +285,12 @@ fun HomeScreen(
                         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = c.muted)
                     }
                 }
+            }
+        }
+
+        if (week != null && state.transactionCount > 0) {
+            item(key = "week") {
+                WeekGlanceCard(week, onOpen = onInsights, modifier = Modifier.staggered(stagger, 2).padding(horizontal = Space.gutter).padding(top = Space.md))
             }
         }
 

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.ui.settings
 
 import kotlin.math.roundToInt
@@ -61,6 +64,8 @@ private data class WidgetInfo(val kind: WidgetKind, val title: String, val body:
 
 private val widgetInfos = listOf(
     WidgetInfo(WidgetKind.QUICK_ADD, "Quick Add", "Add an expense, or tap the microphone to speak it. Nothing is saved until you check it and tap Save.", 160.dp to 76.dp, 330.dp to 160.dp),
+    WidgetInfo(WidgetKind.ADD_INCOME, "Add income", "One tap opens Quick Add with Income selected, for salary, money back from a friend or anything coming in.", 160.dp to 76.dp, 330.dp to 160.dp),
+    WidgetInfo(WidgetKind.ADD_BOTH, "Expense + Income", "Two buttons side by side: one adds an expense, the other adds income.", 160.dp to 76.dp, 330.dp to 160.dp),
     WidgetInfo(WidgetKind.MONTHLY, "Monthly overview", "This month's spending, your budget, what's left, and the last 7 days. Tap to open Budgets.", 160.dp to 160.dp, 330.dp to 160.dp),
     WidgetInfo(WidgetKind.ACCOUNTS, "Account balance", "Money available in banks, cash and wallets, with card dues kept separate. Shows all accounts or one you choose.", 160.dp to 160.dp, 330.dp to 230.dp),
     WidgetInfo(WidgetKind.TREND, "Spending trend", "Day-by-day spending for the last week, the total and your highest day. Tap to open Insights.", 160.dp to 160.dp, 330.dp to 160.dp),

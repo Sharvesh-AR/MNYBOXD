@@ -44,8 +44,8 @@
         <!--
           Quick Add as a pop-up over the current app, for the volume-button shortcut, tile, widgets
           and launcher shortcuts. Own task, not in recents, transparent; finishes when Quick Add
-          closes. Exported so launchers can start it from app shortcuts; it honours only the two
-          fixed Quick Add actions and ignores extras and data, like MainActivity.
+          closes. Exported so launchers can start it from app shortcuts; it honours only its three
+          fixed actions (add, speak, add income) and ignores extras and data, like MainActivity.
         -->
         <activity
             android:name=".QuickAddActivity"
@@ -112,6 +112,28 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_quick_add_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.AddIncomeWidget"
+            android:exported="true"
+            android:label="@string/widget_add_income_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_add_income_info" />
+        </receiver>
+        <receiver
+            android:name=".widget.AddBothWidget"
+            android:exported="true"
+            android:label="@string/widget_add_both_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_add_both_info" />
         </receiver>
         <receiver
             android:name=".widget.MonthlyWidget"

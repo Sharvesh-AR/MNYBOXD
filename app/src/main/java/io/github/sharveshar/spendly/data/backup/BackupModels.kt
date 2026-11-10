@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.data.backup
 
 import kotlinx.serialization.Serializable
@@ -15,6 +18,8 @@ data class BackupSnapshot(
     val categories: List<BackupCategory>,
     val transactions: List<BackupTransaction>,
     val budgets: List<BackupBudget>,
+    /** Budgets for single months. Absent in backups made before 2.4. */
+    val budgetOverrides: List<BackupBudgetOverride> = emptyList(),
 )
 
 @Serializable
@@ -66,6 +71,15 @@ data class BackupTransaction(
 @Serializable
 data class BackupBudget(
     val id: Long,
+    val categoryId: Long? = null,
+    val amountPaise: Long,
+    val updatedAt: Long,
+)
+
+@Serializable
+data class BackupBudgetOverride(
+    val id: Long,
+    val month: String,
     val categoryId: Long? = null,
     val amountPaise: Long,
     val updatedAt: Long,

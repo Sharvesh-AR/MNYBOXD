@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.data.db
 
 import androidx.room.ColumnInfo
@@ -98,6 +101,25 @@ data class TransactionEntity(
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
     /** Idempotency key generated when the entry form opens; a unique index blocks double saves. */
     @ColumnInfo(name = "client_ref") val clientRef: String,
+)
+
+/**
+ * A limit for one particular month ([month] is "2026-12"), used instead of the recurring one:
+ * a festival, a trip, a tight month. [categoryId] null means the overall budget for that month.
+ */
+@Entity(
+    tableName = "budget_overrides",
+    foreignKeys = [
+        ForeignKey(entity = CategoryEntity::class, parentColumns = ["id"], childColumns = ["category_id"], onDelete = ForeignKey.CASCADE),
+    ],
+    indices = [Index(value = ["month", "category_id"], unique = true), Index("category_id")],
+)
+data class BudgetOverrideEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val month: String,
+    @ColumnInfo(name = "category_id") val categoryId: Long? = null,
+    @ColumnInfo(name = "amount_paise") val amountPaise: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long,
 )
 
 /** A recurring monthly limit. [categoryId] null means the overall monthly budget. */

@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.data.backup
 
 import io.github.sharveshar.spendly.core.money.Money
@@ -23,6 +26,8 @@ object BackupValidator {
     private const val MAX_CATEGORIES = 1_000
     private const val MAX_TRANSACTIONS = 1_000_000
     private const val MAX_BUDGETS = 1_000
+    private const val MAX_BUDGET_OVERRIDES = 20_000
+    private val MONTH = Regex("""\d{4}-(0[1-9]|1[0-2])""")
     private const val MAX_PROBLEMS = 10
 
     fun validate(s: BackupSnapshot): BackupValidation {
@@ -33,7 +38,7 @@ object BackupValidator {
             return BackupValidation.Invalid(listOf("Unsupported backup schema version ${s.schema}"))
         }
         if (s.accounts.size > MAX_ACCOUNTS || s.categories.size > MAX_CATEGORIES ||
-            s.transactions.size > MAX_TRANSACTIONS || s.budgets.size > MAX_BUDGETS
+            s.transactions.size > MAX_TRANSACTIONS || s.budgets.size > MAX_BUDGETS || s.budgetOverrides.size > MAX_BUDGET_OVERRIDES
         ) return BackupValidation.Invalid(listOf("Backup contains more records than MNYBOXD supports"))
 
         // --- Accounts ---
@@ -140,6 +145,16 @@ object BackupValidator {
             if (!budgetCats.add(b.categoryId)) fail("Duplicate budget")
             if (!Money.isValidAmount(b.amountPaise)) fail("Budget ${b.id} has an invalid amount")
             b.categoryId?.let { if (categoryKinds[it] != CategoryKind.EXPENSE) fail("Budget ${b.id} has an invalid category") }
+        }
+
+        val overrideIds = HashSet<Long>()
+        val overrideKeys = HashSet<Pair<String, Long?>>()
+        for (b in s.budgetOverrides) {
+            if (b.id <= 0 || !overrideIds.add(b.id)) fail("Monthly budget has an invalid id")
+            if (!MONTH.matches(b.month)) fail("Monthly budget ${b.id} has an invalid month")
+            if (!overrideKeys.add(b.month to b.categoryId)) fail("Duplicate monthly budget")
+            if (!Money.isValidAmount(b.amountPaise)) fail("Monthly budget ${b.id} has an invalid amount")
+            b.categoryId?.let { if (categoryKinds[it] != CategoryKind.EXPENSE) fail("Monthly budget ${b.id} has an invalid category") }
         }
 
         if (problems.isNotEmpty()) return BackupValidation.Invalid(problems)

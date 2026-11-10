@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.widget
 
 import io.github.sharveshar.spendly.Repositories
@@ -102,7 +105,7 @@ data class WidgetSnapshot(
             val to = maxOf(month.endMillis, TimeRange.day(today, zone).endMillis)
             val records = repos.transactions.observeSpendRecords(TimeRange(from, to)).first()
             val accounts = repos.accounts.observeWithBalances().first()
-            val budget = repos.budgets.observeAll().first().firstOrNull { it.categoryId == null }?.amountPaise
+            val budget = repos.budgets.book().overall(YearMonth.from(today))?.amountPaise
             val count = repos.transactions.observeCount().first()
             return build(today, zone, records, accounts, budget, count > 0)
         }

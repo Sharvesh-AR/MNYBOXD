@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import java.time.Duration
 
@@ -35,8 +38,8 @@ android {
         applicationId = "io.github.sharveshar.spendly"
         minSdk = 26
         targetSdk = 37
-        versionCode = 8
-        versionName = "2.3.0"
+        versionCode = 11
+        versionName = "2.6.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

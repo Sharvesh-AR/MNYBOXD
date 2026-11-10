@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.ui
 
 import android.app.Application
@@ -23,6 +26,7 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasClickAction
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
@@ -90,6 +94,12 @@ class UiTest {
      * [scroll] brings the text into view first; it needs a scrollable ancestor, so pass false for text in an
      * OriginPopup, whose card merges its content (scroll column included) into one node.
      */
+    /** Home is showing: its header carries only the app's mark, named for screen readers. */
+    private fun onHome() {
+        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("MNYBOXD").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithContentDescription("MNYBOXD").assertIsDisplayed()
+    }
+
     private fun shown(text: String, scroll: Boolean = true) {
         compose.waitUntil(5_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
         val node = compose.onNodeWithText(text)
@@ -138,7 +148,7 @@ class UiTest {
 
     @Test fun `bottom navigation reaches every tab`() {
         launchApp()
-        shown("MNYBOXD")
+        onHome()
         compose.onNode(dockTab("Activity")).performClick()
         shown("Transactions")
         compose.onNode(dockTab("Accounts")).performClick()
@@ -146,14 +156,14 @@ class UiTest {
         compose.onNode(dockTab("Budgets")).performClick()
         shown("Monthly budget")
         compose.onNode(dockTab("Insights")).performClick()
-        shown("Income vs spending")
+        shown("Insights")
         compose.onNode(dockTab("Home")).performClick()
-        shown("MNYBOXD")
+        onHome()
     }
 
     @Test fun `holding a dock tab and dragging it moves it, without opening it, and the order is kept`() {
         launchApp()
-        shown("MNYBOXD")
+        onHome()
         fun x(label: String) = compose.onNode(dockTab(label)).fetchSemanticsNode().boundsInRoot.center.x
         try {
             assertTrue(x("Home") < x("Activity") && x("Budgets") < x("Insights"))
@@ -169,13 +179,13 @@ class UiTest {
             compose.mainClock.advanceTimeBy(1_000)
             // Insights now sits first and Home second; holding it never navigated anywhere.
             assertTrue(x("Insights") < x("Home") && x("Home") < x("Activity") && x("Accounts") < x("Budgets"))
-            shown("MNYBOXD")
-            assertTrue(compose.onAllNodesWithText("Income vs spending").fetchSemanticsNodes().isEmpty())
+            onHome()
+            assertTrue(compose.onAllNodesWithText("Insights").fetchSemanticsNodes().isEmpty())
             // A fresh read (as after restarting the app) gives the same order.
             assertEquals(listOf(AppTab.INSIGHTS, AppTab.HOME, AppTab.ACTIVITY, AppTab.ACCOUNTS, AppTab.BUDGETS), runBlocking(Dispatchers.IO) { withTimeout(5_000) { PreferencesRepository(context).preferences.first().dockOrder } })
             // A plain tap still navigates straight away.
             compose.onNode(dockTab("Insights")).performClick()
-            shown("Income vs spending")
+            shown("Insights")
         } finally {
             // DataStore is one instance per JVM, shared with later tests.
             runBlocking(Dispatchers.IO) { withTimeout(5_000) { container.preferences.setDockOrder(DockOrder.DEFAULT) } }
@@ -184,7 +194,7 @@ class UiTest {
 
     @Test fun `a short hold that ends before the long-press time is a tap, and a drag released in place changes nothing`() {
         launchApp()
-        shown("MNYBOXD")
+        onHome()
         try {
             compose.onNode(dockTab("Budgets")).performTouchInput {
                 down(center)
@@ -240,7 +250,7 @@ class UiTest {
         assertEquals("Cash", runBlocking { db.accountDao().getById(saved.accountId)!!.name })
         // Then Quick Add closes by itself and the dashboard is back, with no second sheet.
         compose.waitUntil(5_000) { compose.onAllNodes(isRoot()).fetchSemanticsNodes().size == 1 }
-        shown("MNYBOXD")
+        onHome()
     }
 
     @Test fun `quick add validation blocks empty and categoryless entries`() {

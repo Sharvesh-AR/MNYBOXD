@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.ui.components
 
 import androidx.compose.animation.core.Animatable
@@ -42,6 +45,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.layout.Layout
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import kotlin.math.roundToInt
@@ -290,33 +299,180 @@ fun LegendDot(color: Color, label: String) {
 
 data class Slice(val label: String, val value: Long, val color: Color)
 
-/** Donut with thin rounded arcs and a small gap between slices. */
+/**
+ * Donut with a small gap between slices. Tap a slice (or pass [selected]) to bring it forward:
+ * it thickens, the others fade back, and the centre names it with its amount and share. Tap it
+ * again, or the centre, to go back to the total.
+ */
 @Composable
-fun DonutChart(slices: List<Slice>, modifier: Modifier = Modifier, size: Dp = 148.dp, centerLabel: String, centerValue: String) {
+fun DonutChart(
+    slices: List<Slice>,
+    modifier: Modifier = Modifier,
+    size: Dp = 168.dp,
+    centerLabel: String,
+    centerValue: String,
+    selected: Int? = null,
+    onSelect: ((Int?) -> Unit)? = null,
+) {
     val total = slices.sumOf { it.value }.coerceAtLeast(1L)
     val morph = rememberChartMorph(slices.map { it.value.toFloat() / total }, slices.map { it.label })
     val track = Spendly.colors.chartMuted.copy(alpha = 0.5f)
-    Box(modifier.size(size).clearAndSetSemantics {
-        contentDescription = "$centerLabel $centerValue. " + slices.joinToString { "${it.label} ${it.value * 100 / total} percent" }
-    }, contentAlignment = Alignment.Center) {
+    val reduced = LocalReducedMotion.current
+    // Each slice's prominence: 1 = normal or focused, lower = faded behind the focused one.
+    val focus = slices.indices.map { i ->
+        androidx.compose.animation.core.animateFloatAsState(
+            if (selected == null || selected == i) 1f else 0.28f,
+            if (reduced) androidx.compose.animation.core.snap() else androidx.compose.animation.core.spring(dampingRatio = 0.8f, stiffness = 500f),
+            label = "slice$i",
+        )
+    }
+    val grow = slices.indices.map { i ->
+        androidx.compose.animation.core.animateFloatAsState(
+            if (selected == i) 1f else 0f,
+            if (reduced) androidx.compose.animation.core.snap() else androidx.compose.animation.core.spring(dampingRatio = 0.55f, stiffness = 500f),
+            label = "sliceGrow$i",
+        )
+    }
+    val tap by androidx.compose.runtime.rememberUpdatedState(onSelect)
+    val sel by androidx.compose.runtime.rememberUpdatedState(selected)
+    val shown = selected?.let { slices.getOrNull(it) }
+    Box(
+        modifier
+            .size(size)
+            .clearAndSetSemantics {
+                contentDescription = "$centerLabel $centerValue. " + slices.joinToString { "${it.label} ${it.value * 100 / total} percent" }
+            }
+            .then(
+                if (onSelect == null) Modifier else Modifier.pointerInput(slices.size) {
+                    detectTapGestures { pos ->
+                        val c = Offset(this.size.width / 2f, this.size.height / 2f)
+                        val dx = pos.x - c.x
+                        val dy = pos.y - c.y
+                        val r = kotlin.math.sqrt(dx * dx + dy * dy)
+                        val outer = this.size.width / 2f
+                        if (r < outer * 0.55f) { tap?.invoke(null); return@detectTapGestures }
+                        // Angle clockwise from 12 o'clock, matching how slices are drawn.
+                        var deg = Math.toDegrees(kotlin.math.atan2(dy.toDouble(), dx.toDouble())).toFloat() + 90f
+                        if (deg < 0f) deg += 360f
+                        var acc = 0f
+                        var hit: Int? = null
+                        for (i in slices.indices) {
+                            acc += 360f * morph.at(i)
+                            if (deg <= acc) { hit = i; break }
+                        }
+                        tap?.invoke(if (hit == sel) null else hit)
+                    }
+                },
+            ),
+        contentAlignment = Alignment.Center,
+    ) {
         Canvas(Modifier.size(size)) {
-            val stroke = 14.dp.toPx()
-            val inset = stroke / 2
-            val arcSize = Size(this.size.width - stroke, this.size.height - stroke)
+            val stroke = 16.dp.toPx()
+            val extra = 6.dp.toPx()
+            val inset = stroke / 2 + extra / 2
+            val arcSize = Size(this.size.width - stroke - extra, this.size.height - stroke - extra)
             drawArc(track, 0f, 360f, false, Offset(inset, inset), arcSize, style = Stroke(stroke))
             var start = -90f
-            val gapDeg = if (slices.size > 1) 3f else 0f
+            val gapDeg = if (slices.size > 1) 2.5f else 0f
             slices.forEachIndexed { i, s ->
                 val sweep = 360f * morph.at(i)
                 if (sweep > gapDeg) {
-                    drawArc(s.color, start + gapDeg / 2, sweep - gapDeg, false, Offset(inset, inset), arcSize, style = Stroke(stroke, cap = StrokeCap.Butt))
+                    val w = stroke + extra * grow[i].value
+                    drawArc(
+                        s.color.copy(alpha = focus[i].value),
+                        start + gapDeg / 2, sweep - gapDeg, false, Offset(inset, inset), arcSize,
+                        style = Stroke(w, cap = StrokeCap.Butt),
+                    )
                 }
                 start += sweep
             }
         }
-        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(Space.xl)) {
-            Text(centerLabel, style = MaterialTheme.typography.labelSmall, color = Spendly.colors.muted)
-            Text(centerValue, style = AmountStyle.compact, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        androidx.compose.animation.AnimatedContent(
+            targetState = shown,
+            transitionSpec = {
+                (androidx.compose.animation.fadeIn(tween(180)) + androidx.compose.animation.scaleIn(tween(220), initialScale = 0.9f))
+                    .togetherWith(androidx.compose.animation.fadeOut(tween(120)))
+            },
+            label = "donutCentre",
+        ) { slice ->
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(horizontal = 34.dp)) {
+                if (slice == null) {
+                    Text(centerLabel, style = MaterialTheme.typography.labelSmall, color = Spendly.colors.muted)
+                    Text(centerValue, style = AmountStyle.summary, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                } else {
+                    Text(slice.label, style = MaterialTheme.typography.labelSmall, color = Spendly.colors.muted, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
+                    Text(Money.formatCompact(slice.value), style = AmountStyle.summary, maxLines = 1)
+                    Text("${slice.value * 100 / total}%", style = MaterialTheme.typography.labelMedium, color = Spendly.colors.muted)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Small day bars for a recap: one per day, today (or [highlight]) in full ink, other spent days
+ * soft, days still to come as faint stubs. Labels are optional (a week shows M T W...).
+ */
+@Composable
+fun RecapBars(
+    values: List<Long>,
+    elapsed: Int,
+    modifier: Modifier = Modifier,
+    highlight: Int? = null,
+    labels: List<String>? = null,
+    height: Dp = 56.dp,
+) {
+    val max = (values.maxOrNull() ?: 0L).coerceAtLeast(1L)
+    val morph = rememberChartMorph(values.fractionsOf(max))
+    val ink = MaterialTheme.colorScheme.onSurface
+    val soft = Spendly.colors.muted.copy(alpha = 0.55f)
+    val future = Spendly.colors.chartMuted
+    Column(modifier) {
+        Canvas(Modifier.fillMaxWidth().height(height)) {
+            val n = values.size.coerceAtLeast(1)
+            val slot = size.width / n
+            val barW = (slot * (if (n > 10) 0.62f else 0.5f)).coerceAtMost(22.dp.toPx())
+            val radius = CornerRadius(barW / 2f)
+            val stub = 3.dp.toPx()
+            values.indices.forEach { i ->
+                val x = slot * i + (slot - barW) / 2
+                val f = morph.at(i).coerceIn(0f, 1f)
+                val h = if (i >= elapsed || f <= 0.0001f) stub else (f * size.height).coerceAtLeast(stub)
+                val color = when {
+                    i >= elapsed -> future
+                    i == highlight -> ink
+                    f <= 0.0001f -> future
+                    else -> soft
+                }
+                drawRoundRect(color, Offset(x, size.height - h), Size(barW, h), radius)
+            }
+        }
+        if (labels != null) {
+            Spacer(Modifier.height(Space.xs))
+            // Labels keep their natural width, centred under their bar, so "22" never clips.
+            Layout(
+                content = {
+                    labels.forEachIndexed { i, l ->
+                        Text(
+                            l,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = if (i == highlight) MaterialTheme.colorScheme.onSurface else Spendly.colors.muted,
+                            maxLines = 1,
+                        )
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { measurables, constraints ->
+                val width = constraints.maxWidth
+                val slot = width.toFloat() / labels.size.coerceAtLeast(1)
+                val placeables = measurables.map { it.measure(Constraints()) }
+                layout(width, placeables.maxOfOrNull { it.height } ?: 0) {
+                    placeables.forEachIndexed { i, p ->
+                        val x = (slot * i + slot / 2 - p.width / 2f).roundToInt().coerceIn(0, (width - p.width).coerceAtLeast(0))
+                        p.place(x, 0)
+                    }
+                }
+            }
         }
     }
 }
@@ -330,10 +486,21 @@ fun ProportionRow(
     color: Color,
     modifier: Modifier = Modifier,
     leading: (@Composable () -> Unit)? = null,
+    /** False while another row is focused: this one fades back. */
+    emphasised: Boolean = true,
+    onClick: (() -> Unit)? = null,
 ) {
     val fraction = if (total <= 0) 0f else (value.toFloat() / total).coerceIn(0f, 1f)
     val morph = rememberChartMorph(listOf(fraction))
-    Row(modifier.fillMaxWidth().padding(vertical = Space.sm), verticalAlignment = Alignment.CenterVertically) {
+    val alpha by androidx.compose.animation.core.animateFloatAsState(if (emphasised) 1f else 0.4f, label = "rowFocus")
+    Row(
+        modifier
+            .fillMaxWidth()
+            .graphicsLayer { this.alpha = alpha }
+            .then(if (onClick != null) Modifier.clip(RoundedCornerShape(12.dp)).clickable(onClick = onClick) else Modifier)
+            .padding(vertical = Space.sm),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
         if (leading != null) {
             leading()
             Spacer(Modifier.width(Space.md))

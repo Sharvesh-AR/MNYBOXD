@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.ui.components
 
 import androidx.compose.animation.animateColorAsState
@@ -73,7 +76,7 @@ fun SelectChip(
                 selected = selected,
                 enabled = enabled,
                 interactionSource = interaction,
-                indication = androidx.compose.material3.ripple(),
+                indication = null,
                 role = Role.RadioButton,
             ) {
                 if (!selected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)

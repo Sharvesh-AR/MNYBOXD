@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
 package io.github.sharveshar.spendly.domain.ledger
 
 import io.github.sharveshar.spendly.core.money.Money
@@ -248,7 +251,8 @@ object TransactionRules {
         if (funding != null && channel != null && draft.type != TransactionType.TRANSFER) {
             val ok = when (channel) {
                 PaymentChannel.CASH -> funding.type == AccountType.CASH
-                PaymentChannel.DEBIT_CARD -> instrumentId != null
+                // A card kept as its own account, or simply "paid by card" from a bank account.
+                PaymentChannel.DEBIT_CARD -> instrumentId != null || funding.type.isBank
                 PaymentChannel.CREDIT_CARD -> funding.type == AccountType.CREDIT_CARD
                 PaymentChannel.WALLET -> funding.type == AccountType.WALLET
                 PaymentChannel.UPI -> funding.type != AccountType.CASH
@@ -306,6 +310,6 @@ object TransactionRules {
         AccountType.DEBIT_CARD -> listOf(PaymentChannel.DEBIT_CARD)
         AccountType.WALLET -> listOf(PaymentChannel.WALLET, PaymentChannel.UPI, PaymentChannel.OTHER)
         AccountType.SAVINGS, AccountType.CURRENT ->
-            listOf(PaymentChannel.UPI, PaymentChannel.NET_BANKING, PaymentChannel.BANK_TRANSFER, PaymentChannel.OTHER)
+            listOf(PaymentChannel.UPI, PaymentChannel.DEBIT_CARD, PaymentChannel.NET_BANKING, PaymentChannel.BANK_TRANSFER, PaymentChannel.OTHER)
     }
 }
