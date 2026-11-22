@@ -59,3 +59,13 @@ enum class PaymentProvider(val label: String) {
 }
 
 enum class CategoryKind { EXPENSE, INCOME }
+
+/**
+ * How often a budget starts over: every day at midnight, every Monday, or on the 1st of the month.
+ * Stored by [name] in the database and in backups; never rename constants.
+ */
+enum class BudgetPeriod(val label: String, val unit: String) {
+    DAILY("Daily", "day"),
+    WEEKLY("Weekly", "week"),
+    MONTHLY("Monthly", "month"),
+}

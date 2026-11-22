@@ -3,32 +3,27 @@
 
 package io.github.sharveshar.spendly.ui.components
 
-import androidx.compose.foundation.Image
-import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.dp
-import io.github.sharveshar.spendly.R
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 
 /** The app's name as shown on screen. */
 const val APP_NAME = "MNYBOXD"
 
 /**
- * MNYBOXD's logo: the launcher icon's three bars on their own, with no tile or shape around them.
- * Drawn in the theme's text colour (white on Mono Dark, ink on Mono Light); the bars' stepped
- * transparency gives the bright, grey and faint steps on either. [height] sets the size; the
- * width follows the logo's 5:4 proportions.
+ * "MNYBOXD", the name as the app's header: bold capitals with a little air between the letters,
+ * in the theme's text colour (white on Mono Dark, ink on Mono Light).
  */
 @Composable
-fun AppLogo(modifier: Modifier = Modifier, height: Dp = 22.dp) {
-    Image(
-        painterResource(R.drawable.ic_logo),
-        contentDescription = null,
-        colorFilter = ColorFilter.tint(MaterialTheme.colorScheme.onBackground),
-        modifier = modifier.size(width = height * 1.25f, height = height),
+fun Wordmark(modifier: Modifier = Modifier) {
+    Text(
+        APP_NAME,
+        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp),
+        color = MaterialTheme.colorScheme.onBackground,
+        maxLines = 1,
+        modifier = modifier,
     )
 }

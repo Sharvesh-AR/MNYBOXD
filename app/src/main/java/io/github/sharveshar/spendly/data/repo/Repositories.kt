@@ -13,6 +13,7 @@ import io.github.sharveshar.spendly.data.db.CategoryEntity
 import io.github.sharveshar.spendly.data.db.SpendlyDatabase
 import io.github.sharveshar.spendly.domain.ledger.TransactionRules
 import io.github.sharveshar.spendly.domain.model.AccountType
+import io.github.sharveshar.spendly.domain.model.BudgetPeriod
 import io.github.sharveshar.spendly.domain.model.CategoryKind
 import io.github.sharveshar.spendly.domain.model.TransactionType
 import kotlinx.coroutines.flow.Flow
@@ -177,15 +178,18 @@ class CategoryRepository(private val db: SpendlyDatabase) {
 
 /**
  * The limit that applies in one month: the usual recurring one, or the amount set for that month
- * alone. [categoryId] null is the overall budget.
+ * alone. [categoryId] null is the overall budget. A month's own amount is always monthly.
  */
 data class MonthBudget(
     val categoryId: Long?,
     val amountPaise: Long,
+    /** How often the limit starts over. */
+    val period: BudgetPeriod,
     /** Set for this month only (overrides [usualPaise], if there is one). */
     val custom: Boolean,
-    /** The recurring limit, if one exists. */
+    /** The recurring limit and its period, if one exists. */
     val usualPaise: Long?,
+    val usualPeriod: BudgetPeriod? = null,
 )
 
 /** Every budget, recurring and month-specific; [forMonth] works out what applies when. */
@@ -197,7 +201,14 @@ data class BudgetBook(val usual: List<BudgetEntity> = emptyList(), val overrides
         return (usualByCategory.keys + custom.keys).map { id ->
             val o = custom[id]
             val u = usualByCategory[id]
-            MonthBudget(id, o?.amountPaise ?: u!!.amountPaise, custom = o != null, usualPaise = u?.amountPaise)
+            MonthBudget(
+                categoryId = id,
+                amountPaise = o?.amountPaise ?: u!!.amountPaise,
+                period = if (o != null) BudgetPeriod.MONTHLY else u!!.period,
+                custom = o != null,
+                usualPaise = u?.amountPaise,
+                usualPeriod = u?.period,
+            )
         }
     }
 
@@ -224,21 +235,24 @@ class BudgetRepository(private val db: SpendlyDatabase, private val clock: () ->
         return null
     }
 
-    /** Creates or replaces the recurring monthly limit for [categoryId] (null = overall budget). */
-    suspend fun setLimit(categoryId: Long?, amountPaise: Long): WriteResult = db.withTransaction {
+    /**
+     * Creates or replaces the recurring limit for [categoryId] (null = overall budget), which
+     * starts over every [period].
+     */
+    suspend fun setLimit(categoryId: Long?, amountPaise: Long, period: BudgetPeriod = BudgetPeriod.MONTHLY): WriteResult = db.withTransaction {
         rejection(categoryId, amountPaise)?.let { return@withTransaction it }
         val existing = if (categoryId == null) dao.getOverall() else dao.getForCategory(categoryId)
         val now = clock()
         val id = if (existing != null) {
-            dao.update(existing.copy(amountPaise = amountPaise, updatedAt = now))
+            dao.update(existing.copy(amountPaise = amountPaise, period = period, updatedAt = now))
             existing.id
         } else {
-            dao.insert(BudgetEntity(categoryId = categoryId, amountPaise = amountPaise, updatedAt = now))
+            dao.insert(BudgetEntity(categoryId = categoryId, amountPaise = amountPaise, updatedAt = now, period = period))
         }
         WriteResult.Ok(id)
     }
 
-    /** Creates or replaces the limit for [month] alone; other months keep the recurring one. */
+    /** Creates or replaces a monthly limit for [month] alone; other months keep the recurring one. */
     suspend fun setMonthLimit(month: YearMonth, categoryId: Long?, amountPaise: Long): WriteResult = db.withTransaction {
         rejection(categoryId, amountPaise)?.let { return@withTransaction it }
         val existing = dao.getOverridesFor(month.toString()).firstOrNull { it.categoryId == categoryId }
@@ -253,8 +267,8 @@ class BudgetRepository(private val db: SpendlyDatabase, private val clock: () ->
     }
 
     /** Sets the recurring limit and drops [month]'s own amount, so that month follows it again. */
-    suspend fun setLimitFrom(month: YearMonth, categoryId: Long?, amountPaise: Long): WriteResult = db.withTransaction {
-        val r = setLimit(categoryId, amountPaise)
+    suspend fun setLimitFrom(month: YearMonth, categoryId: Long?, amountPaise: Long, period: BudgetPeriod = BudgetPeriod.MONTHLY): WriteResult = db.withTransaction {
+        val r = setLimit(categoryId, amountPaise, period)
         if (r is WriteResult.Ok) clearMonthLimit(month, categoryId)
         r
     }

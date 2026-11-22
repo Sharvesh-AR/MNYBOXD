@@ -8,12 +8,13 @@
   an independent audit or certification**, and it does not claim the app is free of
   vulnerabilities.
 
-> **Changes since this audit.** Later versions add an opt-in volume-button shortcut
-> (`ButtonShortcutService`, an accessibility service limited to key-event filtering) and an
-> optional, disabled-by-default "Add expense" launcher entry (`QuickAddLauncherActivity`).
-> Neither is covered by the results below; see [SECURITY.md](../SECURITY.md#optional-accessibility-service-volume-button-shortcut)
-> for their design. The permission set is unchanged (`RECORD_AUDIO` only). Since 1.1.1 the
-> accessibility service is only in the separate `volumeShortcut` build; `Spendly.apk` declares none.
+> **Changes since this audit.** Later versions add an optional, disabled-by-default "Add expense"
+> launcher entry (`QuickAddLauncherActivity`), which is not covered by the results below; see
+> [SECURITY.md](../SECURITY.md#exported-components) for its design. Versions 1.1 to 2.6 also had
+> an opt-in volume-button shortcut (`ButtonShortcutService`, an accessibility service limited to
+> key-event filtering), from 1.1.1 only in a separate `volumeShortcut` build; it was removed in
+> 2.7, so no build declares an accessibility service. The permission set is unchanged
+> (`RECORD_AUDIO` only).
 
 ## Checks performed and results
 

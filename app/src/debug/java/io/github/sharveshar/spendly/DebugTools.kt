@@ -8,6 +8,7 @@ import io.github.sharveshar.spendly.data.repo.SaveResult
 import io.github.sharveshar.spendly.data.repo.WriteResult
 import io.github.sharveshar.spendly.domain.ledger.TransactionDraft
 import io.github.sharveshar.spendly.domain.model.AccountType
+import io.github.sharveshar.spendly.domain.model.BudgetPeriod
 import io.github.sharveshar.spendly.domain.model.PaymentChannel
 import io.github.sharveshar.spendly.domain.model.PaymentProvider
 import io.github.sharveshar.spendly.domain.model.TransactionType
@@ -36,7 +37,8 @@ object DebugTools {
         val cats = repos.categories.observeAll().first().associateBy { it.key }
         fun c(key: String) = cats.getValue(key).id
         repos.budgets.setLimit(null, 45_000_00)
-        repos.budgets.setLimit(c("food"), 9_000_00)
+        repos.budgets.setLimit(c("food"), 400_00, BudgetPeriod.DAILY)
+        repos.budgets.setLimit(c("transport"), 700_00, BudgetPeriod.WEEKLY)
         repos.budgets.setLimit(c("shopping"), 6_000_00)
 
         val zone = ZoneId.systemDefault()

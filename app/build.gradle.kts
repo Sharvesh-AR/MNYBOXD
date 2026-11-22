@@ -38,35 +38,9 @@ android {
         applicationId = "io.github.sharveshar.spendly"
         minSdk = 26
         targetSdk = 37
-        versionCode = 11
-        versionName = "2.6.0"
+        versionCode = 12
+        versionName = "2.7.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-    }
-
-    /*
-     * Two builds of the same app: same applicationId, version and signing key, so either one
-     * installs as an update over the other and keeps the user's data.
-     *
-     * standard        The APK published on GitHub (MNYBOXD.apk). It declares no accessibility
-     *                 service, so Google Play Protect's "enhanced fraud protection" does not block
-     *                 it when it is installed from a browser, messaging app or file manager.
-     * volumeShortcut  Adds the optional volume-button shortcut, which needs an accessibility
-     *                 service (src/volumeShortcut). Play Protect blocks any app that declares one
-     *                 from being installed from those sources in the markets where that protection
-     *                 is active (India among them), however little the service can do. Install
-     *                 it through Google Play (e.g. internal testing) or `adb install` instead.
-     */
-    flavorDimensions += "distribution"
-    productFlavors {
-        create("standard") {
-            dimension = "distribution"
-            isDefault = true
-            buildConfigField("boolean", "VOLUME_SHORTCUT", "false")
-        }
-        create("volumeShortcut") {
-            dimension = "distribution"
-            buildConfigField("boolean", "VOLUME_SHORTCUT", "true")
-        }
     }
 
     signingConfigs {

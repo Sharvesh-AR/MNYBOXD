@@ -3,9 +3,7 @@
 
 package io.github.sharveshar.spendly.ui
 
-import android.app.Application
 import android.content.Context
-import android.provider.Settings
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performTouchInput
@@ -33,15 +31,13 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.test.core.app.ApplicationProvider
 import io.github.sharveshar.spendly.AppContainer
-import io.github.sharveshar.spendly.BuildConfig
 import io.github.sharveshar.spendly.HangWatchdog
 import io.github.sharveshar.spendly.data.db.SpendlyDatabase
 import io.github.sharveshar.spendly.data.testDatabase
 import io.github.sharveshar.spendly.domain.model.TransactionType
-import io.github.sharveshar.spendly.shortcut.ButtonShortcut
-import io.github.sharveshar.spendly.shortcut.ShortcutButton
 import io.github.sharveshar.spendly.shortcut.ShortcutSettings
 import io.github.sharveshar.spendly.ui.navigation.LocalAppContainer
 import io.github.sharveshar.spendly.ui.theme.SpendlyTheme
@@ -57,14 +53,11 @@ import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
-import org.junit.Assume.assumeFalse
-import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.Shadows.shadowOf
 import org.robolectric.shadows.ShadowLooper
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
@@ -94,10 +87,10 @@ class UiTest {
      * [scroll] brings the text into view first; it needs a scrollable ancestor, so pass false for text in an
      * OriginPopup, whose card merges its content (scroll column included) into one node.
      */
-    /** Home is showing: its header carries only the app's mark, named for screen readers. */
+    /** Home is showing: its header is the app's name. */
     private fun onHome() {
-        compose.waitUntil(5_000) { compose.onAllNodesWithContentDescription("MNYBOXD").fetchSemanticsNodes().isNotEmpty() }
-        compose.onNodeWithContentDescription("MNYBOXD").assertIsDisplayed()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("MNYBOXD").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("MNYBOXD").assertIsDisplayed()
     }
 
     private fun shown(text: String, scroll: Boolean = true) {
@@ -154,7 +147,7 @@ class UiTest {
         compose.onNode(dockTab("Accounts")).performClick()
         shown("Net worth")
         compose.onNode(dockTab("Budgets")).performClick()
-        shown("Monthly budget")
+        shown("Overall budget")
         compose.onNode(dockTab("Insights")).performClick()
         shown("Insights")
         compose.onNode(dockTab("Home")).performClick()
@@ -204,13 +197,13 @@ class UiTest {
             }
             compose.mainClock.advanceTimeBy(1_000)
             assertEquals(DockOrder.DEFAULT, savedPreferences().dockOrder)
-            assertTrue(compose.onAllNodesWithText("Monthly budget").fetchSemanticsNodes().isEmpty())
+            assertTrue(compose.onAllNodesWithText("Overall budget").fetchSemanticsNodes().isEmpty())
             compose.onNode(dockTab("Budgets")).performTouchInput {
                 down(center)
                 advanceEventTime(120)
                 up()
             }
-            shown("Monthly budget")
+            shown("Overall budget")
         } finally {
             runBlocking(Dispatchers.IO) { withTimeout(5_000) { container.preferences.setDockOrder(DockOrder.DEFAULT) } }
         }
@@ -290,42 +283,11 @@ class UiTest {
         assertFalse(ShortcutSettings.isAppIconOn(context))
     }
 
-    @Test fun `the standard build offers no volume-button shortcut`() {
-        assumeFalse("volumeShortcut build", BuildConfig.VOLUME_SHORTCUT)
+    @Test fun `shortcut settings offer no volume-button shortcut`() {
         launchApp()
         openShortcutSettings()
         shown("\u201CAdd expense\u201D app icon")
-        assertTrue(compose.onAllNodesWithText("Volume button shortcut").fetchSemanticsNodes().isEmpty())
-        assertFalse(ShortcutSettings.isButtonShortcutOn(context))
-    }
-
-    @Test fun `settings sets up the volume-button shortcut`() {
-        assumeTrue("standard build", BuildConfig.VOLUME_SHORTCUT)
-        // DataStore is one instance per JVM: start from the default pattern. Only block on it
-        // here, before any UI exists; UI writes resume on the main thread, which runBlocking would hold.
-        runBlocking {
-            container.preferences.setShortcutButton(ShortcutButton.VOLUME_DOWN)
-            container.preferences.setShortcutPresses(ButtonShortcut.DEFAULT_PRESSES)
-        }
-        launchApp()
-        openShortcutSettings()
-        shown("Volume button shortcut")
-
-        compose.onNodeWithText("Volume up").performScrollTo().performClick()
-        compose.onNodeWithText("Twice").performScrollTo().performClick()
-
-        // Not switched on in Android yet: the row explains, using the saved pattern, and links to settings.
-        compose.onNodeWithText("Volume button shortcut").performScrollTo().performClick()
-        shown("Add expenses with a volume button", scroll = false)
-        compose.waitUntil(5_000) {
-            compose.onAllNodesWithText("Press volume up twice", substring = true).fetchSemanticsNodes().isNotEmpty()
-        }
-        assertEquals(ButtonShortcut(ShortcutButton.VOLUME_UP, 2), savedPreferences().buttonShortcut)
-
-        compose.onNodeWithText("Accessibility settings").performClick()
-        compose.waitForIdle()
-        val started = shadowOf(ApplicationProvider.getApplicationContext<Application>()).nextStartedActivity
-        assertEquals(Settings.ACTION_ACCESSIBILITY_SETTINGS, started?.action)
+        assertTrue(compose.onAllNodesWithText("volume", substring = true, ignoreCase = true).fetchSemanticsNodes().isEmpty())
     }
 
     @Test fun `voice entry reports a missing speech service instead of failing silently`() {
@@ -397,6 +359,37 @@ class UiTest {
         assertEquals(0, txCount())
         assertEquals(listOf("Cash"), runBlocking { db.accountDao().getAll() }.map { it.name })
         assertFalse(savedPreferences().onboardingDone)
+    }
+
+    @Test fun `an overall budget can be set per day and Home then shows today's`() {
+        runBlocking {
+            val cash = db.accountDao().getAll().single().id
+            val food = db.categoryDao().getAll().first { it.key == "food" }.id
+            container.repositories.transactions.save(
+                io.github.sharveshar.spendly.domain.ledger.TransactionDraft(TransactionType.EXPENSE, 120_00, cash, null, food, null, null, null, "Tea", System.currentTimeMillis()),
+                "daily-budget-test", null,
+            )
+        }
+        launchApp()
+        compose.onNode(dockTab("Budgets")).performClick()
+        shown("Overall budget")
+        compose.onNodeWithText("Not set").performClick()
+        shown("Budget for each", scroll = false)
+        compose.onNodeWithText("Day").performClick()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Limit per day").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Limit per day").performTextInput("500")
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("About ₹1", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithText("Save").performClick()
+
+        compose.waitUntil(5_000) { runBlocking { db.budgetDao().getOverall()?.period == io.github.sharveshar.spendly.domain.model.BudgetPeriod.DAILY } }
+        assertEquals(500_00L, runBlocking { db.budgetDao().getOverall()?.amountPaise })
+        shown("Daily budget")
+        shown("left to spend today")
+        shown("Every day")
+
+        compose.onNode(dockTab("Home")).performClick()
+        shown("Today's budget")
+        shown("₹380 left of ₹500")
     }
 
     @Test fun `deleting a transaction offers undo, and undo brings it back`() {

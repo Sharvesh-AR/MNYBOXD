@@ -439,12 +439,7 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
                             CategoriesScreen(spendlyViewModel { c, _ -> CategoriesViewModel(c.repositories) }, onBack = { nav.popBackStack() })
                         }
                         composable<AboutRoute> { AboutScreen(onBack = { nav.popBackStack() }) }
-                        composable<ShortcutsRoute> {
-                            ShortcutsScreen(
-                                viewModel = spendlyViewModel { c, _ -> SettingsViewModel(c.repositories, c.preferences, context.contentResolver) },
-                                onBack = { nav.popBackStack() },
-                            )
-                        }
+                        composable<ShortcutsRoute> { ShortcutsScreen(onBack = { nav.popBackStack() }) }
                         composable<WidgetsRoute> { WidgetsScreen(onBack = { nav.popBackStack() }) }
                         composable<ResetRoute> {
                             ResetScreen(viewModel = spendlyViewModel { c, _ -> ResetViewModel(c) }, onBack = { nav.popBackStack() })

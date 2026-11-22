@@ -10,10 +10,12 @@ import android.widget.FrameLayout
 import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import io.github.sharveshar.spendly.HangWatchdog
+import io.github.sharveshar.spendly.R
 import io.github.sharveshar.spendly.data.db.AccountEntity
 import io.github.sharveshar.spendly.data.db.AccountWithBalance
 import io.github.sharveshar.spendly.domain.insights.SpendRecord
 import io.github.sharveshar.spendly.domain.model.AccountType
+import io.github.sharveshar.spendly.domain.model.BudgetPeriod
 import io.github.sharveshar.spendly.domain.model.TransactionType
 import io.github.sharveshar.spendly.ui.theme.Palettes
 import org.junit.Assert.assertEquals
@@ -80,6 +82,28 @@ class WidgetTest {
         assertEquals(20_000_00L - s.spentMonthPaise, s.budgetRemainingPaise)
         assertEquals(41, s.budgetPercent)
         assertEquals("November", s.monthLabel)
+    }
+
+    @Test fun `a daily or weekly overall budget is measured over today or this week`() {
+        // Sunday 8 November: today ₹400; the week from Monday 2nd also has ₹1,000 less a ₹100 refund.
+        val daily = WidgetSnapshot.build(today, zone, records, accounts, 500_00, true, BudgetPeriod.DAILY)
+        assertEquals(400_00L, daily.budgetSpentPaise)
+        assertEquals(100_00L, daily.budgetRemainingPaise)
+        assertEquals(80, daily.budgetPercent)
+        val weekly = WidgetSnapshot.build(today, zone, records, accounts, 1_000_00, true, BudgetPeriod.WEEKLY)
+        assertEquals(1_300_00L, weekly.budgetSpentPaise)
+        assertEquals(-300_00L, weekly.budgetRemainingPaise)
+
+        val sizes = WidgetRenderer.sizesFor(WidgetKind.MONTHLY, context, 13)
+        val large = texts(inflate(WidgetRenderer.layout(context, WidgetKind.MONTHLY, 13, sizes.first { it.layout == R.layout.widget_monthly }, daily, Palettes.Default)))
+        assertTrue(large.toString(), large.contains("₹100 left today"))
+        assertTrue(large.toString(), large.contains("of ₹500 a day · 80%"))
+        for (bp in sizes) {
+            val shown = texts(inflate(WidgetRenderer.layout(context, WidgetKind.MONTHLY, 13, bp, weekly, Palettes.Default)))
+            assertTrue(shown.toString(), shown.contains("₹300 over budget this week"))
+        }
+        val stats = WidgetRenderer.sizesFor(WidgetKind.STATS, context, 14).first { it.layout == R.layout.widget_stats_wide }
+        assertTrue(texts(inflate(WidgetRenderer.layout(context, WidgetKind.STATS, 14, stats, daily, Palettes.Default))).contains("Left today"))
     }
 
     @Test fun `empty database gives honest zeros and no highest day`() {

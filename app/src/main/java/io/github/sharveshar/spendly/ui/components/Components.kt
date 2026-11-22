@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -305,6 +306,22 @@ fun BudgetBar(fraction: Float, level: BudgetLevel, modifier: Modifier = Modifier
         Box(Modifier.fillMaxWidth(animated).height(height).clip(RoundedCornerShape(height)).background(color))
         Box(Modifier.fillMaxWidth(0.8f).height(height)) {
             Box(Modifier.align(Alignment.CenterEnd).width(2.dp).height(height).background(MaterialTheme.colorScheme.background.copy(alpha = 0.6f)))
+        }
+    }
+}
+
+/**
+ * A daily or weekly budget across a month: one segment per day or week, coloured like [BudgetBar]
+ * (fine, close, over). Days or weeks still to come stay as faint track. Segments share the width,
+ * so 31 days and 5 weeks both fit any screen. Silent for screen readers: the caller describes it.
+ */
+@Composable
+fun BudgetStrip(track: List<BudgetLevel?>, modifier: Modifier = Modifier, height: Dp = 6.dp) {
+    val gap = if (track.size > 10) 2.dp else 4.dp
+    val future = Spendly.colors.chartMuted
+    Row(modifier.fillMaxWidth().height(height).clearAndSetSemantics { }, horizontalArrangement = Arrangement.spacedBy(gap)) {
+        track.forEach { level ->
+            Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(height)).background(if (level == null) future else budgetColor(level)))
         }
     }
 }

@@ -9,7 +9,9 @@ import io.github.sharveshar.spendly.data.db.SpendlyDatabase
 import io.github.sharveshar.spendly.data.db.TransactionEntity
 import io.github.sharveshar.spendly.data.db.TransactionRow
 import io.github.sharveshar.spendly.domain.insights.BudgetLevel
+import io.github.sharveshar.spendly.domain.insights.BudgetMath
 import io.github.sharveshar.spendly.domain.insights.BudgetStatus
+import io.github.sharveshar.spendly.domain.insights.BudgetWindows
 import io.github.sharveshar.spendly.domain.insights.Insights
 import io.github.sharveshar.spendly.domain.insights.SpendRecord
 import io.github.sharveshar.spendly.domain.insights.TimeRange
@@ -20,13 +22,16 @@ import io.github.sharveshar.spendly.domain.ledger.RuleResult
 import io.github.sharveshar.spendly.domain.ledger.TransactionDraft
 import io.github.sharveshar.spendly.domain.ledger.TransactionRules
 import io.github.sharveshar.spendly.domain.ledger.ValidationError
+import io.github.sharveshar.spendly.domain.model.BudgetPeriod
 import io.github.sharveshar.spendly.domain.model.TransactionType
 import kotlinx.coroutines.flow.Flow
 import java.time.Instant
+import java.time.LocalDate
 import java.time.YearMonth
 import java.time.ZoneId
 
-data class BudgetAlert(val level: BudgetLevel, val categoryName: String?, val percentUsed: Int)
+/** A save took a budget past 80% or 100% of its day, week or month ([categoryName] null = overall). */
+data class BudgetAlert(val level: BudgetLevel, val categoryName: String?, val percentUsed: Int, val period: BudgetPeriod = BudgetPeriod.MONTHLY)
 
 sealed interface SaveResult {
     data class Saved(val id: Long, val alert: BudgetAlert?) : SaveResult
@@ -124,9 +129,9 @@ class TransactionRepository(
             }
         }
 
-        val month = YearMonth.from(Instant.ofEpochMilli(t.occurredAt).atZone(zone()))
-        val range = TimeRange.month(month, zone())
-        val before = if (affectsBudgets(t.type)) budgetStatuses(month, range) else emptyMap()
+        // Each budget is judged on the day, week or month the entry falls in.
+        val date = Instant.ofEpochMilli(t.occurredAt).atZone(zone()).toLocalDate()
+        val before = if (affectsBudgets(t.type)) budgetStatuses(date) else emptyMap()
 
         val entity = TransactionEntity(
             id = existing?.id ?: 0,
@@ -153,7 +158,7 @@ class TransactionRepository(
         }
 
         val alert = if (affectsBudgets(t.type)) {
-            val after = budgetStatuses(month, range)
+            val after = budgetStatuses(date)
             worstCrossing(before, after, t.categoryId)
         } else null
         SaveResult.Saved(id, alert)
@@ -199,26 +204,39 @@ class TransactionRepository(
 
     private fun affectsBudgets(type: TransactionType) = type == TransactionType.EXPENSE || type == TransactionType.REFUND
 
-    /** Budget status keyed by category id (null = overall) for budgets that exist. */
-    private suspend fun budgetStatuses(month: YearMonth, range: TimeRange): Map<Long?, BudgetStatus> {
+    /**
+     * Each budget that applies on [date], keyed by category id (null = overall), with its status
+     * over the day, week or month containing [date].
+     */
+    private suspend fun budgetStatuses(date: LocalDate): Map<Long?, Pair<BudgetPeriod, BudgetStatus>> {
+        val month = YearMonth.from(date)
         val budgets = BudgetBook(db.budgetDao().getAll(), db.budgetDao().getOverridesFor(month.toString())).forMonth(month)
         if (budgets.isEmpty()) return emptyMap()
-        val records = dao.getSpendRecords(range.startMillis, range.endMillis)
-        val total = Insights.netSpend(records)
-        val byCategory = Insights.byCategory(records).toMap()
+        val windows = budgets.associate { it.categoryId to BudgetWindows.of(it.period, date) }
+        val from = windows.values.minOf { it.start }
+        val to = windows.values.maxOf { it.end }
+        val records = dao.getSpendRecords(from.atStartOfDay(zone()).toInstant().toEpochMilli(), to.atStartOfDay(zone()).toInstant().toEpochMilli())
         return budgets.associate { b ->
-            b.categoryId to BudgetStatus(b.amountPaise, if (b.categoryId == null) total else byCategory[b.categoryId] ?: 0L)
+            val range = windows.getValue(b.categoryId).range(zone())
+            val spent = Insights.netSpend(records.filter { it.occurredAt in range && (b.categoryId == null || it.categoryId == b.categoryId) })
+            b.categoryId to (b.period to BudgetMath.status(b.amountPaise, spent))
         }
     }
 
-    private suspend fun worstCrossing(before: Map<Long?, BudgetStatus>, after: Map<Long?, BudgetStatus>, categoryId: Long?): BudgetAlert? {
-        val candidates = listOfNotNull(
-            categoryId?.let { id -> after[id]?.let { a -> before[id]?.let { b -> BudgetStatus.crossed(b, a) }?.let { Triple(id, it, a) } } },
-            after[null]?.let { a -> before[null]?.let { b -> BudgetStatus.crossed(b, a) }?.let { Triple<Long?, BudgetLevel, BudgetStatus>(null, it, a) } },
-        )
-        val worst = candidates.maxByOrNull { it.second.ordinal } ?: return null
-        val name = worst.first?.let { db.categoryDao().getById(it)?.name }
-        return BudgetAlert(worst.second, name, worst.third.percentUsed)
+    private suspend fun worstCrossing(
+        before: Map<Long?, Pair<BudgetPeriod, BudgetStatus>>,
+        after: Map<Long?, Pair<BudgetPeriod, BudgetStatus>>,
+        categoryId: Long?,
+    ): BudgetAlert? {
+        fun crossing(id: Long?): BudgetAlert? {
+            val (period, a) = after[id] ?: return null
+            val b = before[id]?.second ?: return null
+            val level = BudgetStatus.crossed(b, a) ?: return null
+            return BudgetAlert(level, null, a.percentUsed, period)
+        }
+        val candidates = listOfNotNull(categoryId?.let { id -> crossing(id)?.let { id to it } }, crossing(null)?.let { null to it })
+        val (id, worst) = candidates.maxByOrNull { it.second.level.ordinal } ?: return null
+        return worst.copy(categoryName = id?.let { db.categoryDao().getById(it)?.name })
     }
 
     companion object {

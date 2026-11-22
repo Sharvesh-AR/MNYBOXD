@@ -47,9 +47,8 @@ import io.github.sharveshar.spendly.ui.theme.SpendlyTheme
 import io.github.sharveshar.spendly.ui.theme.ThemeCache
 
 /**
- * Quick Add as a pop-up over whatever is on screen, for entry points outside the app: the
- * volume-button shortcut, the Quick Settings tile, home-screen widgets, launcher shortcuts and the
- * "Add expense" icon. Transparent window in its own task, excluded from recents: when Quick Add
+ * Quick Add as a pop-up over whatever is on screen, for entry points outside the app: the Quick
+ * Settings tile, home-screen widgets, launcher shortcuts and the "Add expense" icon. Transparent window in its own task, excluded from recents: when Quick Add
  * closes the activity finishes and the user is back exactly where they were.
  *
  * Like MainActivity it honours only fixed actions (add, speak, add income) and ignores extras and data. A second launch

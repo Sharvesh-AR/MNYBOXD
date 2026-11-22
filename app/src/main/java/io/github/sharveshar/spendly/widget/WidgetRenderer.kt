@@ -25,6 +25,7 @@ import io.github.sharveshar.spendly.QuickAddActivity
 import io.github.sharveshar.spendly.R
 import io.github.sharveshar.spendly.core.money.Money
 import io.github.sharveshar.spendly.domain.model.AccountType
+import io.github.sharveshar.spendly.domain.model.BudgetPeriod
 import io.github.sharveshar.spendly.ui.theme.SpendlyPalette
 import kotlin.math.max
 
@@ -216,14 +217,22 @@ object WidgetRenderer {
         }
         v.setImageViewBitmap(R.id.progress, progressBitmap(context, if (bp.layout == R.layout.widget_monthly) 200 else 120, fraction ?: 0f, p.track, barColor))
         val remaining = d.budgetRemainingPaise
+        val large = bp.layout == R.layout.widget_monthly
+        // A daily or weekly budget always says which stretch it means; a monthly one on the large layout.
+        val now = when (d.budgetPeriod) {
+            BudgetPeriod.DAILY -> " today"
+            BudgetPeriod.WEEKLY -> " this week"
+            BudgetPeriod.MONTHLY -> if (large) " this month" else ""
+        }
         val caption = when {
-            remaining == null -> "No monthly budget set"
-            remaining >= 0 -> "${Money.format(remaining)} left" + if (bp.layout == R.layout.widget_monthly) " this month" else ""
-            else -> "${Money.format(-remaining)} over budget"
+            remaining == null -> "No budget set"
+            remaining >= 0 -> "${Money.format(remaining)} left$now"
+            else -> "${Money.format(-remaining)} over budget" + if (d.budgetPeriod == BudgetPeriod.MONTHLY) "" else now
         }
         v.text(R.id.caption, caption, if (remaining != null && remaining < 0) p.negative else p.textMuted)
-        if (bp.layout == R.layout.widget_monthly) {
-            v.text(R.id.detail, d.budgetPaise?.let { "of ${Money.format(it)} · ${d.budgetPercent}%" } ?: "${Money.format(d.incomeMonthPaise)} income", p.textMuted)
+        if (large) {
+            val per = if (d.budgetPeriod == BudgetPeriod.MONTHLY) "" else " a ${d.budgetPeriod.unit}"
+            v.text(R.id.detail, d.budgetPaise?.let { "of ${Money.format(it)}$per · ${d.budgetPercent}%" } ?: "${Money.format(d.incomeMonthPaise)} income", p.textMuted)
             v.setTextColor(R.id.chart_label, p.textMuted.toArgb())
             v.setImageViewBitmap(R.id.chart, barsBitmap(context, bp.chartWidthDp, bp.chartHeightDp, d, p, labels = false))
             v.setContentDescription(R.id.chart, weekDescription(d))
@@ -311,8 +320,8 @@ object WidgetRenderer {
             Triple("Entries", d.transactionsThisMonth.toString(), p.text),
             when {
                 remaining == null -> Triple("Budget", "Not set", p.textMuted)
-                remaining >= 0 -> Triple(if (wide) "Budget left" else "Left", Money.format(remaining), p.positive)
-                else -> Triple(if (wide) "Over budget" else "Over", Money.format(-remaining), p.negative)
+                remaining >= 0 -> Triple(if (!wide) "Left" else when (d.budgetPeriod) { BudgetPeriod.DAILY -> "Left today"; BudgetPeriod.WEEKLY -> "Left this week"; BudgetPeriod.MONTHLY -> "Budget left" }, Money.format(remaining), p.positive)
+                else -> Triple(if (!wide) "Over" else when (d.budgetPeriod) { BudgetPeriod.DAILY -> "Over today"; BudgetPeriod.WEEKLY -> "Over this week"; BudgetPeriod.MONTHLY -> "Over budget" }, Money.format(-remaining), p.negative)
             },
         )
         val ids = listOf(

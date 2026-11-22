@@ -42,8 +42,8 @@
         </activity>
 
         <!--
-          Quick Add as a pop-up over the current app, for the volume-button shortcut, tile, widgets
-          and launcher shortcuts. Own task, not in recents, transparent; finishes when Quick Add
+          Quick Add as a pop-up over the current app, for the Quick Settings tile, widgets, launcher
+          shortcuts and the "Add expense" icon. Own task, not in recents, transparent; finishes when Quick Add
           closes. Exported so launchers can start it from app shortcuts; it honours only its three
           fixed actions (add, speak, add income) and ignores extras and data, like MainActivity.
         -->
@@ -91,11 +91,10 @@
         </activity>
 
         <!--
-          No accessibility service, notification listener or SMS permission here: Google Play
+          No accessibility service, notification listener or SMS permission, ever: Google Play
           Protect blocks apps that declare any of them from being installed from a browser,
-          messaging app or file manager in some markets. The optional volume-button shortcut (an
-          accessibility service) is declared only in the volumeShortcut build:
-          src/volumeShortcut/AndroidManifest.xml. ManifestPolicyTest guards this.
+          messaging app or file manager in some markets (India among them). ManifestPolicyTest
+          and CI guard this.
         -->
 
         <!--

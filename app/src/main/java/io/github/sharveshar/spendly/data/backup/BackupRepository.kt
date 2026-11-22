@@ -14,6 +14,7 @@ import io.github.sharveshar.spendly.data.db.SpendlyDatabase
 import io.github.sharveshar.spendly.data.db.TransactionEntity
 import io.github.sharveshar.spendly.data.db.TransactionRow
 import io.github.sharveshar.spendly.domain.model.AccountType
+import io.github.sharveshar.spendly.domain.model.BudgetPeriod
 import io.github.sharveshar.spendly.domain.model.CategoryKind
 import io.github.sharveshar.spendly.domain.model.PaymentChannel
 import io.github.sharveshar.spendly.domain.model.PaymentProvider
@@ -45,7 +46,7 @@ class BackupRepository(
                     it.updatedAt, it.clientRef,
                 )
             },
-            budgets = db.budgetDao().getAll().map { BackupBudget(it.id, it.categoryId, it.amountPaise, it.updatedAt) },
+            budgets = db.budgetDao().getAll().map { BackupBudget(it.id, it.categoryId, it.amountPaise, it.updatedAt, it.period.name) },
             budgetOverrides = db.budgetDao().getOverrides().map { BackupBudgetOverride(it.id, it.month, it.categoryId, it.amountPaise, it.updatedAt) },
         )
     }
@@ -93,7 +94,7 @@ class BackupRepository(
             // Originals before the refunds that reference them.
             m.insertTransactions(txs.filter { it.refundOfId == null })
             m.insertTransactions(txs.filter { it.refundOfId != null })
-            m.insertBudgets(s.budgets.map { BudgetEntity(it.id, it.categoryId, it.amountPaise, it.updatedAt) })
+            m.insertBudgets(s.budgets.map { BudgetEntity(it.id, it.categoryId, it.amountPaise, it.updatedAt, BudgetPeriod.valueOf(it.period)) })
             m.insertBudgetOverrides(s.budgetOverrides.map { BudgetOverrideEntity(it.id, it.month, it.categoryId, it.amountPaise, it.updatedAt) })
         }
     }

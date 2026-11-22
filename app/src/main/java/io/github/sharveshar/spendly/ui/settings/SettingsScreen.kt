@@ -81,7 +81,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.sharveshar.spendly.BuildConfig
 import io.github.sharveshar.spendly.ui.components.APP_NAME
 import io.github.sharveshar.spendly.data.backup.BackupCodec
-import io.github.sharveshar.spendly.shortcut.ShortcutSettings
 import io.github.sharveshar.spendly.ui.common.Formats
 import io.github.sharveshar.spendly.ui.components.OriginAnchor
 import io.github.sharveshar.spendly.ui.components.OriginPopup
@@ -148,8 +147,7 @@ fun SettingsScreen(
                 SettingRow(
                     Icons.Rounded.TouchApp,
                     "Shortcut settings",
-                    if (ShortcutSettings.isButtonShortcutAvailable) "Volume-button shortcut, Add expense icon, Quick Settings tile"
-                    else "Add expense icon, Quick Settings tile, app shortcuts",
+                    "Add expense icon, Quick Settings tile, app shortcuts",
                     chevron = true,
                     onClick = onShortcuts,
                 )

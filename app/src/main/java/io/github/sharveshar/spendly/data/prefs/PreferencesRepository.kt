@@ -9,15 +9,12 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.emptyPreferences
-import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import io.github.sharveshar.spendly.AppTab
 import io.github.sharveshar.spendly.domain.model.PaymentChannel
 import io.github.sharveshar.spendly.domain.model.PaymentProvider
-import io.github.sharveshar.spendly.shortcut.ButtonShortcut
-import io.github.sharveshar.spendly.shortcut.ShortcutButton
 import io.github.sharveshar.spendly.ui.navigation.DockOrder
 import io.github.sharveshar.spendly.ui.theme.ThemeCache
 import io.github.sharveshar.spendly.ui.theme.ThemeChoice
@@ -38,14 +35,6 @@ data class UserPreferences(
     val lastAccountId: Long? = null,
     val lastChannel: PaymentChannel? = null,
     val lastProvider: PaymentProvider? = null,
-    /** Volume-button pattern that opens Quick Add (only acts once the user enables the service). */
-    val buttonShortcut: ButtonShortcut = ButtonShortcut(),
-    /**
-     * False after the user taps "Turn off" in Spendly: the running volume-button service then
-     * switches itself off (AccessibilityService.disableSelf). Set back to true whenever the
-     * service is switched on again in Android's Accessibility settings.
-     */
-    val buttonShortcutActive: Boolean = true,
     /** The bottom dock's tabs, in the order the user dragged them into. */
     val dockOrder: List<AppTab> = DockOrder.DEFAULT,
 )
@@ -72,9 +61,6 @@ class PreferencesRepository(private val context: Context) {
         val lastAccount = longPreferencesKey("last_account_id")
         val lastChannel = stringPreferencesKey("last_channel")
         val lastProvider = stringPreferencesKey("last_provider")
-        val shortcutButton = stringPreferencesKey("shortcut_button")
-        val shortcutPresses = intPreferencesKey("shortcut_presses")
-        val shortcutActive = booleanPreferencesKey("shortcut_active")
         val dockOrder = stringPreferencesKey("dock_order")
     }
 
@@ -89,11 +75,6 @@ class PreferencesRepository(private val context: Context) {
                 lastAccountId = p[Keys.lastAccount],
                 lastChannel = p[Keys.lastChannel]?.let { runCatching { PaymentChannel.valueOf(it) }.getOrNull() },
                 lastProvider = p[Keys.lastProvider]?.let { runCatching { PaymentProvider.valueOf(it) }.getOrNull() },
-                buttonShortcut = ButtonShortcut(
-                    button = p[Keys.shortcutButton]?.let { runCatching { ShortcutButton.valueOf(it) }.getOrNull() } ?: ShortcutButton.VOLUME_DOWN,
-                    presses = p[Keys.shortcutPresses]?.takeIf { it in ButtonShortcut.PRESS_CHOICES } ?: ButtonShortcut.DEFAULT_PRESSES,
-                ),
-                buttonShortcutActive = p[Keys.shortcutActive] ?: true,
                 dockOrder = DockOrder.parse(p[Keys.dockOrder]),
             )
         }
@@ -117,15 +98,6 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setOnboardingDone() = context.dataStore.edit { it[Keys.onboarding] = true }
     suspend fun setVoiceDisclosureAccepted() = context.dataStore.edit { it[Keys.voiceDisclosure] = true }
     suspend fun setSecureScreen(enabled: Boolean) = context.dataStore.edit { it[Keys.secureScreen] = enabled }
-
-    // Button and press count are saved separately so quick changes to both can't overwrite each other.
-    suspend fun setShortcutButton(button: ShortcutButton) = context.dataStore.edit { it[Keys.shortcutButton] = button.name }
-    suspend fun setShortcutActive(active: Boolean) = context.dataStore.edit { it[Keys.shortcutActive] = active }
-
-    suspend fun setShortcutPresses(presses: Int) {
-        require(presses in ButtonShortcut.PRESS_CHOICES) { "Unsupported press count $presses" }
-        context.dataStore.edit { it[Keys.shortcutPresses] = presses }
-    }
 
     /** Saves the dock's tab order, normalised so every tab is stored exactly once. */
     suspend fun setDockOrder(order: List<AppTab>) {

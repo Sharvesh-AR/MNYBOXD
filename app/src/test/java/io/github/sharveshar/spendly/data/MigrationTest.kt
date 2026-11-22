@@ -53,5 +53,24 @@ class MigrationTest {
         db.close()
     }
 
+    @Test fun `migration to 3 keeps every budget monthly and allows daily and weekly ones`() {
+        helper.createDatabase(TEST_DB, 2).apply {
+            execSQL("INSERT INTO categories (id, `key`, name, kind, icon_key, color_index, is_archived, sort_order) VALUES (1, 'food', 'Food', 'EXPENSE', 'restaurant', 0, 0, 0)")
+            execSQL("INSERT INTO budgets (category_id, amount_paise, updated_at) VALUES (NULL, 2000000, 0)")
+            execSQL("INSERT INTO budgets (category_id, amount_paise, updated_at) VALUES (1, 900000, 0)")
+            execSQL("INSERT INTO budget_overrides (month, category_id, amount_paise, updated_at) VALUES ('2026-12', 1, 1200000, 0)")
+            close()
+        }
+        val db = helper.runMigrationsAndValidate(TEST_DB, 3, true, *SpendlyDatabase.MIGRATIONS)
+        db.query("SELECT period FROM budgets ORDER BY id").use {
+            val periods = buildList { while (it.moveToNext()) add(it.getString(0)) }
+            assertEquals(listOf("MONTHLY", "MONTHLY"), periods)
+        }
+        db.query("SELECT COUNT(*) FROM budget_overrides").use { it.moveToFirst(); assertEquals(1, it.getInt(0)) }
+        db.execSQL("UPDATE budgets SET period = 'DAILY' WHERE category_id = 1")
+        db.query("SELECT period FROM budgets WHERE category_id = 1").use { it.moveToFirst(); assertEquals("DAILY", it.getString(0)) }
+        db.close()
+    }
+
     private companion object { const val TEST_DB = "migration-test" }
 }

@@ -65,8 +65,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -75,19 +73,22 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.sharveshar.spendly.core.money.Money
 import io.github.sharveshar.spendly.domain.insights.BudgetLevel
+import io.github.sharveshar.spendly.domain.insights.BudgetView
+import io.github.sharveshar.spendly.domain.model.BudgetPeriod
+import io.github.sharveshar.spendly.ui.budgets.BudgetWords
 import io.github.sharveshar.spendly.ui.common.Formats
 import io.github.sharveshar.spendly.ui.common.Today
 import io.github.sharveshar.spendly.ui.components.AddButtonPlace
 import io.github.sharveshar.spendly.ui.components.AmountPill
 import io.github.sharveshar.spendly.ui.components.BudgetBar
+import io.github.sharveshar.spendly.ui.components.BudgetStrip
 import io.github.sharveshar.spendly.ui.components.EmptyState
 import io.github.sharveshar.spendly.ui.components.FlowLine
 import io.github.sharveshar.spendly.ui.components.OriginPopup
 import io.github.sharveshar.spendly.ui.components.RollingAmount
 import io.github.sharveshar.spendly.ui.components.SectionCard
 import io.github.sharveshar.spendly.ui.components.SectionHeader
-import io.github.sharveshar.spendly.ui.components.AppLogo
-import io.github.sharveshar.spendly.ui.components.APP_NAME
+import io.github.sharveshar.spendly.ui.components.Wordmark
 import io.github.sharveshar.spendly.ui.insights.WeekGlanceCard
 import io.github.sharveshar.spendly.ui.components.TransactionListItem
 import io.github.sharveshar.spendly.ui.components.originAnchor
@@ -171,8 +172,8 @@ fun HomeScreen(
     LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
         item(key = "top") {
             Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.sm, top = Space.sm), verticalAlignment = Alignment.CenterVertically) {
-                // Just the app logo: the app doesn't need to introduce itself on every visit.
-                AppLogo(Modifier.clearAndSetSemantics { heading(); contentDescription = APP_NAME }, height = 22.dp)
+                // The app's name, as the page heading.
+                Wordmark(Modifier.semantics { heading() })
                 Spacer(Modifier.weight(1f))
                 // Bell: budgets that need attention, with a dot when there are any.
                 IconButton(onClick = { showAlerts = true }, modifier = Modifier.originAnchor(bell)) {
@@ -261,28 +262,54 @@ fun HomeScreen(
 
         item(key = "budget") {
             SectionCard(Modifier.staggered(stagger, 1).padding(horizontal = Space.gutter).padding(top = Space.lg), onClick = onBudgets) {
-                val b = budget
-                if (b != null) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(if (state.isCurrentMonth) "Budget" else "Budget · ${state.month.format(Formats.month)}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-                        Text("${b.percentUsed}%", style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"), color = if (b.remainingPaise < 0) c.negative else MaterialTheme.colorScheme.onSurface)
-                    }
-                    Spacer(Modifier.height(Space.md))
-                    BudgetBar(b.fraction, b.level, height = 6.dp)
-                    Spacer(Modifier.height(Space.md))
-                    Text(
-                        if (b.remainingPaise >= 0) "${Money.format(b.remainingPaise)} left of ${Money.format(b.limitPaise)}"
-                        else "${Money.format(-b.remainingPaise)} over the ${Money.format(b.limitPaise)} budget",
-                        style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
-                        color = if (b.remainingPaise < 0) c.negative else c.muted,
-                    )
-                } else if (!state.loading) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Column(Modifier.weight(1f)) {
-                            Text("Set a monthly budget", style = MaterialTheme.typography.titleSmall)
-                            Text("See what's left to spend at a glance.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                when (val b = budget) {
+                    is BudgetView.Live -> {
+                        val s = b.status
+                        val title = when {
+                            b.period == BudgetPeriod.DAILY -> "Today's budget"
+                            b.period == BudgetPeriod.WEEKLY -> "This week's budget"
+                            state.isCurrentMonth -> "Budget"
+                            else -> "Budget · ${state.month.format(Formats.month)}"
                         }
-                        Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = c.muted)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(title, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                            Text("${s.percentUsed}%", style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"), color = if (s.remainingPaise < 0) c.negative else MaterialTheme.colorScheme.onSurface)
+                        }
+                        Spacer(Modifier.height(Space.md))
+                        BudgetBar(s.fraction, s.level, height = 6.dp)
+                        Spacer(Modifier.height(Space.md))
+                        Text(
+                            if (s.remainingPaise >= 0) "${Money.format(s.remainingPaise)} left of ${Money.format(s.limitPaise)}"
+                            else "${Money.format(-s.remainingPaise)} over the ${Money.format(s.limitPaise)} budget",
+                            style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                            color = if (s.remainingPaise < 0) c.negative else c.muted,
+                        )
+                    }
+                    // A daily or weekly budget in a month that's over: how its days or weeks went.
+                    is BudgetView.Past -> {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("${BudgetWords.title(b.period)} · ${state.month.format(Formats.month)}", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                            Text("${b.kept}/${b.track.size}", style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"))
+                        }
+                        Spacer(Modifier.height(Space.md))
+                        BudgetStrip(b.track)
+                        Spacer(Modifier.height(Space.md))
+                        Text(
+                            "Within ${BudgetWords.perPeriod(b.limitPaise, b.period)} on ${b.kept} of ${BudgetWords.count(b.track.size, b.period)}",
+                            style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                            color = c.muted,
+                        )
+                    }
+                    // Home never shows months to come.
+                    is BudgetView.Upcoming -> Unit
+                    null -> if (!state.loading) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Column(Modifier.weight(1f)) {
+                                Text("Set a budget", style = MaterialTheme.typography.titleSmall)
+                                Text("For a day, a week or a month: see what's left to spend at a glance.", style = MaterialTheme.typography.bodySmall, color = c.muted)
+                            }
+                            Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = c.muted)
+                        }
                     }
                 }
             }
@@ -323,14 +350,14 @@ fun HomeScreen(
         }
     }
 
-    // Alerts: budgets at 80% or more this month. Tap one to open Budgets.
+    // Alerts: budgets at 80% or more of the day, week or month we're in. Tap one to open Budgets.
     OriginPopup(visible = showAlerts, anchor = bell, onDismissRequest = { showAlerts = false }) {
         Column(Modifier.padding(Space.xl)) {
             Text("Alerts", style = MaterialTheme.typography.titleLarge)
             Spacer(Modifier.height(Space.md))
             if (state.alerts.isEmpty()) {
                 Text(
-                    "You're all clear. When a budget passes 80% this month, it shows up here.",
+                    "You're all clear. When a budget passes 80% of its day, week or month, it shows up here.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = c.muted,
                 )

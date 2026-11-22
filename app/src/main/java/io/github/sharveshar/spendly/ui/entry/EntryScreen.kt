@@ -955,10 +955,17 @@ private fun VoiceBanner(transcript: String, issues: List<String>, onDismiss: () 
     }
 }
 
-/** "Food & Dining budget is 85% used", shown with the confirmation when a save crosses a limit. */
+/**
+ * "Food & Dining budget is 85% used" or "Daily Food & Dining budget is used up (104%)", shown with
+ * the confirmation when a save crosses a limit.
+ */
 @Composable
 private fun BudgetAlertText(a: io.github.sharveshar.spendly.data.repo.BudgetAlert) {
-    val who = a.categoryName?.let { "$it budget" } ?: "Monthly budget"
+    val who = when {
+        a.categoryName == null -> io.github.sharveshar.spendly.ui.budgets.BudgetWords.title(a.period)
+        a.period == io.github.sharveshar.spendly.domain.model.BudgetPeriod.MONTHLY -> "${a.categoryName} budget"
+        else -> "${a.period.label} ${a.categoryName} budget"
+    }
     Text(
         if (a.level == BudgetLevel.EXCEEDED) "$who is used up (${a.percentUsed}%)" else "$who is ${a.percentUsed}% used",
         color = if (a.level == BudgetLevel.EXCEEDED) Spendly.colors.negative else Spendly.colors.warning,

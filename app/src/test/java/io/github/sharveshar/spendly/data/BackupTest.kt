@@ -57,6 +57,9 @@ class BackupTest {
         budgets.setLimit(null, 20_000_00)
         budgets.setMonthLimit(java.time.YearMonth.of(2026, 12), null, 45_000_00)
         budgets.setMonthLimit(java.time.YearMonth.of(2026, 12), food, 9_000_00)
+        budgets.setLimit(food, 400_00, io.github.sharveshar.spendly.domain.model.BudgetPeriod.DAILY)
+        val shopping = db.categoryDao().getAll().first { it.key == "shopping" }.id
+        budgets.setLimit(shopping, 2_500_00, io.github.sharveshar.spendly.domain.model.BudgetPeriod.WEEKLY)
         return db to bank
     }
 
@@ -80,6 +83,9 @@ class BackupTest {
         assertEquals(balances(source), balances(target))
         assertEquals(source.transactionDao().getAll(), target.transactionDao().getAll())
         assertEquals(source.budgetDao().getOverrides(), target.budgetDao().getOverrides())
+        // Daily and weekly budgets come back as daily and weekly.
+        assertEquals(source.budgetDao().getAll().sortedBy { it.id }, target.budgetDao().getAll().sortedBy { it.id })
+        assertEquals(setOf("MONTHLY", "DAILY", "WEEKLY"), snapshot.budgets.map { it.period }.toSet())
         source.close(); target.close()
     }
 
@@ -128,8 +134,14 @@ class BackupTest {
         invalid(good.copy(budgetOverrides = good.budgetOverrides.map { it.copy(month = "2026-13") }))
         invalid(good.copy(budgetOverrides = good.budgetOverrides + good.budgetOverrides.first().copy(id = 99)))
         invalid(good.copy(budgetOverrides = good.budgetOverrides.map { it.copy(amountPaise = 0) }))
+        invalid(good.copy(budgets = good.budgets.map { it.copy(period = "YEARLY") }))
         // Backups made before month budgets existed still restore.
         assertTrue(BackupValidator.validate(good.copy(budgetOverrides = emptyList())) is BackupValidation.Valid)
+        // So do backups made before daily and weekly budgets: theirs are all monthly.
+        val old = BackupCodec.json.encodeToString(io.github.sharveshar.spendly.data.backup.BackupSnapshot.serializer(), good).replace(Regex(",\\s*\"period\":\"[A-Z]+\""), "")
+        val decoded = BackupCodec.json.decodeFromString(io.github.sharveshar.spendly.data.backup.BackupSnapshot.serializer(), old)
+        assertTrue(decoded.budgets.all { it.period == "MONTHLY" })
+        assertTrue(BackupValidator.validate(decoded) is BackupValidation.Valid)
         assertEquals(2, good.budgetOverrides.size)
     }
 

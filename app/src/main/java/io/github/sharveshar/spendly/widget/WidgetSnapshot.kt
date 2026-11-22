@@ -5,11 +5,13 @@ package io.github.sharveshar.spendly.widget
 
 import io.github.sharveshar.spendly.Repositories
 import io.github.sharveshar.spendly.data.db.AccountWithBalance
+import io.github.sharveshar.spendly.domain.insights.BudgetWindows
 import io.github.sharveshar.spendly.domain.insights.Insights
 import io.github.sharveshar.spendly.domain.insights.SpendRecord
 import io.github.sharveshar.spendly.domain.insights.TimeRange
 import io.github.sharveshar.spendly.domain.ledger.BalanceCalculator
 import io.github.sharveshar.spendly.domain.model.AccountType
+import io.github.sharveshar.spendly.domain.model.BudgetPeriod
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
 import java.time.YearMonth
@@ -34,7 +36,7 @@ data class WidgetSnapshot(
     val spentTodayPaise: Long,
     /** Expenses, income and refunds dated this month (transfers aren't spending). */
     val transactionsThisMonth: Int,
-    /** Overall monthly budget, or null if none is set. */
+    /** The overall budget's limit, or null if none is set. */
     val budgetPaise: Long?,
     /** Net spending for each of the last 7 days, oldest first, ending today. */
     val week: List<Long>,
@@ -45,10 +47,14 @@ data class WidgetSnapshot(
     /** Active accounts in display order (debit cards are excluded; they spend from a bank). */
     val accounts: List<WidgetAccount>,
     val hasAnyTransactions: Boolean,
+    /** How often the overall budget starts over. */
+    val budgetPeriod: BudgetPeriod = BudgetPeriod.MONTHLY,
+    /** Net spending in the overall budget's current day, week or month (never below zero). */
+    val budgetSpentPaise: Long = maxOf(0L, spentMonthPaise),
 ) {
     val monthLabel: String get() = today.format(MONTH)
-    val budgetRemainingPaise: Long? get() = budgetPaise?.let { it - spentMonthPaise }
-    val budgetFraction: Float? get() = budgetPaise?.takeIf { it > 0 }?.let { (spentMonthPaise.toDouble() / it).toFloat().coerceAtLeast(0f) }
+    val budgetRemainingPaise: Long? get() = budgetPaise?.let { it - budgetSpentPaise }
+    val budgetFraction: Float? get() = budgetPaise?.takeIf { it > 0 }?.let { (budgetSpentPaise.toDouble() / it).toFloat().coerceAtLeast(0f) }
     val budgetPercent: Int? get() = budgetFraction?.let { (it * 100).toInt() }
     val weekTotalPaise: Long get() = week.sum()
     val weekDays: List<LocalDate> get() = (6 downTo 0).map { today.minusDays(it.toLong()) }
@@ -70,10 +76,13 @@ data class WidgetSnapshot(
             accounts: List<AccountWithBalance>,
             overallBudgetPaise: Long?,
             hasAnyTransactions: Boolean,
+            budgetPeriod: BudgetPeriod = BudgetPeriod.MONTHLY,
         ): WidgetSnapshot {
             val month = TimeRange.month(YearMonth.from(today), zone)
             val monthRecords = records.filter { it.occurredAt in month }
             val todayRange = TimeRange.day(today, zone)
+            // The overall budget runs over today, this week or this month.
+            val budgetRange = BudgetWindows.of(budgetPeriod, today).range(zone)
             val active = accounts.filter { !it.account.archived }
             val shown = active
                 .filter { it.account.type != AccountType.DEBIT_CARD }
@@ -94,6 +103,8 @@ data class WidgetSnapshot(
                 cardsOwedPaise = active.filter { it.account.type.isLiability }.sumOf { BalanceCalculator.outstanding(it.balancePaise) },
                 accounts = shown,
                 hasAnyTransactions = hasAnyTransactions,
+                budgetPeriod = budgetPeriod,
+                budgetSpentPaise = maxOf(0L, Insights.netSpend(records.filter { it.occurredAt in budgetRange })),
             )
         }
 
@@ -103,11 +114,12 @@ data class WidgetSnapshot(
             val weekStart = TimeRange.day(today.minusDays(6), zone)
             val from = minOf(month.startMillis, weekStart.startMillis)
             val to = maxOf(month.endMillis, TimeRange.day(today, zone).endMillis)
+            // This week's Monday is never before today minus six days, so a weekly budget is covered too.
             val records = repos.transactions.observeSpendRecords(TimeRange(from, to)).first()
             val accounts = repos.accounts.observeWithBalances().first()
-            val budget = repos.budgets.book().overall(YearMonth.from(today))?.amountPaise
+            val budget = repos.budgets.book().overall(YearMonth.from(today))
             val count = repos.transactions.observeCount().first()
-            return build(today, zone, records, accounts, budget, count > 0)
+            return build(today, zone, records, accounts, budget?.amountPaise, count > 0, budget?.period ?: BudgetPeriod.MONTHLY)
         }
     }
 }

@@ -6,6 +6,7 @@ package io.github.sharveshar.spendly.data.backup
 import io.github.sharveshar.spendly.core.money.Money
 import io.github.sharveshar.spendly.domain.ledger.TransactionRules
 import io.github.sharveshar.spendly.domain.model.AccountType
+import io.github.sharveshar.spendly.domain.model.BudgetPeriod
 import io.github.sharveshar.spendly.domain.model.CategoryKind
 import io.github.sharveshar.spendly.domain.model.PaymentChannel
 import io.github.sharveshar.spendly.domain.model.PaymentProvider
@@ -144,6 +145,7 @@ object BackupValidator {
             if (b.id <= 0 || !budgetIds.add(b.id)) fail("Budget has an invalid id")
             if (!budgetCats.add(b.categoryId)) fail("Duplicate budget")
             if (!Money.isValidAmount(b.amountPaise)) fail("Budget ${b.id} has an invalid amount")
+            if (enumOrNull<BudgetPeriod>(b.period) == null) fail("Budget ${b.id} has an unknown period")
             b.categoryId?.let { if (categoryKinds[it] != CategoryKind.EXPENSE) fail("Budget ${b.id} has an invalid category") }
         }
 

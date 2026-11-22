@@ -7,12 +7,19 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import io.github.sharveshar.spendly.Repositories
+import io.github.sharveshar.spendly.core.money.Money
 import io.github.sharveshar.spendly.data.db.TransactionRow
 import io.github.sharveshar.spendly.domain.insights.BudgetLevel
+import io.github.sharveshar.spendly.domain.insights.BudgetMath
 import io.github.sharveshar.spendly.domain.insights.BudgetStatus
+import io.github.sharveshar.spendly.domain.insights.BudgetView
+import io.github.sharveshar.spendly.domain.insights.BudgetWindows
+import io.github.sharveshar.spendly.domain.insights.DailySpend
 import io.github.sharveshar.spendly.domain.insights.Insights
 import io.github.sharveshar.spendly.domain.insights.Recap
 import io.github.sharveshar.spendly.domain.insights.TimeRange
+import io.github.sharveshar.spendly.domain.model.BudgetPeriod
+import io.github.sharveshar.spendly.ui.budgets.BudgetWords
 import io.github.sharveshar.spendly.ui.common.AccountUi
 import io.github.sharveshar.spendly.ui.common.Today
 import io.github.sharveshar.spendly.ui.common.netWorth
@@ -48,10 +55,11 @@ data class HomeUiState(
     val hasAccounts: Boolean = false,
     val spentInMonth: Long = 0,
     val spentToday: Long = 0,
-    val budget: BudgetStatus? = null,
+    /** The overall budget in the month picked: today, this week or that month, or how a past month went. */
+    val budget: BudgetView? = null,
     /** Spending so far in the month, day by day (running total), for the line behind the balance. */
     val monthToDate: List<Long> = emptyList(),
-    /** Budgets at 80% or more this month. */
+    /** Budgets at 80% or more right now: today, this week or this month, as each one runs. */
     val alerts: List<HomeAlert> = emptyList(),
     /** This week so far against the same days last week. */
     val week: Recap? = null,
@@ -81,38 +89,35 @@ class HomeViewModel(repos: Repositories, private val zone: () -> ZoneId = { Zone
         val current = YearMonth.from(today)
         val month = p?.takeIf { !it.isAfter(current) } ?: current
         val monthRange = TimeRange.month(month, zone())
-        val currentRange = TimeRange.month(current, zone())
         val todayRange = TimeRange.day(today, zone())
-        // From the earlier of the picked month and last week's Monday (for the week card).
+        // Weekly budgets reach into the weeks either side of a month.
+        val pickedAround = BudgetWindows.around(month)
+        val currentAround = BudgetWindows.around(current)
+        // From the earliest of those and last week's Monday (for the week card).
         val lastMonday = today.with(TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY)).minusWeeks(1)
-        val from = minOf(monthRange.startMillis, TimeRange.day(lastMonday, zone()).startMillis)
+        val from = minOf(pickedAround.range(zone()).startMillis, TimeRange.day(lastMonday, zone()).startMillis)
+        val to = maxOf(currentAround.range(zone()).endMillis, todayRange.endMillis)
         combine(
-            repos.transactions.observeSpendRecords(TimeRange(from, maxOf(currentRange.endMillis, todayRange.endMillis))),
+            repos.transactions.observeSpendRecords(TimeRange(from, to)),
             repos.accounts.observeWithBalances(),
             combine(repos.budgets.observeBook(), repos.categories.observeAll()) { b, c -> b to c },
             repos.transactions.observeRecent(5),
             repos.transactions.observeCount(),
         ) { records, accountRows, (book, categories), recent, count ->
             val inMonth = records.filter { it.occurredAt in monthRange }
-            val inCurrent = records.filter { it.occurredAt in currentRange }
             val spent = Insights.netSpend(inMonth)
             val accounts = AccountUi.from(accountRows)
             val overall = book.overall(month)
-            val budgetsNow = book.forMonth(current)
             val days = if (month == current) today.dayOfMonth else month.lengthOfMonth()
 
-            // Alerts are about now: this month's budgets at 80% or more.
+            // Alerts are about now: each budget over the day, week or month we're in.
             val names = categories.associate { it.id to it.name }
-            val byCategory = Insights.byCategory(inCurrent).toMap()
-            val alerts = buildList {
-                budgetsNow.firstOrNull { it.categoryId == null }?.let { b ->
-                    val s = BudgetStatus(b.amountPaise, Insights.netSpend(inCurrent))
-                    if (s.level != BudgetLevel.OK) add(alertFor("Monthly budget", s))
-                }
-                budgetsNow.filter { it.categoryId != null }.forEach { b ->
-                    val s = BudgetStatus(b.amountPaise, byCategory[b.categoryId] ?: 0L)
-                    if (s.level != BudgetLevel.OK) add(alertFor("${names[b.categoryId] ?: "Category"} budget", s))
-                }
+            val alerts = book.forMonth(current).mapNotNull { b ->
+                val window = BudgetWindows.of(b.period, today).range(zone())
+                val inWindow = records.filter { it.occurredAt in window && (b.categoryId == null || it.categoryId == b.categoryId) }
+                val s = BudgetMath.status(b.amountPaise, Insights.netSpend(inWindow))
+                if (s.level == BudgetLevel.OK) null
+                else alertFor(if (b.categoryId == null) BudgetWords.title(b.period) else "${names[b.categoryId] ?: "Category"} budget", b.period, s)
             }.sortedByDescending { it.level }
 
             HomeUiState(
@@ -124,7 +129,7 @@ class HomeViewModel(repos: Repositories, private val zone: () -> ZoneId = { Zone
                 hasAccounts = accounts.any { !it.archived },
                 spentInMonth = spent,
                 spentToday = Insights.netSpend(records.filter { it.occurredAt in todayRange }),
-                budget = overall?.let { BudgetStatus(it.amountPaise, spent) },
+                budget = overall?.let { b -> BudgetMath.view(b.period, b.amountPaise, month, today, DailySpend.of(records, pickedAround, zone())) },
                 monthToDate = runningTotal(Insights.dailyNetSpend(inMonth, month.atDay(1), days, zone())),
                 alerts = alerts,
                 week = Insights.weekRecap(records, today, zone()),
@@ -134,11 +139,15 @@ class HomeViewModel(repos: Repositories, private val zone: () -> ZoneId = { Zone
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
 
-    private fun alertFor(title: String, s: BudgetStatus) = HomeAlert(
-        title = title,
-        detail = if (s.remainingPaise < 0) "Over by ${io.github.sharveshar.spendly.core.money.Money.format(-s.remainingPaise)} (${s.percentUsed}%)"
-        else "${s.percentUsed}% used · ${io.github.sharveshar.spendly.core.money.Money.format(s.remainingPaise)} left",
-        level = s.level,
-    )
+    /** "Over by ₹40 today (108%)" or "85% used this week · ₹450 left". */
+    private fun alertFor(title: String, period: BudgetPeriod, s: BudgetStatus): HomeAlert {
+        val now = BudgetWords.nowSuffix(period)
+        return HomeAlert(
+            title = title,
+            detail = if (s.remainingPaise < 0) "Over by ${Money.format(-s.remainingPaise)}$now (${s.percentUsed}%)"
+            else "${s.percentUsed}% used$now · ${Money.format(s.remainingPaise)} left",
+            level = s.level,
+        )
+    }
 
 }

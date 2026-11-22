@@ -74,6 +74,8 @@ data class BackupBudget(
     val categoryId: Long? = null,
     val amountPaise: Long,
     val updatedAt: Long,
+    /** DAILY, WEEKLY or MONTHLY. Absent in backups made before 2.7, whose budgets are all monthly. */
+    val period: String = "MONTHLY",
 )
 
 @Serializable

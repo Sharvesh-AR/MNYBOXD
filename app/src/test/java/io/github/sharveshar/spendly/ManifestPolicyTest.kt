@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import androidx.test.core.app.ApplicationProvider
-import io.github.sharveshar.spendly.shortcut.ShortcutSettings
 import kotlin.time.Duration.Companion.minutes
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -21,11 +20,10 @@ import org.robolectric.annotation.Config
  * Google Play Protect's "enhanced fraud protection" blocks installing, from a browser, messaging
  * app or file manager, any app that declares one of four things: RECEIVE_SMS, READ_SMS, a
  * notification listener or an accessibility service. The user sees "App blocked to protect your
- * device". MNYBOXD.apk (the standard build) is installed exactly that way, so it must declare none
- * of them; only the volumeShortcut build may declare its one accessibility service.
+ * device". MNYBOXD.apk is installed exactly that way, so it must declare none of them.
  * https://developers.google.com/android/play-protect/warning-dev-guidance
  *
- * Runs against each build's merged manifest (testStandardDebugUnitTest, testVolumeShortcutDebugUnitTest).
+ * Runs against the merged manifest, so permissions and services added by libraries count too.
  */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
@@ -52,9 +50,8 @@ class ManifestPolicyTest {
         assertEquals(emptyList<String>(), servicesGuardedBy(Manifest.permission.BIND_NOTIFICATION_LISTENER_SERVICE))
     }
 
-    @Test fun `declares an accessibility service only in the volumeShortcut build`() {
-        val expected = if (BuildConfig.VOLUME_SHORTCUT) listOf(ShortcutSettings.BUTTON_SERVICE) else emptyList()
-        assertEquals(expected, servicesGuardedBy(Manifest.permission.BIND_ACCESSIBILITY_SERVICE))
+    @Test fun `declares no accessibility service`() {
+        assertEquals(emptyList<String>(), servicesGuardedBy(Manifest.permission.BIND_ACCESSIBILITY_SERVICE))
     }
 
     @Test fun `requests no permission beyond the microphone`() {

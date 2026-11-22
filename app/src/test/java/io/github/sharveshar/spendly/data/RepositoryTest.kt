@@ -20,6 +20,7 @@ import io.github.sharveshar.spendly.domain.ledger.LedgerEntry
 import io.github.sharveshar.spendly.domain.ledger.TransactionDraft
 import io.github.sharveshar.spendly.domain.ledger.ValidationError
 import io.github.sharveshar.spendly.domain.model.AccountType
+import io.github.sharveshar.spendly.domain.model.BudgetPeriod
 import io.github.sharveshar.spendly.domain.model.PaymentChannel
 import io.github.sharveshar.spendly.domain.model.PaymentProvider
 import io.github.sharveshar.spendly.domain.model.TransactionType
@@ -254,6 +255,41 @@ class RepositoryTest {
         budgets.removeUsual(null)
         assertEquals(null, budgets.book().overall(nov))
         assertEquals(30_000_00L, budgets.book().overall(dec)?.amountPaise)
+    }
+
+    @Test fun `daily and weekly budgets are saved with their period and judged on their own day or week`() = runTest {
+        ok(budgets.setLimit(foodId, 500_00, BudgetPeriod.DAILY))
+        ok(budgets.setLimit(null, 3_000_00, BudgetPeriod.WEEKLY))
+        val month = java.time.YearMonth.from(java.time.Instant.ofEpochMilli(now).atZone(ZoneId.of("UTC")))
+        var book = budgets.book()
+        assertEquals(BudgetPeriod.DAILY, book.forMonth(month).single { it.categoryId == foodId }.period)
+        assertEquals(BudgetPeriod.WEEKLY, book.overall(month)?.period)
+
+        // Yesterday's ₹450 doesn't count towards today's ₹500 food budget...
+        val yesterday = now - 24 * 60 * 60 * 1000L
+        val earlier = txs.save(draft(TransactionType.EXPENSE, 450_00, cashId, category = foodId, at = yesterday), "d0") as SaveResult.Saved
+        assertEquals(BudgetLevel.WARNING, earlier.alert?.level)
+        assertEquals(BudgetPeriod.DAILY, earlier.alert?.period)
+        val today = txs.save(draft(TransactionType.EXPENSE, 300_00, cashId, category = foodId), "d1") as SaveResult.Saved
+        assertEquals(null, today.alert)
+        // ...but today's second spend crosses it.
+        val again = txs.save(draft(TransactionType.EXPENSE, 250_00, cashId, category = foodId), "d2") as SaveResult.Saved
+        assertEquals(BudgetLevel.EXCEEDED, again.alert?.level)
+        assertEquals("Food & Dining", again.alert?.categoryName)
+        assertEquals(110, again.alert?.percentUsed)
+
+        // Changing the period keeps one budget per category.
+        ok(budgets.setLimitFrom(month, foodId, 12_000_00, BudgetPeriod.MONTHLY))
+        book = budgets.book()
+        assertEquals(1, book.usual.count { it.categoryId == foodId })
+        assertEquals(BudgetPeriod.MONTHLY, book.forMonth(month).single { it.categoryId == foodId }.period)
+
+        // A month's own amount is always monthly, and remembers the usual period.
+        ok(budgets.setMonthLimit(month, null, 40_000_00))
+        val overall = budgets.book().overall(month)!!
+        assertEquals(BudgetPeriod.MONTHLY, overall.period)
+        assertEquals(BudgetPeriod.WEEKLY, overall.usualPeriod)
+        assertEquals(3_000_00L, overall.usualPaise)
     }
 
     @Test fun `budget alerts use the amount set for that month`() = runTest {

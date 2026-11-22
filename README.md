@@ -52,20 +52,15 @@ builds (`ScreenshotTest`).</sub>
   extracts amount, description, category, payment method, app and account. **You always review
   the result before it is saved.**
 * **Shortcut Pop-up (optional)**: from outside the app (the Quick Settings tile, home-screen
-  widgets, the launcher shortcuts *Add expense* and *Voice expense*, the "Add expense" icon and
-  the volume-button shortcut) Quick Add opens as a pop-up over the app you're in. Save or close
-  it and you're straight back where you were.
-* **Volume-button shortcut (optional)**: press volume down (or up) two or three times on any
-  screen to open Quick Add. Your volume buttons keep working normally and the volume is put
-  back afterwards. It ships in a separate build; see
-  [Volume-button shortcut (optional)](#volume-button-shortcut-optional) for how to switch it on
-  and what its accessibility permission can and can't do.
+  widgets, the launcher shortcuts *Add expense* and *Voice expense* and the "Add expense" icon)
+  Quick Add opens as a pop-up over the app you're in. Save or close it and you're straight back
+  where you were.
 * **"Add expense" app icon** (optional): a second icon that opens Quick Add directly, so your
   phone's own gestures can launch it, such as back tap (Pixel *Quick Tap*) or double-pressing
   the side key (Samsung).
 * **Home-screen widgets**: *Quick Add* (add or speak an expense), *Add income* (opens Quick Add
   on Income), *Expense + Income* (both buttons side by side), *Monthly overview* (spent this
-  month, budget used and left, progress bar, last 7 days), *Account balance* (all accounts, or
+  month, budget used and left for today, this week or this month, progress bar, last 7 days), *Account balance* (all accounts, or
   one account you pick; tap an account to open it), plus *Spending trend* and *Quick stats*.
   Each adapts to its size (touch and hold to resize), follows the app theme or one you choose,
   and updates when your data changes and just after midnight, without polling. Preview them and
@@ -85,21 +80,29 @@ builds (`ScreenshotTest`).</sub>
   amounts, and atomic transactions.
 
 **Understand your spending**
-* **Home**: where you stand in two seconds. Just the MNYBOXD logo at the top, then your balance (everything in your accounts minus
+* **Home**: where you stand in two seconds. The MNYBOXD name at the top, then your balance (everything in your accounts minus
   what you owe on cards, the same figure as Accounts) in large type, what you spent today, a
-  faint line of the month's spending, one big **+** (tap to add, hold to speak), your budget,
-  a *This week* glance (tap it for the full recap) and your latest transactions. Pick a month (*November ⌄*) to see that month's budget and
-  spending; the bell lists budgets that have passed 80%; the profile icon opens Settings. Tap the
-  balance for the breakdown.
+  faint line of the month's spending, one big **+** (tap to add, hold to speak), your budget
+  (*Today's budget* or *This week's budget* if it's daily or weekly), a *This week* glance (tap
+  it for the full recap) and your latest transactions. Pick a month (*November ⌄*) to see that
+  month's budget and spending; the bell lists budgets that have passed 80% of their day, week or
+  month; the profile icon opens Settings. Tap the balance for the breakdown.
 * **Activity**: search notes, categories, accounts or amounts; filter by type, category,
   account and date; grouped by day with daily totals. Swipe a transaction left to delete it,
   with *Undo*.
 * **Accounts**: savings, current, cash, wallets, debit and credit cards; net worth, assets and
   card dues; credit limit usage; archive or delete.
-* **Budgets**: monthly overall and per-category limits with 80% and 100% warnings (also shown
-  right after saving an expense that crosses a threshold). Each limit applies *Every month* or
-  *Only this month*: give a festival month, a trip or a tight month its own amount, and every
-  other month keeps the usual one. Months ahead can be planned too; *Use usual* undoes it.
+* **Budgets**: an overall limit and per-category limits, each **per day, per week or per
+  month**, whichever suits how you think about money (₹500 a day for food, ₹700 a week for
+  transport, ₹45,000 a month overall). Warnings at 80% and 100% of the day, week or month (also
+  shown right after saving an expense that crosses one). Daily budgets start over at midnight;
+  weekly ones run Monday to Sunday. While you type, the editor shows what a daily or weekly limit
+  comes to over the month. A daily or weekly budget shows what's left *today* or *this week*,
+  plus a strip of the month's days or weeks: within budget, close or over. Past months show how
+  many days or weeks you stayed within it. A monthly overall budget also shows what's left per
+  day for the rest of the month. A monthly limit can apply *Every month* or *Only this month*:
+  give a festival month, a trip or a tight month its own amount, and every other month keeps the
+  usual one. Months ahead can be planned too; *Use usual* undoes it.
 * **Insights**: swipeable **weekly and monthly recaps** at the top (total spent and how it
   compares with the same days of the week or month before, a bar for each day, your top
   category, biggest expense, busiest day and no-spend days); then monthly
@@ -175,7 +178,6 @@ phone:
 | Voice entry | A speech recognition service (for example Google's). On-device recognition is used when the phone has it. |
 | Widgets that reshape as you resize them | Android 12 or newer. Older versions pick the closest layout when you resize. |
 | *Add to home screen* button in *Settings → Widgets* | A launcher that supports pinning widgets (most do). Otherwise add them from the launcher's widget list. |
-| Volume-button shortcut | The separate `MNYBOXD-volume-shortcut.apk` build (below). |
 
 Updating keeps your data: every release is signed with the same key, so install the new
 `MNYBOXD.apk` over the old one. Don't uninstall first, as that deletes your records.
@@ -186,44 +188,10 @@ phone and run `adb install MNYBOXD.apk`.
 `MNYBOXD.apk` declares no accessibility service, notification listener or SMS permission, so
 Google Play Protect does not block it when you install it from your browser or file manager.
 
-### Volume-button shortcut (optional)
-
-Press volume down (or up) two or three times on any screen to open Quick Add as a pop-up. It's
-off until you switch it on:
-
-1. Install `MNYBOXD-volume-shortcut.apk` (see below).
-2. In MNYBOXD, open *Settings → Shortcut settings*, pick the button and *Twice* or *3 times*
-   (the default).
-3. Tap *Accessibility settings* and switch on **MNYBOXD volume shortcut**. If Android says
-   *Restricted setting* (Android 13+ does this for apps installed outside an app store), open
-   *App info → ⋮ → Allow restricted settings* and try again.
-
-You can switch it off again in MNYBOXD (*Shortcut settings → Turn off*) or in Android's
-Accessibility settings.
-
-**What the accessibility permission is used for.** Android only lets an app notice button
-presses made outside it through an accessibility service. MNYBOXD's asks for one capability,
-filtering key events: it sees which hardware key was pressed and when. It can't read the screen
-or other apps, receives no accessibility events, never blocks or changes a key press, and with
-no internet permission nothing could leave the phone anyway. Your volume buttons keep working;
-the volume is put back right after the pattern. It ignores the buttons while the phone is
-ringing or on a call, and if the phone is locked it asks you to unlock before Quick Add opens.
-*Twice* is quicker but can fire when you turn the volume down fast. Details in
-[SECURITY.md](SECURITY.md#optional-accessibility-service-volume-button-shortcut).
-
-**Why a separate build.** The volume-button shortcut needs an Android accessibility service. In some countries (India among
-them) Google Play Protect's
-[enhanced fraud protection](https://developers.google.com/android/play-protect/warning-dev-guidance)
-blocks **any** app that declares one from being installed from a browser, messaging app or file
-manager. You see *"App blocked to protect your device"*. It doesn't matter how little the
-service can do. So the shortcut ships in a separate build, `MNYBOXD-volume-shortcut.apk`. It has
-the same app, version and signing key, so either build installs as an update over the other and
-keeps your data. Install it one of these ways:
-
-* from a computer: `adb install -r MNYBOXD-volume-shortcut.apk` (USB debugging on), or
-* through Google Play, if the app is published there (for example on an internal testing track).
-
-Downloading it on the phone works only where that protection isn't active.
+The optional volume-button shortcut, and with it the separate `MNYBOXD-volume-shortcut.apk`,
+was removed in 2.7. If you used that build, install `MNYBOXD.apk` over it as a normal update;
+your data stays. To open Quick Add from anywhere, use the Quick Settings tile, a widget or the
+"Add expense" icon.
 
 > **Back up regularly.** MNYBOXD has no cloud sync. If you uninstall the app or reset your phone,
 > your records are gone unless you made an encrypted backup (*Settings → Data management →
@@ -238,21 +206,15 @@ build-tools 36.0.0. The Gradle wrapper downloads Gradle 9.9.0 and verifies its c
 git clone <this repository>
 cd spendly
 echo "sdk.dir=$ANDROID_HOME" > local.properties     # if ANDROID_HOME isn't set for Gradle
-./gradlew clean test lintStandardDebug lintVolumeShortcutDebug lintStandardRelease lintVolumeShortcutRelease assembleRelease
+./gradlew clean test lintDebug lintRelease assembleRelease
 ```
 
-There are two builds (*product flavors*, see `app/build.gradle.kts`): **standard** (published as
-`MNYBOXD.apk`) and **volumeShortcut** (adds the volume-button accessibility service from
-`app/src/volumeShortcut/`; published as `MNYBOXD-volume-shortcut.apk`).
-
 * Debug build (installs side by side as "io.github.sharveshar.spendly.debug"):
-  `./gradlew installStandardDebug` or `./gradlew installVolumeShortcutDebug`
-* Signed release APKs: `app/build/outputs/apk/standard/release/app-standard-release.apk` and
-  `app/build/outputs/apk/volumeShortcut/release/app-volumeShortcut-release.apk`
-  (if signing isn't configured, Gradle produces `…-release-unsigned.apk` instead).
-* Google Play bundle: `./gradlew bundleVolumeShortcutRelease` (or `bundleStandardRelease`) →
-  `app/build/outputs/bundle/<flavor>Release/`.
-* Screenshots: `SPENDLY_SCREENSHOT_DIR=$PWD/docs/screenshots ./gradlew testStandardDebugUnitTest --tests '*ScreenshotTest*'`
+  `./gradlew installDebug`
+* Signed release APK: `app/build/outputs/apk/release/app-release.apk`
+  (if signing isn't configured, Gradle produces `app-release-unsigned.apk` instead).
+* Google Play bundle: `./gradlew bundleRelease` → `app/build/outputs/bundle/release/`.
+* Screenshots: `SPENDLY_SCREENSHOT_DIR=$PWD/docs/screenshots ./gradlew testDebugUnitTest --tests '*ScreenshotTest*'`
 
 ### Release signing
 
@@ -279,7 +241,7 @@ chmod 600 ~/spendly-release.p12
 
 The workflow in `.github/workflows/android.yml` tests, lints and (when secrets exist) builds and
 verifies signed APKs on every push. Pushing a tag `vX.Y.Z` that matches `versionName` publishes
-a GitHub Release with `MNYBOXD.apk`, `MNYBOXD-volume-shortcut.apk` and their SHA-256 sums. The asset name never changes, so the
+a GitHub Release with `MNYBOXD.apk` and its SHA-256 sum. The asset name never changes, so the
 README badge (`releases/latest/download/MNYBOXD.apk`) always downloads the newest version.
 
 1. Add repository secrets (Settings → Secrets and variables → Actions):
@@ -293,10 +255,9 @@ Without signing secrets the workflow still tests and lints, but never creates a 
 Prefer to publish manually? Build locally, then:
 
 ```bash
-cp app/build/outputs/apk/standard/release/app-standard-release.apk MNYBOXD.apk
-cp app/build/outputs/apk/volumeShortcut/release/app-volumeShortcut-release.apk MNYBOXD-volume-shortcut.apk
-sha256sum MNYBOXD.apk MNYBOXD-volume-shortcut.apk > SHA256SUMS.txt
-gh release create vX.Y.Z MNYBOXD.apk MNYBOXD-volume-shortcut.apk SHA256SUMS.txt --generate-notes
+cp app/build/outputs/apk/release/app-release.apk MNYBOXD.apk
+sha256sum MNYBOXD.apk > SHA256SUMS.txt
+gh release create vX.Y.Z MNYBOXD.apk SHA256SUMS.txt --generate-notes
 ```
 
 ### Before publishing a release: device check
@@ -306,12 +267,12 @@ on a real phone and install it from the browser or file manager (this is the pat
 checks), then check: first launch and onboarding; adding an expense, income, transfer and
 refund; the coin animation and balances on Accounts; voice entry (allow and deny the microphone);
 creating and restoring an encrypted backup; the Quick Settings tile; the "Add expense" app icon;
-dragging a dock tab to a new place and restarting the app; every theme; adding, resizing,
-tapping and removing each widget; opening and closing Quick Add repeatedly; rotating the phone;
-and a large font size. Then install `MNYBOXD-volume-shortcut.apk` over it with `adb install -r`, confirm
-your data is still there, and check the volume-button shortcut (in another app, on the lock
-screen, during a call, that the volume returns to where it was, and that it stops once switched
-off in Accessibility settings).
+dragging a dock tab to a new place and restarting the app; every theme; daily, weekly and
+monthly budgets (Home, Budgets, the bell and the Monthly overview widget, before and after
+midnight and on a Monday); adding, resizing, tapping and removing each widget; opening and
+closing Quick Add repeatedly; rotating the phone; and a large font size. Finally install it over
+the previous release, and over a `MNYBOXD-volume-shortcut.apk` install, and confirm your data
+and budgets are still there.
 
 ## Technology
 
@@ -326,20 +287,20 @@ app/src/main/java/io/github/sharveshar/spendly/
 ├── domain/            Pure Kotlin rules: ledger & validation, insights & budgets, voice parser
 ├── data/              Room entities/DAOs, SQLCipher key manager, repositories, backup, prefs
 ├── ui/                Compose screens, components, motion, theme, navigation
-├── shortcut/          Shortcut settings, volume-pattern detection, optional "Add expense" launcher entry
+├── shortcut/          The optional "Add expense" launcher entry
 ├── MainActivity.kt    Single activity, intent allow-list, shortcuts
 └── QuickAddTileService.kt
-
-app/src/volumeShortcut/  The volume-button accessibility service (volumeShortcut build only)
 ```
 
-Testing: 114 automated tests (plus an opt-in screenshot test; each build runs 113, since one Settings test is build-specific) covering balance rules (including a randomized property test that
+Testing: 158 automated tests (plus opt-in screenshot tests) covering balance rules (including a randomized property test that
 checks SQL balances against a reference calculator), validation, paise precision, duplicate
-prevention, voice parsing, insights and budgets, database constraints and triggers, migrations,
-encrypted backup round-trip and tamper detection, CSV injection, the Quick Add form logic (voice pre-fill, edit, refund, process-death restore),
-the volume-button shortcut (press patterns, holding vs. pressing, volume restore, calls and ringing),
-and Compose UI flows (navigation, Quick Add, validation, empty states, accessibility labels, Settings → Shortcuts), and each build's merged manifest (no SMS permission or notification listener in either build, and an accessibility
-service only in the volumeShortcut build). `./gradlew test` runs the suite for both builds.
+prevention, voice parsing, insights, daily, weekly and monthly budgets (Monday-to-Sunday weeks,
+weeks that span two months, past and coming months, alerts on each budget's own day or week),
+database constraints and triggers, migrations, encrypted backup round-trip and tamper detection,
+CSV injection, the Quick Add form logic (voice pre-fill, edit, refund, process-death restore),
+widgets, Compose UI flows (navigation, Quick Add, budgets, validation, empty states,
+accessibility labels, Settings → Shortcuts), and the merged manifest (no SMS permission,
+notification listener or accessibility service). `./gradlew test` runs the suite.
 Each Robolectric test has a 2-minute limit and the test task a 15-minute one, so a hang fails fast in CI.
 
 See [`DEPENDENCIES.md`](DEPENDENCIES.md) for every library, version and licence.

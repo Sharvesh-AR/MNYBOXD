@@ -9,6 +9,7 @@ import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
 import io.github.sharveshar.spendly.domain.model.AccountType
+import io.github.sharveshar.spendly.domain.model.BudgetPeriod
 import io.github.sharveshar.spendly.domain.model.CategoryKind
 import io.github.sharveshar.spendly.domain.model.PaymentChannel
 import io.github.sharveshar.spendly.domain.model.PaymentProvider
@@ -122,7 +123,10 @@ data class BudgetOverrideEntity(
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
 )
 
-/** A recurring monthly limit. [categoryId] null means the overall monthly budget. */
+/**
+ * A recurring limit that starts over every [period]: each day, each Monday-to-Sunday week or each
+ * month. [categoryId] null means the overall budget (all spending).
+ */
 @Entity(
     tableName = "budgets",
     foreignKeys = [
@@ -135,4 +139,6 @@ data class BudgetEntity(
     @ColumnInfo(name = "category_id") val categoryId: Long? = null,
     @ColumnInfo(name = "amount_paise") val amountPaise: Long,
     @ColumnInfo(name = "updated_at") val updatedAt: Long,
+    /** Budgets made before 2.7 are monthly. */
+    @ColumnInfo(name = "period", defaultValue = "MONTHLY") val period: BudgetPeriod = BudgetPeriod.MONTHLY,
 )

@@ -112,8 +112,8 @@ class MainActivity : ComponentActivity() {
         if (request != LaunchRequest.QuickAdd && request != LaunchRequest.Voice) return
         // Lets the launcher rank shortcuts by actual use.
         runCatching { ShortcutManagerCompat.reportShortcutUsed(this, if (request == LaunchRequest.Voice) SHORTCUT_VOICE else SHORTCUT_ADD) }
-        // The volume-button shortcut also works on the lock screen. Spendly never shows over the
-        // keyguard, so ask the user to unlock; Quick Add is waiting behind it.
+        // A shortcut can arrive while the phone is locked. MNYBOXD never shows over the keyguard,
+        // so ask the user to unlock; Quick Add is waiting behind it.
         val keyguard = getSystemService(KeyguardManager::class.java)
         if (keyguard?.isKeyguardLocked == true) keyguard.requestDismissKeyguard(this, null)
     }

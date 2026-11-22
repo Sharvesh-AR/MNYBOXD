@@ -24,7 +24,7 @@ abstract class SpendlyDatabase : RoomDatabase() {
     abstract fun maintenanceDao(): MaintenanceDao
 
     companion object {
-        const val VERSION = 2
+        const val VERSION = 3
         const val FILE_NAME = "spendly.db"
 
         /**
@@ -43,6 +43,12 @@ abstract class SpendlyDatabase : RoomDatabase() {
                     )
                     db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS `index_budget_overrides_month_category_id` ON `budget_overrides` (`month`, `category_id`)")
                     db.execSQL("CREATE INDEX IF NOT EXISTS `index_budget_overrides_category_id` ON `budget_overrides` (`category_id`)")
+                }
+            },
+            // 3: daily and weekly budgets. Every existing budget stays monthly.
+            object : androidx.room.migration.Migration(2, 3) {
+                override fun migrate(db: SupportSQLiteDatabase) {
+                    db.execSQL("ALTER TABLE `budgets` ADD COLUMN `period` TEXT NOT NULL DEFAULT 'MONTHLY'")
                 }
             },
         )
@@ -149,6 +155,12 @@ object IntegrityTriggers {
         """CREATE TRIGGER IF NOT EXISTS trg_budget_amount_upd BEFORE UPDATE ON budgets
            WHEN NEW.amount_paise <= 0 OR NEW.amount_paise > $MAX
            BEGIN SELECT RAISE(ABORT, 'invalid budget'); END""",
+        """CREATE TRIGGER IF NOT EXISTS trg_budget_period_ins BEFORE INSERT ON budgets
+           WHEN NEW.period NOT IN ('DAILY', 'WEEKLY', 'MONTHLY')
+           BEGIN SELECT RAISE(ABORT, 'invalid budget period'); END""",
+        """CREATE TRIGGER IF NOT EXISTS trg_budget_period_upd BEFORE UPDATE ON budgets
+           WHEN NEW.period NOT IN ('DAILY', 'WEEKLY', 'MONTHLY')
+           BEGIN SELECT RAISE(ABORT, 'invalid budget period'); END""",
         """CREATE TRIGGER IF NOT EXISTS trg_budget_override_ins BEFORE INSERT ON budget_overrides
            WHEN NEW.amount_paise <= 0 OR NEW.amount_paise > $MAX OR NEW.month NOT GLOB '[0-9][0-9][0-9][0-9]-[0-1][0-9]'
            BEGIN SELECT RAISE(ABORT, 'invalid budget'); END""",
