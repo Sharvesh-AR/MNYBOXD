@@ -30,7 +30,7 @@ update.
 | Database key | 256 random bits from `SecureRandom`, wrapped with an **AES-256-GCM key held in Android Keystore** (non-exportable; hardware-backed where the device supports it). Only the wrapped key is written to disk, in `noBackupFilesDir`. Never stored in SharedPreferences, DataStore or source code; never logged. |
 | Preferences | Jetpack DataStore holds only non-sensitive UI settings (theme, last used account id/payment method, onboarding flags). |
 | Backups | Android Auto Backup and device-to-device transfer are **disabled** for all app data. Users create password-encrypted backup files explicitly. |
-| Exports | Encrypted backup (`.spendly`) or plain CSV (with an explicit warning). Files are written only to locations the user picks with the Storage Access Framework. |
+| Exports | Encrypted backup (`.mnyboxd`) or plain CSV (with an explicit warning). Files are written only to locations the user picks with the Storage Access Framework. |
 | Logging | The app never logs. R8 strips `Log.v/d/i` calls from libraries in release builds. No crash-reporting or analytics SDK is included. |
 | Debug tooling | Sample-data tools exist only in the `debug` source set and are not compiled into release builds. Release builds are not debuggable. |
 
@@ -66,9 +66,11 @@ information. The account form explicitly tells users not to enter such data.
 ### Encrypted backup format
 
 ```
-"SPENDLYB" | version | kdf id | PBKDF2 iterations (u32) | salt (16 B) | nonce (12 B) | AES-256-GCM ciphertext + tag
+"MNYBOXDB" | version | kdf id | PBKDF2 iterations (u32) | salt (16 B) | nonce (12 B) | AES-256-GCM ciphertext + tag
 ```
 
+* Backups made before 2.7.1 begin with the app's earlier eight-byte signature instead and still
+  restore; the rest of the format is identical.
 * Key derivation: PBKDF2-HMAC-SHA256, 600,000 iterations, fresh random salt per export.
 * Encryption: AES-256-GCM with a fresh random 96-bit nonce; the entire header is authenticated
   as associated data, so any modification of header or payload is detected.
@@ -117,9 +119,14 @@ installing 2.7 over it removes the service.
 
 | Component | Exported | Protection |
 |---|---|---|
-| `MainActivity` | Yes (launcher) | Only two fixed custom actions are honoured (open Quick Add / voice entry). Extras and data are ignored. Nothing is ever saved without user confirmation. |
+| `MainActivity` | Yes (launcher, through an alias) | Only the app's fixed custom actions are honoured (open Quick Add, voice entry or a tab). Extras are ignored except a positive account id; data is ignored. Nothing is ever saved without user confirmation. |
+| `QuickAddActivity` | Yes (also through an alias) | Quick Add pop-up for shortcuts and widgets. Honours only add, speak and add income; extras and data are ignored. |
 | `QuickAddTileService` | Yes | Requires `BIND_QUICK_SETTINGS_TILE` (system only). Uses an immutable `PendingIntent`. |
-| `QuickAddLauncherActivity` | Yes (launcher), **disabled by default** | Optional "Add expense" app-list entry the user can switch on in Settings. No UI; ignores its intent and opens Quick Add. Own empty task affinity. |
+| `QuickAddLauncherActivity` | Only through its alias, which is **disabled by default** | Optional "Add expense" app-list entry the user can switch on in Settings. No UI; ignores its intent and opens Quick Add. Own empty task affinity. |
+
+The three activity aliases keep the entry-point names from before the app was renamed (listed in
+`StableNames.kt`), so the home-screen icon, the "Add expense" setting and pinned shortcuts survive
+the update. An alias adds no entry point of its own: it opens the activity it names.
 | `androidx.profileinstaller.ProfileInstallReceiver` | Yes (library) | Requires `android.permission.DUMP` (system/shell only). |
 | Room `MultiInstanceInvalidationService`, AndroidX Startup provider | No | Not exported. |
 

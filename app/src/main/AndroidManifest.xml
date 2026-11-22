@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- The ONLY permission Spendly requests. Asked at the moment voice entry is first used. -->
+    <!-- The ONLY permission MNYBOXD requests. Asked at the moment voice entry is first used. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
 
     <!-- Microphone is optional: the app is fully usable without it. -->
@@ -16,7 +16,7 @@
     </queries>
 
     <application
-        android:name=".SpendlyApplication"
+        android:name=".MnyboxdApplication"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -26,7 +26,7 @@
         android:label="@string/app_name"
         android:supportsRtl="true"
         android:enableOnBackInvokedCallback="true"
-        android:theme="@style/Theme.Spendly"
+        android:theme="@style/Theme.Mnyboxd"
         tools:targetApi="37">
 
         <activity
@@ -34,12 +34,7 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Spendly">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
-        </activity>
+            android:theme="@style/Theme.Mnyboxd" />
 
         <!--
           Quick Add as a pop-up over the current app, for the Quick Settings tile, widgets, launcher
@@ -54,7 +49,26 @@
             android:launchMode="singleTask"
             android:taskAffinity=""
             android:windowSoftInputMode="adjustResize"
-            android:theme="@style/Theme.Spendly.QuickAdd" />
+            android:theme="@style/Theme.Mnyboxd.QuickAdd" />
+
+        <!--
+          The app's own entry points under the names Android and launchers knew them by before the
+          app was renamed (see StableNames.kt). Keeping the names keeps the home-screen icon and
+          pinned shortcuts working across the update. Each alias opens the activity above it.
+        -->
+        <activity-alias
+            android:name="io.github.sharveshar.spendly.MainActivity"
+            android:targetActivity=".MainActivity"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity-alias>
+        <activity-alias
+            android:name="io.github.sharveshar.spendly.QuickAddActivity"
+            android:targetActivity=".QuickAddActivity"
+            android:exported="true" />
 
         <!-- Only the system (holding BIND_QUICK_SETTINGS_TILE) can bind to this service. -->
         <service
@@ -71,24 +85,35 @@
         <!--
           Optional "Add expense" app-list entry for phone gestures that can only open an app
           (back tap, side-key double press). Disabled until switched on in Settings → Shortcuts.
-          No UI, ignores its intent; own empty task affinity so it never joins Spendly's task.
+          No UI, ignores its intent; own empty task affinity so it never joins MNYBOXD's task.
         -->
         <activity
             android:name=".shortcut.QuickAddLauncherActivity"
-            android:enabled="false"
-            android:exported="true"
+            android:exported="false"
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:taskAffinity=""
             android:label="@string/tile_label"
             android:icon="@mipmap/ic_launcher_add"
             android:roundIcon="@mipmap/ic_launcher_add"
-            android:theme="@android:style/Theme.NoDisplay">
+            android:theme="@android:style/Theme.NoDisplay" />
+        <!--
+          The app-list entry itself. It keeps its name from before the rename (StableNames.kt)
+          because Android stores the user's on/off choice under that name.
+        -->
+        <activity-alias
+            android:name="io.github.sharveshar.spendly.shortcut.QuickAddLauncherActivity"
+            android:targetActivity=".shortcut.QuickAddLauncherActivity"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/tile_label"
+            android:icon="@mipmap/ic_launcher_add"
+            android:roundIcon="@mipmap/ic_launcher_add">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
 
         <!--
           No accessibility service, notification listener or SMS permission, ever: Google Play
@@ -179,18 +204,18 @@
                 android:resource="@xml/widget_stats_info" />
         </receiver>
 
-        <!-- Midnight refresh for widgets (inexact alarm, no permission). Only Spendly sends it. -->
+        <!-- Midnight refresh for widgets (inexact alarm, no permission). Only MNYBOXD sends it. -->
         <receiver android:name=".widget.WidgetRefreshReceiver" android:exported="false" />
 
         <!--
           Account widget setup. Exported because the launcher opens it; it only accepts ids of
-          Spendly's own Account widgets and only chooses which account that widget shows.
+          MNYBOXD's own Account widgets and only chooses which account that widget shows.
         -->
         <activity
             android:name=".widget.AccountWidgetConfigActivity"
             android:exported="true"
             android:excludeFromRecents="true"
-            android:theme="@style/Theme.Spendly">
+            android:theme="@style/Theme.Mnyboxd">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
             </intent-filter>

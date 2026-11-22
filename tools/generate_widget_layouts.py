@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
 # SPDX-License-Identifier: GPL-3.0-or-later
-"""Generates Spendly's home-screen widget layouts (app/src/main/res/layout/widget_*.xml).
+"""Generates MNYBOXD's home-screen widget layouts (app/src/main/res/layout/widget_*.xml).
 
 The layouts share one structure, spacing and type scale, so they are written from this script
 rather than by hand. View ids must match WidgetRenderer. Run after editing:
@@ -12,7 +12,7 @@ import os, sys
 OUT = sys.argv[1]
 A = 'xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools"'
 # Static labels in real widgets come from string resources (amounts are set at runtime).
-STRINGS = {"Add": "widget_text_add", "Add expense": "widget_text_add_expense", "Spendly": "app_name",
+STRINGS = {"Add": "widget_text_add", "Add expense": "widget_text_add_expense", "MNYBOXD": "app_name",
            "Add income": "widget_text_add_income", "Income": "widget_text_income", "Expense": "widget_text_expense",
            "Note it as it comes in": "widget_text_income_tagline",
            "Record it while you remember": "widget_text_tagline", "Last 7 days": "widget_text_last_7_days",
@@ -89,7 +89,7 @@ def header(pv, right_sample):
     """Logo, the app name and one live figure on the right (the large layouts' top row)."""
     return ('<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:baselineAligned="false" android:gravity="center_vertical">' +
             img("logo", "20dp", "20dp", "ic_w_logo", "", pv, "accent") +
-            tv("brand", 15, "Spendly", "text", True, 'android:layout_marginStart="8dp" android:layout_width="0dp" android:layout_weight="1"', pv, "MNYBOXD") +
+            tv("brand", 15, "MNYBOXD", "text", True, 'android:layout_marginStart="8dp" android:layout_width="0dp" android:layout_weight="1"', pv, "MNYBOXD") +
             tv("today", 13, "", "muted", False, 'android:fontFeatureSettings="tnum"', pv, right_sample) + '</LinearLayout>')
 
 def layouts(pv):
@@ -107,7 +107,7 @@ def layouts(pv):
     L['widget_quick_add_large'] = root(
         '<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:baselineAligned="false" android:gravity="center_vertical">' +
         img("logo", "20dp", "20dp", "ic_w_logo", "", pv, "accent") +
-        tv("brand", 15, "Spendly", "text", True, 'android:layout_marginStart="8dp" android:layout_width="0dp" android:layout_weight="1"', pv, "Spendly") +
+        tv("brand", 15, "MNYBOXD", "text", True, 'android:layout_marginStart="8dp" android:layout_width="0dp" android:layout_weight="1"', pv, "MNYBOXD") +
         tv("today", 13, "", "muted", False, 'android:fontFeatureSettings="tnum"', pv, "Today ₹345") + '</LinearLayout>\n' +
         tv("caption", 12, "Record it while you remember", "muted", False, 'android:layout_marginTop="4dp"', pv, "Record it while you remember") + "\n" +
         space() + "\n" +

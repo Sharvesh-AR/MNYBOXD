@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  No periodic updates (updatePeriodMillis = 0): widgets refresh when Spendly's data changes and
+  No periodic updates (updatePeriodMillis = 0): widgets refresh when MNYBOXD's data changes and
   once after midnight. The picker preview shows illustrative figures; placed widgets show only
   real data.
 -->
@@ -21,6 +21,6 @@
     android:previewImage="@mipmap/ic_launcher"
     android:description="@string/widget_accounts_description"
     android:widgetCategory="home_screen"
-    android:configure="io.github.sharveshar.spendly.widget.AccountWidgetConfigActivity"
+    android:configure="io.github.sharveshar.mnyboxd.widget.AccountWidgetConfigActivity"
     android:widgetFeatures="reconfigurable|configuration_optional"
     tools:ignore="UnusedAttribute" />

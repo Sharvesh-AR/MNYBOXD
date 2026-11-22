@@ -31,5 +31,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Spendly"
+rootProject.name = "MNYBOXD"
 include(":app")

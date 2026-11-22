@@ -1,6 +1,6 @@
 # MNYBOXD
 
-<sub>Formerly Spendly. Same app, same data: it updates in place.</sub>
+<sub>Formerly MNYBOXD. Same app, same data: it updates in place.</sub>
 
 **A calm, private expense tracker for Android. Every rupee, accounted for.**
 
@@ -204,17 +204,20 @@ build-tools 36.0.0. The Gradle wrapper downloads Gradle 9.9.0 and verifies its c
 
 ```bash
 git clone <this repository>
-cd spendly
+cd MNYBOXD
 echo "sdk.dir=$ANDROID_HOME" > local.properties     # if ANDROID_HOME isn't set for Gradle
 ./gradlew clean test lintDebug lintRelease assembleRelease
 ```
 
+* The Android package ID is still `io.github.sharveshar.spendly`, the app's first name, so every
+  update installs over the last and keeps its data. `StableNames.kt` lists the few names that
+  keep it, and why.
 * Debug build (installs side by side as "io.github.sharveshar.spendly.debug"):
   `./gradlew installDebug`
 * Signed release APK: `app/build/outputs/apk/release/app-release.apk`
   (if signing isn't configured, Gradle produces `app-release-unsigned.apk` instead).
 * Google Play bundle: `./gradlew bundleRelease` → `app/build/outputs/bundle/release/`.
-* Screenshots: `SPENDLY_SCREENSHOT_DIR=$PWD/docs/screenshots ./gradlew testDebugUnitTest --tests '*ScreenshotTest*'`
+* Screenshots: `MNYBOXD_SCREENSHOT_DIR=$PWD/docs/screenshots ./gradlew testDebugUnitTest --tests '*ScreenshotTest*'`
 
 ### Release signing
 
@@ -222,19 +225,19 @@ Signing credentials are **never** stored in the repository. Gradle reads them fr
 variables or from your user-level `~/.gradle/gradle.properties`:
 
 ```properties
-SPENDLY_KEYSTORE_FILE=/absolute/path/to/spendly-release.p12
-SPENDLY_KEYSTORE_PASSWORD=...
-SPENDLY_KEY_ALIAS=spendly
-SPENDLY_KEY_PASSWORD=...
+MNYBOXD_KEYSTORE_FILE=/absolute/path/to/mnyboxd-release.p12
+MNYBOXD_KEYSTORE_PASSWORD=...
+MNYBOXD_KEY_ALIAS=mnyboxd
+MNYBOXD_KEY_PASSWORD=...
 ```
 
 Create a keystore once (keep it **and** its password safe; you need the same key for every
 future update):
 
 ```bash
-keytool -genkeypair -v -storetype PKCS12 -keystore ~/spendly-release.p12 \
-  -alias spendly -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=MNYBOXD"
-chmod 600 ~/spendly-release.p12
+keytool -genkeypair -v -storetype PKCS12 -keystore ~/mnyboxd-release.p12 \
+  -alias mnyboxd -keyalg RSA -keysize 4096 -validity 10000 -dname "CN=MNYBOXD"
+chmod 600 ~/mnyboxd-release.p12
 ```
 
 ### Publish a release on GitHub
@@ -245,8 +248,8 @@ a GitHub Release with `MNYBOXD.apk` and its SHA-256 sum. The asset name never ch
 README badge (`releases/latest/download/MNYBOXD.apk`) always downloads the newest version.
 
 1. Add repository secrets (Settings → Secrets and variables → Actions):
-   * `SPENDLY_KEYSTORE_BASE64`: output of `base64 -w0 ~/spendly-release.p12`
-   * `SPENDLY_KEYSTORE_PASSWORD`, `SPENDLY_KEY_ALIAS`, `SPENDLY_KEY_PASSWORD`
+   * `MNYBOXD_KEYSTORE_BASE64`: output of `base64 -w0 ~/mnyboxd-release.p12`
+   * `MNYBOXD_KEYSTORE_PASSWORD`, `MNYBOXD_KEY_ALIAS`, `MNYBOXD_KEY_PASSWORD`
 2. Bump `versionCode` and `versionName` in `app/build.gradle.kts`, commit and push.
 3. Tag and push: `git tag v1.0.0 && git push origin v1.0.0`.
 
@@ -282,7 +285,7 @@ Android `SpeechRecognizer` · Gradle Kotlin DSL with version catalog · AGP 9.5 
 targetSdk 37.
 
 ```
-app/src/main/java/io/github/sharveshar/spendly/
+app/src/main/java/io/github/sharveshar/mnyboxd/
 ├── core/money/        Money: paise parsing/formatting, keypad input
 ├── domain/            Pure Kotlin rules: ledger & validation, insights & budgets, voice parser
 ├── data/              Room entities/DAOs, SQLCipher key manager, repositories, backup, prefs

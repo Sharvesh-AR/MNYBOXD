@@ -1,6 +1,6 @@
 OPEN-SOURCE NOTICES
 
-Spendly is built with the open-source components below. Their licences
+MNYBOXD is built with the open-source components below. Their licences
 are reproduced in full in this file.
 
 ============================================================

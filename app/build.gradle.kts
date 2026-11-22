@@ -15,26 +15,28 @@ plugins {
  * Release signing credentials are read from environment variables or from the
  * user-level ~/.gradle/gradle.properties. They are never committed to the repository.
  *
- *   SPENDLY_KEYSTORE_FILE      absolute path to the .jks/.p12 keystore
- *   SPENDLY_KEYSTORE_PASSWORD  keystore password
- *   SPENDLY_KEY_ALIAS          key alias
- *   SPENDLY_KEY_PASSWORD       key password
+ *   MNYBOXD_KEYSTORE_FILE      absolute path to the .jks/.p12 keystore
+ *   MNYBOXD_KEYSTORE_PASSWORD  keystore password
+ *   MNYBOXD_KEY_ALIAS          key alias
+ *   MNYBOXD_KEY_PASSWORD       key password
  */
 fun signingValue(name: String): String? =
     System.getenv(name)?.takeIf { it.isNotBlank() }
         ?: (project.findProperty(name) as String?)?.takeIf { it.isNotBlank() }
 
-val releaseKeystore = signingValue("SPENDLY_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.isFile }
+val releaseKeystore = signingValue("MNYBOXD_KEYSTORE_FILE")?.let { file(it) }?.takeIf { it.isFile }
 val hasReleaseSigning = releaseKeystore != null &&
-    signingValue("SPENDLY_KEYSTORE_PASSWORD") != null &&
-    signingValue("SPENDLY_KEY_ALIAS") != null &&
-    signingValue("SPENDLY_KEY_PASSWORD") != null
+    signingValue("MNYBOXD_KEYSTORE_PASSWORD") != null &&
+    signingValue("MNYBOXD_KEY_ALIAS") != null &&
+    signingValue("MNYBOXD_KEY_PASSWORD") != null
 
 android {
-    namespace = "io.github.sharveshar.spendly"
+    namespace = "io.github.sharveshar.mnyboxd"
     compileSdk = 37
 
     defaultConfig {
+        // The package ID keeps the app's first name: changing it would stop updates installing over
+        // earlier versions (see StableNames.kt).
         applicationId = "io.github.sharveshar.spendly"
         minSdk = 26
         targetSdk = 37
@@ -47,9 +49,9 @@ android {
         if (hasReleaseSigning) {
             create("release") {
                 storeFile = releaseKeystore
-                storePassword = signingValue("SPENDLY_KEYSTORE_PASSWORD")
-                keyAlias = signingValue("SPENDLY_KEY_ALIAS")
-                keyPassword = signingValue("SPENDLY_KEY_PASSWORD")
+                storePassword = signingValue("MNYBOXD_KEYSTORE_PASSWORD")
+                keyAlias = signingValue("MNYBOXD_KEY_ALIAS")
+                keyPassword = signingValue("MNYBOXD_KEY_PASSWORD")
                 enableV2Signing = true
                 enableV3Signing = true
             }

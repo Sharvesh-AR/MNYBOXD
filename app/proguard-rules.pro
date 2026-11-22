@@ -1,10 +1,10 @@
-# Spendly release shrinking rules.
+# MNYBOXD release shrinking rules.
 #
 # Libraries used (AndroidX, Room, Navigation, kotlinx.serialization, SQLCipher) ship their own
 # consumer keep rules; the release dex was inspected to confirm route serializers, backup DTO
-# serializers, SpendlyDatabase_Impl and SQLCipher JNI methods survive minification.
+# serializers, MnyboxdDatabase_Impl and SQLCipher JNI methods survive minification.
 
-# Strip verbose/debug/info logging from release builds (Spendly itself never logs; this also
+# Strip verbose/debug/info logging from release builds (MNYBOXD itself never logs; this also
 # silences any library debug output). Warnings and errors are kept for crash diagnostics.
 -assumenosideeffects class android.util.Log {
     public static int v(...);

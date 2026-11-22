@@ -1,6 +1,6 @@
 # Dependency inventory
 
-Spendly has **no paid, proprietary, advertising, analytics or network SDKs**. Every runtime
+MNYBOXD has **no paid, proprietary, advertising, analytics or network SDKs**. Every runtime
 dependency is free and open source under a permissive licence. Nothing requires an API key.
 
 ## Direct dependencies

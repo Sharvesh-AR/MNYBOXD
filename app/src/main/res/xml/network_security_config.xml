@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Spendly has no INTERNET permission and makes no network requests. This config is defence in
+<!-- MNYBOXD has no INTERNET permission and makes no network requests. This config is defence in
      depth: cleartext is forbidden and only system CAs would ever be trusted. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">

@@ -1,0 +1,445 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package io.github.sharveshar.mnyboxd.data
+
+import io.github.sharveshar.mnyboxd.HangWatchdog
+import io.github.sharveshar.mnyboxd.data.db.MnyboxdDatabase
+import io.github.sharveshar.mnyboxd.data.db.TransactionEntity
+import io.github.sharveshar.mnyboxd.data.repo.AccountInput
+import io.github.sharveshar.mnyboxd.data.repo.AccountRepository
+import io.github.sharveshar.mnyboxd.data.repo.BudgetRepository
+import io.github.sharveshar.mnyboxd.data.repo.DeleteResult
+import io.github.sharveshar.mnyboxd.data.repo.SaveResult
+import io.github.sharveshar.mnyboxd.data.repo.TransactionFilter
+import io.github.sharveshar.mnyboxd.data.repo.TransactionRepository
+import io.github.sharveshar.mnyboxd.data.repo.WriteResult
+import io.github.sharveshar.mnyboxd.domain.insights.BudgetLevel
+import io.github.sharveshar.mnyboxd.domain.ledger.BalanceCalculator
+import io.github.sharveshar.mnyboxd.domain.ledger.LedgerEntry
+import io.github.sharveshar.mnyboxd.domain.ledger.TransactionDraft
+import io.github.sharveshar.mnyboxd.domain.ledger.ValidationError
+import io.github.sharveshar.mnyboxd.domain.model.AccountType
+import io.github.sharveshar.mnyboxd.domain.model.BudgetPeriod
+import io.github.sharveshar.mnyboxd.domain.model.PaymentChannel
+import io.github.sharveshar.mnyboxd.domain.model.PaymentProvider
+import io.github.sharveshar.mnyboxd.domain.model.TransactionType
+import kotlin.time.Duration.Companion.minutes
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.runTest
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
+import org.junit.Assert.fail
+import org.junit.Before
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import java.time.ZoneId
+import java.util.UUID
+import kotlin.random.Random
+
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [35])
+class RepositoryTest {
+    @get:Rule val watchdog = HangWatchdog(2.minutes)
+    private lateinit var db: MnyboxdDatabase
+    private lateinit var accounts: AccountRepository
+    private lateinit var txs: TransactionRepository
+    private lateinit var budgets: BudgetRepository
+    private val zone = ZoneId.of("Asia/Kolkata")
+    private val now = 1_760_000_000_000L // 2025-10-09 IST
+
+    private var cashId = 0L
+    private var hdfcId = 0L
+    private var sbiId = 0L
+    private var ccId = 0L
+    private var debitId = 0L
+    private var foodId = 0L
+    private var shoppingId = 0L
+    private var salaryId = 0L
+
+    @Before fun setUp() = runTest {
+        db = testDatabase()
+        accounts = AccountRepository(db) { now }
+        txs = TransactionRepository(db, { zone }, { now })
+        budgets = BudgetRepository(db) { now }
+        cashId = db.accountDao().getAll().single { it.type == AccountType.CASH }.id
+        hdfcId = ok(accounts.create(AccountInput("HDFC Savings", "HDFC Bank", AccountType.SAVINGS, 10_000_00, null, null, 1)))
+        sbiId = ok(accounts.create(AccountInput("SBI Savings", "State Bank of India", AccountType.SAVINGS, 5_000_00, null, null, 2)))
+        ccId = ok(accounts.create(AccountInput("ICICI Coral", "ICICI Bank", AccountType.CREDIT_CARD, 1_500_00, null, 50_000_00, 3)))
+        debitId = ok(accounts.create(AccountInput("HDFC Debit", "HDFC Bank", AccountType.DEBIT_CARD, 0, hdfcId, null, 4)))
+        val cats = db.categoryDao().getAll()
+        foodId = cats.single { it.key == "food" }.id
+        shoppingId = cats.single { it.key == "shopping" }.id
+        salaryId = cats.single { it.key == "salary" }.id
+    }
+
+    @After fun tearDown() = db.close()
+
+    private fun ok(r: WriteResult): Long = (r as? WriteResult.Ok)?.id ?: error("expected Ok but was $r")
+
+    private fun draft(
+        type: TransactionType, amount: Long, account: Long, to: Long? = null, category: Long? = null,
+        channel: PaymentChannel? = null, provider: PaymentProvider? = null, refundOf: Long? = null, at: Long = now,
+    ) = TransactionDraft(type, amount, account, to, category, channel, provider, refundOf, "test", at)
+
+    private suspend fun save(d: TransactionDraft, ref: String = UUID.randomUUID().toString(), editing: Long? = null): Long {
+        val r = txs.save(d, ref, editing)
+        return (r as? SaveResult.Saved)?.id ?: error("expected Saved but was $r")
+    }
+
+    private suspend fun balances(): Map<Long, Long> =
+        db.accountDao().observeWithBalances().first().associate { it.account.id to it.balancePaise }
+
+    @Test fun `seed data creates categories and a zero cash wallet`() = runTest {
+        assertTrue(db.categoryDao().getAll().size >= 15)
+        assertEquals(0L, balances()[cashId])
+    }
+
+    @Test fun `opening balances use signed convention`() = runTest {
+        val b = balances()
+        assertEquals(10_000_00L, b[hdfcId])
+        assertEquals(-1_500_00L, b[ccId])
+        assertEquals(1_500_00L, BalanceCalculator.outstanding(b[ccId]!!))
+    }
+
+    @Test fun `UPI expense funded by bank is a single deduction`() = runTest {
+        save(draft(TransactionType.EXPENSE, 500_00, hdfcId, category = foodId, channel = PaymentChannel.UPI, provider = PaymentProvider.GOOGLE_PAY))
+        assertEquals(9_500_00L, balances()[hdfcId])
+        assertEquals(1, db.transactionDao().getAll().size)
+    }
+
+    @Test fun `debit card expense is stored against the linked bank`() = runTest {
+        val id = save(draft(TransactionType.EXPENSE, 300_00, debitId, category = shoppingId))
+        val stored = db.transactionDao().getById(id)!!
+        assertEquals(hdfcId, stored.accountId)
+        assertEquals(debitId, stored.instrumentAccountId)
+        assertEquals(PaymentChannel.DEBIT_CARD, stored.channel)
+        assertEquals(9_700_00L, balances()[hdfcId])
+        // Filtering by the card finds it too.
+        assertEquals(1, txs.observeFiltered(TransactionFilter(accountId = debitId)).first().size)
+    }
+
+    @Test fun `card purchase and repayment`() = runTest {
+        save(draft(TransactionType.EXPENSE, 2_000_00, ccId, category = shoppingId, channel = PaymentChannel.CREDIT_CARD))
+        assertEquals(3_500_00L, BalanceCalculator.outstanding(balances()[ccId]!!))
+        save(draft(TransactionType.TRANSFER, 3_500_00, hdfcId, to = ccId))
+        val b = balances()
+        assertEquals(0L, BalanceCalculator.outstanding(b[ccId]!!))
+        assertEquals(6_500_00L, b[hdfcId])
+    }
+
+    @Test fun `duplicate save of the same form is prevented`() = runTest {
+        val ref = "form-123"
+        val d = draft(TransactionType.EXPENSE, 100_00, cashId, category = foodId, channel = PaymentChannel.CASH)
+        val first = txs.save(d, ref)
+        val second = txs.save(d, ref)
+        assertTrue(first is SaveResult.Saved)
+        assertEquals(SaveResult.Duplicate((first as SaveResult.Saved).id), second)
+        assertEquals(1, db.transactionDao().getAll().size)
+        assertEquals(-100_00L, balances()[cashId])
+    }
+
+    @Test fun `unique client reference is also enforced by the database`() = runTest {
+        val e = TransactionEntity(type = TransactionType.EXPENSE, amountPaise = 1, accountId = cashId, categoryId = foodId, occurredAt = now, createdAt = now, updatedAt = now, clientRef = "dup")
+        db.transactionDao().insert(e)
+        expectSqlFailure { db.transactionDao().insert(e) }
+    }
+
+    @Test fun `integrity triggers reject bad rows that bypass validation`() = runTest {
+        val base = TransactionEntity(type = TransactionType.EXPENSE, amountPaise = 1, accountId = cashId, categoryId = foodId, occurredAt = now, createdAt = now, updatedAt = now, clientRef = "x")
+        expectSqlFailure { db.transactionDao().insert(base.copy(amountPaise = 0, clientRef = "a")) }
+        expectSqlFailure { db.transactionDao().insert(base.copy(amountPaise = -5, clientRef = "b")) }
+        expectSqlFailure { db.transactionDao().insert(base.copy(type = TransactionType.TRANSFER, categoryId = null, clientRef = "c")) }
+        expectSqlFailure { db.transactionDao().insert(base.copy(type = TransactionType.TRANSFER, toAccountId = cashId, categoryId = null, clientRef = "d")) }
+        expectSqlFailure { db.transactionDao().insert(base.copy(accountId = debitId, clientRef = "e")) }
+        expectSqlFailure { db.transactionDao().insert(base.copy(toAccountId = hdfcId, clientRef = "f")) }
+        val id = db.transactionDao().insert(base.copy(clientRef = "g"))
+        expectSqlFailure { db.transactionDao().update(base.copy(id = id, clientRef = "g", amountPaise = 0)) }
+        assertEquals(1, db.transactionDao().getAll().size)
+    }
+
+    @Test fun `foreign keys block deleting referenced accounts and categories`() = runTest {
+        save(draft(TransactionType.EXPENSE, 100, hdfcId, category = foodId))
+        expectSqlFailure { db.accountDao().deleteById(hdfcId) }
+        expectSqlFailure { db.categoryDao().deleteById(foodId) }
+        val bad = TransactionEntity(type = TransactionType.EXPENSE, amountPaise = 1, accountId = 9_999, categoryId = foodId, occurredAt = now, createdAt = now, updatedAt = now, clientRef = "fk")
+        expectSqlFailure { db.transactionDao().insert(bad) }
+        assertTrue(accounts.deleteIfUnused(hdfcId) is WriteResult.Rejected)
+        assertTrue(accounts.deleteIfUnused(sbiId) is WriteResult.Ok)
+    }
+
+    @Test fun `update changes balances and delete restores them`() = runTest {
+        val id = save(draft(TransactionType.EXPENSE, 100_00, sbiId, category = foodId))
+        assertEquals(4_900_00L, balances()[sbiId])
+        save(draft(TransactionType.EXPENSE, 250_50, sbiId, category = foodId), editing = id)
+        assertEquals(4_749_50L, balances()[sbiId])
+        assertEquals(DeleteResult.Deleted, txs.delete(id))
+        assertEquals(5_000_00L, balances()[sbiId])
+        assertEquals(DeleteResult.NotFound, txs.delete(id))
+    }
+
+    @Test fun `refunds reverse spending and protect the original`() = runTest {
+        val exp = save(draft(TransactionType.EXPENSE, 1_000_00, ccId, category = shoppingId, channel = PaymentChannel.CREDIT_CARD))
+        val r1 = save(draft(TransactionType.REFUND, 400_00, ccId, refundOf = exp))
+        assertEquals(foodId != shoppingId, true)
+        assertEquals(shoppingId, db.transactionDao().getById(r1)!!.categoryId)
+        assertEquals(600_00L, txs.refundableAmount(exp))
+        val tooMuch = txs.save(draft(TransactionType.REFUND, 600_01, ccId, refundOf = exp), "r2")
+        assertEquals(SaveResult.Invalid(listOf(ValidationError.REFUND_EXCEEDS_ORIGINAL)), tooMuch)
+        assertEquals(DeleteResult.HasRefunds(1), txs.delete(exp))
+        // Editing the original below the refunded amount is blocked.
+        val shrink = txs.save(draft(TransactionType.EXPENSE, 399_00, ccId, category = shoppingId, channel = PaymentChannel.CREDIT_CARD), "x", exp)
+        assertEquals(SaveResult.Invalid(listOf(ValidationError.HAS_REFUNDS)), shrink)
+        assertEquals(1_500_00L + 600_00L, BalanceCalculator.outstanding(balances()[ccId]!!))
+    }
+
+    @Test fun `invalid amounts are rejected and nothing is written`() = runTest {
+        listOf(0L, -100L, 100_000_000_000L).forEach {
+            val r = txs.save(draft(TransactionType.EXPENSE, it, cashId, category = foodId), UUID.randomUUID().toString())
+            assertEquals(SaveResult.Invalid(listOf(ValidationError.AMOUNT_INVALID)), r)
+        }
+        assertEquals(0, db.transactionDao().getAll().size)
+    }
+
+    @Test fun `budget alerts fire when crossing 80 and 100 percent`() = runTest {
+        ok(budgets.setLimit(foodId, 1_000_00))
+        val first = txs.save(draft(TransactionType.EXPENSE, 700_00, cashId, category = foodId), "b1") as SaveResult.Saved
+        assertEquals(null, first.alert)
+        val second = txs.save(draft(TransactionType.EXPENSE, 150_00, cashId, category = foodId), "b2") as SaveResult.Saved
+        assertEquals(BudgetLevel.WARNING, second.alert?.level)
+        assertEquals("Food & Dining", second.alert?.categoryName)
+        val third = txs.save(draft(TransactionType.EXPENSE, 150_00, cashId, category = foodId), "b3") as SaveResult.Saved
+        assertEquals(BudgetLevel.EXCEEDED, third.alert?.level)
+        assertEquals(100, third.alert?.percentUsed)
+        assertTrue(budgets.setLimit(salaryId, 100) is WriteResult.Rejected)
+        assertTrue(budgets.setLimit(null, 0) is WriteResult.Rejected)
+    }
+
+    @Test fun `a budget set for one month overrides the usual one only in that month`() = runTest {
+        val nov = java.time.YearMonth.of(2026, 11)
+        val dec = nov.plusMonths(1)
+        ok(budgets.setLimit(null, 20_000_00))
+        ok(budgets.setMonthLimit(dec, null, 45_000_00))
+        ok(budgets.setMonthLimit(dec, foodId, 8_000_00))
+        var book = budgets.observeBook().first()
+        assertEquals(20_000_00L, book.overall(nov)?.amountPaise)
+        assertEquals(false, book.overall(nov)?.custom)
+        assertEquals(45_000_00L, book.overall(dec)?.amountPaise)
+        assertEquals(true, book.overall(dec)?.custom)
+        assertEquals(20_000_00L, book.overall(dec)?.usualPaise)
+        // A category budget only for December, with no usual one.
+        assertEquals(listOf<Long?>(null), book.forMonth(nov).map { it.categoryId })
+        assertEquals(8_000_00L, book.forMonth(dec).single { it.categoryId == foodId }.amountPaise)
+        // Setting it again replaces rather than duplicates.
+        ok(budgets.setMonthLimit(dec, null, 40_000_00))
+        assertEquals(2, db.budgetDao().getOverrides().size)
+        // "Every month" from December: the usual amount changes and December follows it again.
+        ok(budgets.setLimitFrom(dec, null, 25_000_00))
+        book = budgets.book()
+        assertEquals(25_000_00L, book.overall(dec)?.amountPaise)
+        assertEquals(false, book.overall(dec)?.custom)
+        assertEquals(25_000_00L, book.overall(nov)?.amountPaise)
+        // Back to usual for food in December means no food budget there.
+        budgets.clearMonthLimit(dec, foodId)
+        assertTrue(budgets.book().forMonth(dec).none { it.categoryId == foodId })
+        assertTrue(budgets.setMonthLimit(dec, salaryId, 100) is WriteResult.Rejected)
+        assertTrue(budgets.setMonthLimit(dec, null, 0) is WriteResult.Rejected)
+        // Removing the usual budget keeps months that have their own.
+        ok(budgets.setMonthLimit(dec, null, 30_000_00))
+        budgets.removeUsual(null)
+        assertEquals(null, budgets.book().overall(nov))
+        assertEquals(30_000_00L, budgets.book().overall(dec)?.amountPaise)
+    }
+
+    @Test fun `daily and weekly budgets are saved with their period and judged on their own day or week`() = runTest {
+        ok(budgets.setLimit(foodId, 500_00, BudgetPeriod.DAILY))
+        ok(budgets.setLimit(null, 3_000_00, BudgetPeriod.WEEKLY))
+        val month = java.time.YearMonth.from(java.time.Instant.ofEpochMilli(now).atZone(ZoneId.of("UTC")))
+        var book = budgets.book()
+        assertEquals(BudgetPeriod.DAILY, book.forMonth(month).single { it.categoryId == foodId }.period)
+        assertEquals(BudgetPeriod.WEEKLY, book.overall(month)?.period)
+
+        // Yesterday's ₹450 doesn't count towards today's ₹500 food budget...
+        val yesterday = now - 24 * 60 * 60 * 1000L
+        val earlier = txs.save(draft(TransactionType.EXPENSE, 450_00, cashId, category = foodId, at = yesterday), "d0") as SaveResult.Saved
+        assertEquals(BudgetLevel.WARNING, earlier.alert?.level)
+        assertEquals(BudgetPeriod.DAILY, earlier.alert?.period)
+        val today = txs.save(draft(TransactionType.EXPENSE, 300_00, cashId, category = foodId), "d1") as SaveResult.Saved
+        assertEquals(null, today.alert)
+        // ...but today's second spend crosses it.
+        val again = txs.save(draft(TransactionType.EXPENSE, 250_00, cashId, category = foodId), "d2") as SaveResult.Saved
+        assertEquals(BudgetLevel.EXCEEDED, again.alert?.level)
+        assertEquals("Food & Dining", again.alert?.categoryName)
+        assertEquals(110, again.alert?.percentUsed)
+
+        // Changing the period keeps one budget per category.
+        ok(budgets.setLimitFrom(month, foodId, 12_000_00, BudgetPeriod.MONTHLY))
+        book = budgets.book()
+        assertEquals(1, book.usual.count { it.categoryId == foodId })
+        assertEquals(BudgetPeriod.MONTHLY, book.forMonth(month).single { it.categoryId == foodId }.period)
+
+        // A month's own amount is always monthly, and remembers the usual period.
+        ok(budgets.setMonthLimit(month, null, 40_000_00))
+        val overall = budgets.book().overall(month)!!
+        assertEquals(BudgetPeriod.MONTHLY, overall.period)
+        assertEquals(BudgetPeriod.WEEKLY, overall.usualPeriod)
+        assertEquals(3_000_00L, overall.usualPaise)
+    }
+
+    @Test fun `budget alerts use the amount set for that month`() = runTest {
+        val month = java.time.YearMonth.from(java.time.Instant.ofEpochMilli(now).atZone(ZoneId.of("UTC")))
+        ok(budgets.setLimit(foodId, 100_000_00))
+        ok(budgets.setMonthLimit(month, foodId, 1_000_00))
+        val r = txs.save(draft(TransactionType.EXPENSE, 900_00, cashId, category = foodId), "m1") as SaveResult.Saved
+        assertEquals(BudgetLevel.WARNING, r.alert?.level)
+    }
+
+    @Test fun `search treats wildcards literally and matches amounts`() = runTest {
+        save(draft(TransactionType.EXPENSE, 120_50, cashId, category = foodId).copy(description = "Lunch 100% veg"))
+        save(draft(TransactionType.EXPENSE, 99_00, cashId, category = foodId).copy(description = "Coffee"))
+        assertEquals(1, txs.observeFiltered(TransactionFilter(query = "%")).first().size)
+        assertEquals(0, txs.observeFiltered(TransactionFilter(query = "_")).first().size)
+        assertEquals(1, txs.observeFiltered(TransactionFilter(query = "lunch")).first().size)
+        assertEquals(1, txs.observeFiltered(TransactionFilter(query = "120.50")).first().size)
+        assertEquals(2, txs.observeFiltered(TransactionFilter(query = "food")).first().size)
+        assertEquals(0, txs.observeFiltered(TransactionFilter(query = "'; DROP TABLE transactions; --")).first().size)
+        assertEquals(2, db.transactionDao().getAll().size)
+    }
+
+    @Test fun `filters by type account category and date range`() = runTest {
+        save(draft(TransactionType.EXPENSE, 100, cashId, category = foodId, at = now - 86_400_000L))
+        save(draft(TransactionType.INCOME, 200, hdfcId, category = salaryId))
+        save(draft(TransactionType.TRANSFER, 300, hdfcId, to = sbiId))
+        assertEquals(1, txs.observeFiltered(TransactionFilter(type = TransactionType.INCOME)).first().size)
+        assertEquals(2, txs.observeFiltered(TransactionFilter(accountId = hdfcId)).first().size)
+        assertEquals(1, txs.observeFiltered(TransactionFilter(accountId = sbiId)).first().size)
+        assertEquals(1, txs.observeFiltered(TransactionFilter(categoryId = foodId)).first().size)
+        assertEquals(2, txs.observeFiltered(TransactionFilter(fromMillis = now - 1000, toMillis = now + 1000)).first().size)
+    }
+
+    /**
+     * Property test: random mixes of all transaction types must give identical balances from the
+     * SQL query (used by the UI) and the pure Kotlin reference implementation.
+     */
+    @Test fun `SQL balances always match the reference calculator`() = runTest {
+        val rnd = Random(42)
+        val balanceAccounts = listOf(cashId, hdfcId, sbiId, ccId)
+        val expenses = mutableListOf<Pair<Long, Long>>() // id to remaining refundable
+        repeat(400) { i ->
+            when (rnd.nextInt(5)) {
+                0, 1 -> {
+                    val acc = (balanceAccounts + debitId).random(rnd)
+                    val amt = rnd.nextLong(1, 500_000)
+                    val ch = if (acc == cashId) PaymentChannel.CASH else null
+                    val id = save(draft(TransactionType.EXPENSE, amt, acc, category = foodId, channel = ch), "e$i")
+                    expenses += id to amt
+                }
+                2 -> save(draft(TransactionType.INCOME, rnd.nextLong(1, 900_000), balanceAccounts.random(rnd), category = salaryId), "i$i")
+                3 -> {
+                    val from = balanceAccounts.random(rnd)
+                    val to = (balanceAccounts - from).random(rnd)
+                    save(draft(TransactionType.TRANSFER, rnd.nextLong(1, 300_000), from, to = to), "t$i")
+                }
+                4 -> if (expenses.isNotEmpty()) {
+                    val idx = rnd.nextInt(expenses.size)
+                    val (origId, remaining) = expenses[idx]
+                    if (remaining > 0) {
+                        val amt = rnd.nextLong(1, remaining + 1)
+                        val acc = db.transactionDao().getById(origId)!!.accountId
+                        save(draft(TransactionType.REFUND, amt, acc, refundOf = origId), "r$i")
+                        expenses[idx] = origId to remaining - amt
+                    }
+                }
+            }
+        }
+        val opening = db.accountDao().getAll().associate { it.id to it.openingBalancePaise }
+        val entries = db.transactionDao().getAll().map { LedgerEntry(it.type, it.amountPaise, it.accountId, it.toAccountId) }
+        val expected = BalanceCalculator.balances(opening, entries)
+        assertEquals(expected, balances())
+    }
+
+    @Test fun `debit card requires a linked bank account`() = runTest {
+        val r = accounts.create(AccountInput("Loose card", "", AccountType.DEBIT_CARD, 0, null, null, 0))
+        assertTrue(r is WriteResult.Rejected)
+        val r2 = accounts.create(AccountInput("Card on card", "", AccountType.DEBIT_CARD, 0, ccId, null, 0))
+        assertTrue(r2 is WriteResult.Rejected)
+        assertTrue(accounts.create(AccountInput(" ", "", AccountType.SAVINGS, 0, null, null, 0)) is WriteResult.Rejected)
+        assertNotNull(db.accountDao().getById(debitId))
+    }
+
+    private suspend fun expectSqlFailure(block: suspend () -> Unit) {
+        try {
+            block()
+            fail("Expected the database to reject the write")
+        } catch (e: android.database.SQLException) {
+            // expected
+        }
+    }
+
+    @Test fun `reset deletes all financial data and restores exactly the first-run defaults`() = runTest {
+        val expense = save(draft(TransactionType.EXPENSE, 500_00, hdfcId, category = foodId, channel = PaymentChannel.UPI))
+        save(draft(TransactionType.REFUND, 100_00, hdfcId, category = foodId, refundOf = expense, channel = PaymentChannel.UPI))
+        save(draft(TransactionType.TRANSFER, 1_000_00, hdfcId, to = ccId))
+        save(draft(TransactionType.EXPENSE, 300_00, debitId, category = shoppingId))
+        ok(budgets.setLimit(null, 20_000_00))
+        ok(budgets.setLimit(foodId, 5_000_00))
+        ok(budgets.setMonthLimit(java.time.YearMonth.of(2026, 12), null, 40_000_00))
+        val custom = io.github.sharveshar.mnyboxd.data.repo.CategoryRepository(db)
+        ok(custom.create("Pets", io.github.sharveshar.mnyboxd.domain.model.CategoryKind.EXPENSE, "other", 3))
+
+        io.github.sharveshar.mnyboxd.data.backup.BackupRepository(db).resetToDefaults(now)
+
+        assertTrue(db.transactionDao().getAll().isEmpty())
+        assertTrue(db.budgetDao().getAll().isEmpty())
+        assertTrue(db.budgetDao().getOverrides().isEmpty())
+        val accountsLeft = db.accountDao().getAll()
+        assertEquals(listOf("Cash"), accountsLeft.map { it.name })
+        assertEquals(AccountType.CASH, accountsLeft.single().type)
+        assertEquals(0L, balances().values.single())
+        val cats = db.categoryDao().getAll()
+        assertEquals(io.github.sharveshar.mnyboxd.data.db.SeedData.categories.map { it.key }.toSet(), cats.map { it.key }.toSet())
+        assertTrue(cats.none { it.archived })
+        assertTrue(cats.none { it.name == "Pets" })
+    }
+
+    @Test fun `reset can run twice and still leaves one clean set of defaults`() = runTest {
+        val backup = io.github.sharveshar.mnyboxd.data.backup.BackupRepository(db)
+        backup.resetToDefaults(now)
+        backup.resetToDefaults(now)
+        assertEquals(1, db.accountDao().getAll().size)
+        assertEquals(io.github.sharveshar.mnyboxd.data.db.SeedData.categories.size, db.categoryDao().getAll().size)
+    }
+
+    @Test fun `undoing a delete restores the exact transaction and every balance`() = runTest {
+        val id = save(draft(TransactionType.EXPENSE, 1_234_56, hdfcId, category = foodId, channel = PaymentChannel.UPI, provider = PaymentProvider.PHONEPE))
+        save(draft(TransactionType.TRANSFER, 2_000_00, hdfcId, to = ccId))
+        val before = balances()
+        val original = db.transactionDao().getById(id)!!
+
+        val (result, removed) = txs.deleteForUndo(id)
+        assertEquals(DeleteResult.Deleted, result)
+        assertEquals(before[hdfcId]!! + 1_234_56, balances()[hdfcId])
+
+        assertTrue(txs.restoreDeleted(removed!!))
+        assertEquals(before, balances())
+        assertEquals(original, db.transactionDao().getById(id))
+        // A second undo of the same row does nothing.
+        assertFalse(txs.restoreDeleted(removed))
+        assertEquals(2, db.transactionDao().getAll().size)
+    }
+
+    @Test fun `an expense with refunds can't be deleted for undo either`() = runTest {
+        val id = save(draft(TransactionType.EXPENSE, 500_00, hdfcId, category = foodId, channel = PaymentChannel.UPI))
+        save(draft(TransactionType.REFUND, 100_00, hdfcId, category = foodId, refundOf = id, channel = PaymentChannel.UPI))
+        val (result, removed) = txs.deleteForUndo(id)
+        assertTrue(result is DeleteResult.HasRefunds)
+        assertEquals(null, removed)
+        assertEquals(2, db.transactionDao().getAll().size)
+    }
+}

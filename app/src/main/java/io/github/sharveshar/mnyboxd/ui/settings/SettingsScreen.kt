@@ -1,0 +1,487 @@
+// SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
+// SPDX-License-Identifier: GPL-3.0-or-later
+
+package io.github.sharveshar.mnyboxd.ui.settings
+
+import android.content.ActivityNotFoundException
+import android.content.Context
+import android.content.Intent
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.systemBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
+import androidx.compose.material.icons.rounded.Category
+import androidx.compose.material.icons.rounded.DeleteForever
+import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.TouchApp
+import androidx.compose.material.icons.rounded.Widgets
+import androidx.compose.material.icons.rounded.Info
+import androidx.compose.material.icons.rounded.Lock
+import androidx.compose.material.icons.rounded.Palette
+import androidx.compose.material.icons.rounded.Restore
+import androidx.compose.material.icons.rounded.Science
+import androidx.compose.material.icons.rounded.TableChart
+import androidx.compose.material.icons.rounded.VisibilityOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import io.github.sharveshar.mnyboxd.BuildConfig
+import io.github.sharveshar.mnyboxd.ui.components.APP_NAME
+import io.github.sharveshar.mnyboxd.data.backup.BackupCodec
+import io.github.sharveshar.mnyboxd.ui.common.Formats
+import io.github.sharveshar.mnyboxd.ui.components.OriginAnchor
+import io.github.sharveshar.mnyboxd.ui.components.OriginPopup
+import io.github.sharveshar.mnyboxd.ui.components.originAnchor
+import io.github.sharveshar.mnyboxd.ui.components.rememberOriginAnchor
+import io.github.sharveshar.mnyboxd.ui.theme.Space
+import io.github.sharveshar.mnyboxd.ui.theme.Mnyboxd
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+
+private enum class SettingsPopup { NONE, EXPORT_PASSWORD, IMPORT_PASSWORD, CSV_WARNING, RESET_WARNING }
+
+@Composable
+fun SettingsScreen(
+    viewModel: SettingsViewModel,
+    onBack: () -> Unit,
+    onThemes: () -> Unit,
+    onShortcuts: () -> Unit,
+    onWidgets: () -> Unit,
+    onCategories: () -> Unit,
+    onAbout: () -> Unit,
+    onReset: () -> Unit,
+) {
+    val prefs by viewModel.preferences.collectAsStateWithLifecycle()
+    val flow by viewModel.flow.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
+    val snackbar = remember { SnackbarHostState() }
+    var popup by rememberSaveable { mutableStateOf(SettingsPopup.NONE) }
+    val exportAnchor = rememberOriginAnchor()
+    val importAnchor = rememberOriginAnchor()
+    val csvAnchor = rememberOriginAnchor()
+    val resetAnchor = rememberOriginAnchor()
+    val restoreAnchor = importAnchor
+
+    LaunchedEffect(message) {
+        message?.let {
+            snackbar.showSnackbar(it)
+            viewModel.consumeMessage()
+        }
+    }
+
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument(BackupCodec.MIME_TYPE)) { uri ->
+        if (uri != null) viewModel.exportTo(uri) else viewModel.clearPassword()
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) viewModel.readBackup(uri) else viewModel.clearPassword()
+    }
+    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) viewModel.exportCsv(uri)
+    }
+
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        Column(Modifier.fillMaxSize().systemBarsPadding()) {
+            Row(Modifier.fillMaxWidth().padding(Space.xs), verticalAlignment = Alignment.CenterVertically) {
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back") }
+                Text("Settings", style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+            }
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+                Group("Appearance")
+                SettingRow(Icons.Rounded.Palette, "Themes", prefs.theme.describe(Mnyboxd.colors.palette.theme), chevron = true, onClick = onThemes)
+
+                Group("Shortcuts")
+                SettingRow(
+                    Icons.Rounded.TouchApp,
+                    "Shortcut settings",
+                    "Add expense icon, Quick Settings tile, app shortcuts",
+                    chevron = true,
+                    onClick = onShortcuts,
+                )
+                SettingRow(Icons.Rounded.Widgets, "Home-screen widgets", "Add expense or income, monthly overview, balances, trend and stats", chevron = true, onClick = onWidgets)
+
+                Group("Privacy")
+                Row(
+                    Modifier.fillMaxWidth().clickable(role = Role.Switch) { viewModel.setSecureScreen(!prefs.secureScreen) }.heightIn(min = 64.dp).padding(horizontal = Space.gutter, vertical = Space.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.VisibilityOff, contentDescription = null, tint = Mnyboxd.colors.muted)
+                    Spacer(Modifier.width(Space.lg))
+                    Column(Modifier.weight(1f)) {
+                        Text("Hide app contents", style = MaterialTheme.typography.bodyLarge)
+                        Text("Blocks screenshots and blurs MNYBOXD in recent apps", style = MaterialTheme.typography.bodySmall, color = Mnyboxd.colors.muted)
+                    }
+                    Switch(checked = prefs.secureScreen, onCheckedChange = null)
+                }
+                SettingRow(
+                    Icons.Rounded.Lock,
+                    "Your data stays on this phone",
+                    "Encrypted on-device database. No account, no internet permission, no ads or trackers. Android cloud backup is turned off for MNYBOXD; use encrypted backups below.",
+                )
+
+                Group("Data management")
+                SettingRow(Icons.Rounded.Download, "Create encrypted backup", "Password-protected file you save where you choose", Modifier.originAnchor(exportAnchor)) { popup = SettingsPopup.EXPORT_PASSWORD }
+                SettingRow(Icons.Rounded.Restore, "Restore from backup", "Replaces everything here after you confirm", Modifier.originAnchor(importAnchor)) { popup = SettingsPopup.IMPORT_PASSWORD }
+                SettingRow(Icons.Rounded.TableChart, "Export as CSV", "Unencrypted spreadsheet of all transactions", Modifier.originAnchor(csvAnchor)) { popup = SettingsPopup.CSV_WARNING }
+                SettingRow(
+                    Icons.Rounded.DeleteForever,
+                    "Reset MNYBOXD",
+                    "Permanently delete all data on this phone and start again",
+                    Modifier.originAnchor(resetAnchor),
+                    destructive = true,
+                ) { popup = SettingsPopup.RESET_WARNING }
+
+                Group("Organise")
+                SettingRow(Icons.Rounded.Category, "Categories", "Add, rename or archive categories", chevron = true, onClick = onCategories)
+
+                if (viewModel.debugToolsAvailable) {
+                    Group("Debug build only")
+                    SettingRow(Icons.Rounded.Science, "Load sample data", "Fictional demo records for testing. Not present in release builds.") { viewModel.loadSampleData() }
+                }
+
+                Group("About")
+                SettingRow(Icons.Rounded.Info, "About MNYBOXD", "Version, privacy, open-source licences", chevron = true, onClick = onAbout)
+                Spacer(Modifier.height(Space.xxxl))
+                BrandFooter()
+                Spacer(Modifier.height(Space.xl))
+            }
+        }
+        SnackbarHost(snackbar, Modifier.align(Alignment.BottomCenter).systemBarsPadding())
+
+        val working = flow as? BackupFlow.Working
+        if (working != null) {
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background.copy(alpha = 0.8f)).clickable(enabled = true, onClick = {}), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator()
+                    Spacer(Modifier.height(Space.md))
+                    Text(working.label)
+                }
+            }
+        }
+    }
+
+    PasswordPopup(
+        visible = popup == SettingsPopup.EXPORT_PASSWORD,
+        anchor = exportAnchor,
+        title = "Encrypt your backup",
+        body = "Choose a password of at least ${BackupCodec.MIN_PASSWORD_LENGTH} characters. It isn't stored anywhere. If you forget it, the backup can't be recovered.",
+        confirm = true,
+        action = "Choose location",
+        onDismiss = { popup = SettingsPopup.NONE },
+    ) { pwd ->
+        viewModel.holdPassword(pwd)
+        popup = SettingsPopup.NONE
+        exportLauncher.launch("mnyboxd-backup-${LocalDate.now()}.${BackupCodec.EXTENSION}")
+    }
+    PasswordPopup(
+        visible = popup == SettingsPopup.IMPORT_PASSWORD,
+        anchor = importAnchor,
+        title = "Restore a backup",
+        body = "Enter the backup's password, then pick the file. You'll see what's inside and confirm before anything is replaced.",
+        confirm = false,
+        action = "Choose file",
+        onDismiss = { popup = SettingsPopup.NONE },
+    ) { pwd ->
+        viewModel.holdPassword(pwd)
+        popup = SettingsPopup.NONE
+        importLauncher.launch(arrayOf("*/*"))
+    }
+    OriginPopup(visible = popup == SettingsPopup.CSV_WARNING, anchor = csvAnchor, onDismissRequest = { popup = SettingsPopup.NONE }) {
+        Column(Modifier.padding(Space.xxl)) {
+            Text("Export unencrypted CSV?", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(Space.md))
+            Text(
+                "The CSV file contains all your transactions in plain text. Anyone or any app that can open the file can read it. Prefer the encrypted backup for safekeeping.",
+                color = Mnyboxd.colors.muted,
+            )
+            Spacer(Modifier.height(Space.xl))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = { popup = SettingsPopup.NONE }) { Text("Cancel") }
+                Spacer(Modifier.width(Space.sm))
+                Button(onClick = {
+                    popup = SettingsPopup.NONE
+                    csvLauncher.launch("mnyboxd-transactions-${LocalDate.now()}.csv")
+                }) { Text("Export") }
+            }
+        }
+    }
+    // Reset, step 1 of 2: what will be deleted, and a nudge to back up first. Step 2 is ResetScreen.
+    OriginPopup(visible = popup == SettingsPopup.RESET_WARNING, anchor = resetAnchor, onDismissRequest = { popup = SettingsPopup.NONE }) {
+        Column(Modifier.verticalScroll(rememberScrollState()).padding(Space.xxl)) {
+            Text("Reset MNYBOXD?", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(Space.md))
+            Text("This deletes everything MNYBOXD stores on this phone:", style = MaterialTheme.typography.bodyMedium, color = Mnyboxd.colors.muted)
+            Spacer(Modifier.height(Space.sm))
+            RESET_DELETES.forEach { Text("• $it", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.padding(vertical = 2.dp)) }
+            Spacer(Modifier.height(Space.md))
+            Text(
+                "This can't be undone. Create an encrypted backup first if you might want this data again.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Mnyboxd.colors.warning,
+            )
+            Spacer(Modifier.height(Space.xl))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = { popup = SettingsPopup.EXPORT_PASSWORD }) { Text("Back up first") }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = { popup = SettingsPopup.NONE }) { Text("Cancel") }
+                Button(
+                    onClick = { popup = SettingsPopup.NONE; onReset() },
+                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(containerColor = Mnyboxd.colors.negative, contentColor = Mnyboxd.colors.background),
+                ) { Text("Continue") }
+            }
+        }
+    }
+
+    val confirm = flow as? BackupFlow.ConfirmRestore
+    var lastConfirm by remember { mutableStateOf<BackupFlow.ConfirmRestore?>(null) }
+    if (confirm != null) lastConfirm = confirm
+    OriginPopup(visible = confirm != null, anchor = restoreAnchor, onDismissRequest = viewModel::cancelRestore) {
+        val s = lastConfirm?.validation?.summary
+        Column(Modifier.padding(Space.xxl)) {
+            Text("Replace all data?", style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(Space.md))
+            if (s != null) {
+                val created = Instant.ofEpochMilli(s.createdAt).atZone(ZoneId.systemDefault())
+                Text(
+                    "Backup from ${created.format(Formats.dateTime)}\n${s.accounts} accounts · ${s.transactions} transactions · ${s.categories} categories · ${s.budgets} budgets",
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+                Spacer(Modifier.height(Space.md))
+            }
+            Text(
+                "Everything currently in MNYBOXD on this phone will be replaced by this backup. This can't be undone. Consider creating a backup of the current data first.",
+                color = Mnyboxd.colors.warning,
+                style = MaterialTheme.typography.bodyMedium,
+            )
+            Spacer(Modifier.height(Space.xl))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = viewModel::cancelRestore) { Text("Cancel") }
+                Spacer(Modifier.width(Space.sm))
+                Button(onClick = viewModel::confirmRestore) { Text("Replace my data") }
+            }
+        }
+    }
+}
+
+@Composable
+internal fun Group(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = Space.gutter, end = Space.gutter, top = Space.xl, bottom = Space.xs).semantics { heading() },
+    )
+}
+
+@Composable
+private fun SettingRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    chevron: Boolean = false,
+    destructive: Boolean = false,
+    onClick: (() -> Unit)? = null,
+) {
+    Row(
+        modifier
+            .fillMaxWidth()
+            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .heightIn(min = 64.dp)
+            .padding(horizontal = Space.gutter, vertical = Space.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = if (destructive) Mnyboxd.colors.negative else Mnyboxd.colors.muted)
+        Spacer(Modifier.width(Space.lg))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = if (destructive) Mnyboxd.colors.negative else MaterialTheme.colorScheme.onSurface)
+            Text(subtitle, style = MaterialTheme.typography.bodySmall, color = Mnyboxd.colors.muted)
+        }
+        if (chevron) Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, contentDescription = null, tint = Mnyboxd.colors.muted)
+    }
+}
+
+@Composable
+private fun PasswordPopup(
+    visible: Boolean,
+    anchor: OriginAnchor,
+    title: String,
+    body: String,
+    confirm: Boolean,
+    action: String,
+    onDismiss: () -> Unit,
+    onSubmit: (CharArray) -> Unit,
+) {
+    var password by remember(visible) { mutableStateOf("") }
+    var again by remember(visible) { mutableStateOf("") }
+    var error by remember(visible) { mutableStateOf<String?>(null) }
+    OriginPopup(visible = visible, anchor = anchor, onDismissRequest = onDismiss) {
+        Column(Modifier.padding(Space.xxl)) {
+            Text(title, style = MaterialTheme.typography.titleLarge)
+            Spacer(Modifier.height(Space.md))
+            Text(body, color = Mnyboxd.colors.muted, style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(Space.lg))
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it.take(128); error = null },
+                label = { Text("Password") },
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (confirm) {
+                Spacer(Modifier.height(Space.sm))
+                OutlinedTextField(
+                    value = again,
+                    onValueChange = { again = it.take(128); error = null },
+                    label = { Text("Repeat password") },
+                    singleLine = true,
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+            error?.let {
+                Spacer(Modifier.height(Space.sm))
+                Text(it, color = Mnyboxd.colors.negative, style = MaterialTheme.typography.bodySmall)
+            }
+            Spacer(Modifier.height(Space.xl))
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                TextButton(onClick = onDismiss) { Text("Cancel") }
+                Spacer(Modifier.width(Space.sm))
+                Button(onClick = {
+                    when {
+                        password.length < BackupCodec.MIN_PASSWORD_LENGTH -> error = "Use at least ${BackupCodec.MIN_PASSWORD_LENGTH} characters"
+                        confirm && password != again -> error = "Passwords don't match"
+                        else -> {
+                            val chars = password.toCharArray()
+                            password = ""; again = ""
+                            onSubmit(chars)
+                        }
+                    }
+                }) { Text(action) }
+            }
+        }
+    }
+}
+
+/** ARS's portfolio, linked from "ARS". */
+private const val BRAND_URL = "https://ar-sharvesh.vercel.app"
+private const val GITHUB_URL = "https://github.com/Sharvesh-AR/MNYBOXD"
+private const val DEVELOPER_URL = "https://github.com/Sharvesh-AR"
+private const val WEBSITE_URL = "https://mnyboxd.vercel.app"
+
+/** Opens [url] in the browser. MNYBOXD itself has no network access. */
+fun openInBrowser(context: Context, url: String) {
+    try {
+        context.startActivity(
+            Intent(Intent.ACTION_VIEW, url.toUri())
+                .addCategory(Intent.CATEGORY_BROWSABLE)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+        )
+    } catch (_: ActivityNotFoundException) {
+        // No browser installed; nothing else to do.
+    }
+}
+
+/**
+ * The end of Settings, centred:
+ *
+ *     MNYBOXD version 2.6.0
+ *     GitHub · Developer · Website
+ *     Made with ❤️ by ARS
+ *
+ * The first two lines are small and quiet. "GitHub" (the repository), "Developer" (ARS's GitHub
+ * profile), "Website" (MNYBOXD's site) and "ARS" (ARS's portfolio) open in the browser; their URLs
+ * are never shown.
+ */
+@Composable
+fun BrandFooter(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val small = MaterialTheme.typography.labelSmall
+    Column(modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Text("$APP_NAME version ${BuildConfig.VERSION_NAME}", style = small, color = Mnyboxd.colors.muted)
+        // On one text baseline, so the separating dots sit mid-height between the words.
+        Row {
+            FooterLink("GitHub", "Open MNYBOXD on GitHub in your browser", small, Modifier.alignByBaseline()) { openInBrowser(context, GITHUB_URL) }
+            Text("·", style = small, color = Mnyboxd.colors.muted, modifier = Modifier.alignByBaseline())
+            FooterLink("Developer", "Open the developer's GitHub profile in your browser", small, Modifier.alignByBaseline()) { openInBrowser(context, DEVELOPER_URL) }
+            Text("·", style = small, color = Mnyboxd.colors.muted, modifier = Modifier.alignByBaseline())
+            FooterLink("Website", "Open MNYBOXD's website in your browser", small, Modifier.alignByBaseline()) { openInBrowser(context, WEBSITE_URL) }
+        }
+        // Both parts sit on one text baseline (the emoji would otherwise lift "ARS").
+        Row {
+            Text("Made with ❤️ by", style = MaterialTheme.typography.labelLarge, color = Mnyboxd.colors.muted, modifier = Modifier.alignByBaseline())
+            FooterLink("ARS", "Open ARS's portfolio in your browser", MaterialTheme.typography.labelLarge, Modifier.alignByBaseline()) { openInBrowser(context, BRAND_URL) }
+        }
+    }
+}
+
+/** A footer word that opens a page: semi-bold, with a full-size touch target around it. */
+@Composable
+private fun FooterLink(text: String, clickLabel: String, style: TextStyle, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Text(
+        text,
+        style = style.copy(fontWeight = FontWeight.SemiBold),
+        color = MaterialTheme.colorScheme.onSurface,
+        modifier = modifier
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(role = Role.Button, onClickLabel = clickLabel, onClick = onClick)
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 6.dp, vertical = Space.md),
+    )
+}

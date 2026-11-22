@@ -1,4 +1,4 @@
-# Security audit — Spendly 1.0.0
+# Security audit — MNYBOXD 1.0.0
 
 * **Date:** 2026-11-08
 * **Scope:** complete source tree, build configuration, CI workflow, and the signed release APK
@@ -40,7 +40,7 @@
 | 18 | Unsafe file handling / imports | Code review + tests | SAF only; bounded reads; authenticated decryption; strict schema validation; atomic restore with rollback (tested) |
 | 19 | WebView / dynamic code | Code search | None |
 | 20 | PendingIntents / intents | Code review | One `PendingIntent`, `FLAG_IMMUTABLE`; intent extras never read |
-| 21 | R8 / minification safety | `apkanalyzer` on release dex with mapping | Navigation, backup and form-state serializers, `SpendlyDatabase_Impl`, enum lookups and SQLCipher JNI methods retained |
+| 21 | R8 / minification safety | `apkanalyzer` on release dex with mapping | Navigation, backup and form-state serializers, `MnyboxdDatabase_Impl`, enum lookups and SQLCipher JNI methods retained |
 | 22 | CI workflow | Manual review | Actions pinned to commit SHAs; `contents: read` by default; secrets used only in signing steps; keystore removed after use; no release without a signed APK |
 
 ### Lint findings fixed during the audit
@@ -89,7 +89,7 @@
 | L5 | Low | System speech service may process audio online. | Spoken phrases may reach the speech provider. | Disclosure before first use; on-device recognizer preferred; manual entry always available. |
 | L6 | Low | Sensitive strings may persist in memory until GC. | Only exploitable with memory access on a compromised device. | Passwords use `CharArray` where possible. |
 | L7 | Low | Unit tests run against the debug variant only. | Release-only code differences (none currently, other than `DebugTools`) aren't unit-tested. | Release APK statically inspected; lint runs on release. |
-| I1 | Info | Exported `MainActivity` accepts two custom actions from any app. | Another app can open Spendly's Quick Add form. | No data is read from the intent and nothing is saved without the user. |
+| I1 | Info | Exported `MainActivity` accepts two custom actions from any app. | Another app can open MNYBOXD's Quick Add form. | No data is read from the intent and nothing is saved without the user. |
 
 ## Reproducing this audit
 
