@@ -4,6 +4,9 @@
 package io.github.sharveshar.spendly.ui
 
 import android.content.Context
+import androidx.activity.BackEventCompat
+import androidx.activity.OnBackPressedDispatcher
+import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.performTouchInput
@@ -130,8 +133,12 @@ class UiTest {
         compose.waitForIdle()
     }
 
+    /** The activity's back dispatcher, for driving back gestures the way the system does. */
+    private lateinit var backDispatcher: OnBackPressedDispatcher
+
     private fun launchApp() {
         compose.setContent {
+            backDispatcher = LocalOnBackPressedDispatcherOwner.current!!.onBackPressedDispatcher
             CompositionLocalProvider(LocalAppContainer provides container) {
                 SpendlyTheme { SpendlyApp(container, emptyFlow()) }
             }
@@ -152,6 +159,36 @@ class UiTest {
         shown("Insights")
         compose.onNode(dockTab("Home")).performClick()
         onHome()
+    }
+
+    @Test fun `a back gesture keeps the screen still until it's released, then goes back`() {
+        launchApp()
+        onHome()
+        compose.onNode(dockTab("Accounts")).performClick()
+        shown("Net worth")
+        fun swipe(progress: Float) = BackEventCompat(touchX = 30f, touchY = 1200f, progress = progress, swipeEdge = BackEventCompat.EDGE_LEFT)
+        fun homeComposed() = compose.onAllNodesWithText("MNYBOXD").fetchSemanticsNodes().isNotEmpty()
+
+        // Mid-gesture nothing moves: Navigation's preview used to draw Home under a shrinking screen.
+        compose.runOnIdle { backDispatcher.dispatchOnBackStarted(swipe(0f)); backDispatcher.dispatchOnBackProgressed(swipe(0.5f)) }
+        compose.waitForIdle()
+        assertFalse("Home must not show while the gesture is held", homeComposed())
+        compose.onNodeWithText("Net worth").assertIsDisplayed()
+
+        // A cancelled gesture stays put.
+        compose.runOnIdle { backDispatcher.dispatchOnBackCancelled() }
+        compose.waitForIdle()
+        assertFalse(homeComposed())
+        shown("Net worth")
+
+        // Released: back to Home.
+        compose.runOnIdle {
+            backDispatcher.dispatchOnBackStarted(swipe(0f))
+            backDispatcher.dispatchOnBackProgressed(swipe(0.7f))
+            backDispatcher.onBackPressed()
+        }
+        onHome()
+        compose.waitUntil(5_000) { compose.onAllNodesWithText("Net worth").fetchSemanticsNodes().isEmpty() }
     }
 
     @Test fun `holding a dock tab and dragging it moves it, without opening it, and the order is kept`() {

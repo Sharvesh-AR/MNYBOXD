@@ -91,6 +91,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.window.DialogProperties
+import androidx.activity.compose.BackHandler
 import androidx.navigation.FloatingWindow
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.compose.dialog
@@ -451,6 +452,12 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
                             )
                         }
                     }
+                    // Back plays the pop transitions above once the gesture is released, and nothing
+                    // moves while it's held. Without this the NavHost previews predictive back with
+                    // Navigation's default (the screen shrinking to 70% over the one beneath). Composed
+                    // after the NavHost, this handler is the one the gesture reaches. It's off when
+                    // there's nothing to go back to, so the system's back-to-home animation still runs.
+                    BackHandler(enabled = top != null && nav.previousBackStackEntry != null) { nav.popBackStack() }
 
                     SnackbarHost(
                         snackbar,
