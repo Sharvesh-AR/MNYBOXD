@@ -272,13 +272,14 @@ fun AboutScreen(onBack: () -> Unit) {
             Spacer(Modifier.height(Space.xl))
             AboutBlock(
                 "Privacy",
-                "MNYBOXD works entirely offline and has no internet permission. There is no account, no analytics, no ads and no tracking. " +
+                "MNYBOXD works offline. It goes online only when you tap Check for updates, and then only to GitHub, to see whether there's a newer version and download it. Nothing about you or your money is sent. " +
+                    "There is no account, no analytics, no ads and no tracking. " +
                     "Your records are stored in an encrypted database on this phone, protected by a key held in Android Keystore.",
             )
             AboutBlock(
                 "Backups",
                 "Android cloud and device-to-device backup are disabled for MNYBOXD, so your data is never copied to the cloud without you. " +
-                    "Create an encrypted backup file from Settings and keep it somewhere safe. If you uninstall the app or reset your phone without a backup, your records can't be recovered.",
+                    "Export an encrypted backup from Settings and keep it somewhere safe; Import backup brings it back. If you uninstall the app or reset your phone without a backup, your records can't be recovered.",
             )
             AboutBlock(
                 "Voice entry",

@@ -79,7 +79,7 @@ fun WelcomeScreen(onStart: () -> Unit) {
         Spacer(Modifier.height(Space.xxxl))
         AnimatedVisibility(visible, enter = fadeIn(tween(500, delayMillis = 150)) + slideInVertically(tween(500, delayMillis = 150)) { it / 6 }) {
             Column(verticalArrangement = Arrangement.spacedBy(Space.xl)) {
-                Point(Icons.Rounded.CloudOff, "Offline and on your phone", "No account, no sign-in, no internet permission, no ads or trackers.")
+                Point(Icons.Rounded.CloudOff, "Offline and on your phone", "No account, no sign-in, no ads or trackers. It goes online only if you check for updates.")
                 Point(Icons.Rounded.Lock, "Encrypted at rest", "Your records are stored in an encrypted database, with the key protected by Android Keystore.")
                 Point(Icons.Rounded.Mic, "Fast entry", "A keypad built for amounts, plus voice entry you always review before saving.")
             }

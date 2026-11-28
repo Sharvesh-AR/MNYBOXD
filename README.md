@@ -8,7 +8,7 @@ MNYBOXD records spending in seconds, by keypad or voice, and keeps accurate bala
 your bank accounts, cash, UPI, debit cards and credit cards. It works completely offline, has
 no account or sign-in, and stores everything in an encrypted database on your phone.
 
-Free. No ads. No tracking. No internet permission.
+Free. No ads. No tracking. Offline: it goes online only when you tap *Check for updates*.
 
 <h2 align="center">Download</h2>
 
@@ -165,10 +165,14 @@ builds (`ScreenshotTest`).</sub>
 3. Tap **Install**, then **Open**.
 4. You can switch the "install unknown apps" permission off again afterwards.
 
-**Updating:** MNYBOXD has no internet permission, so it never checks for updates by itself. The
-version you have is shown at the bottom of *Settings*; new versions appear on the
-[Releases](https://github.com/Sharvesh-AR/MNYBOXD/releases/latest) page. Download `MNYBOXD.apk`
-and install it over the top. Don't uninstall first: that deletes your records.
+**Updating:** from 2.9, tap *Settings → Check for updates*. MNYBOXD asks GitHub for the latest
+release and, if there's a newer one, shows what's new, downloads `MNYBOXD.apk` with a progress
+bar and opens Android's installer (the first time, Android asks you to allow MNYBOXD to install
+apps). It never checks by itself; once a check has found an update, an arrow on Home brings the
+pop-up back. Before installing, the download is checked against the release's `SHA256SUMS.txt`
+and must be MNYBOXD signed with the same key. You can still download `MNYBOXD.apk` from the
+[Releases](https://github.com/Sharvesh-AR/MNYBOXD/releases/latest) page and install it over the
+top. Don't uninstall first: that deletes your records.
 
 Requires Android 8.0 (API 26) or newer. Everything works offline. A few things depend on the
 phone:
@@ -195,7 +199,7 @@ your data stays. To open Quick Add from anywhere, use the Quick Settings tile, a
 
 > **Back up regularly.** MNYBOXD has no account and no cloud sync. If you uninstall the app or
 > reset your phone, your records are gone unless you made an encrypted backup (*Settings → Data
-> management → Create encrypted backup*), which you restore after reinstalling. On Android 10 and
+> management → Export backup*), which you bring back with *Import backup* after reinstalling. On Android 10 and
 > newer, the uninstall dialog also offers to keep MNYBOXD's data on the phone; tick it and
 > reinstalling brings everything back. Phones whose launcher uses its own uninstall dialog may not
 > show that option.
@@ -315,7 +319,8 @@ See [`DEPENDENCIES.md`](DEPENDENCIES.md) for every library, version and licence.
 
 ## Security and privacy
 
-* No internet permission, no accounts, no analytics, no ads, no paid services, no API keys.
+* Online only when you tap *Check for updates* (GitHub, nothing sent about you); no accounts,
+  no analytics, no ads, no paid services, no API keys.
 * Encrypted at rest; Android cloud backup disabled; you choose when and where to export.
 * Never asks for passwords, PINs, OTPs, CVVs or card numbers.
 * Voice uses your phone's speech service, which may work online on some devices. MNYBOXD tells

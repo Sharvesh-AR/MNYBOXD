@@ -38,6 +38,11 @@ data class UserPreferences(
     val lastProvider: PaymentProvider? = null,
     /** The bottom dock's tabs, in the order the user dragged them into. */
     val dockOrder: List<AppTab> = DockOrder.DEFAULT,
+    /**
+     * The newest version the last "Check for updates" found, if it was newer than the app then.
+     * Home shows the update arrow while it's newer than the installed version; no network needed.
+     */
+    val updateAvailable: String? = null,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = StableNames.PREFERENCES_FILE)
@@ -63,6 +68,7 @@ class PreferencesRepository(private val context: Context) {
         val lastChannel = stringPreferencesKey("last_channel")
         val lastProvider = stringPreferencesKey("last_provider")
         val dockOrder = stringPreferencesKey("dock_order")
+        val updateAvailable = stringPreferencesKey("update_available")
     }
 
     val preferences: Flow<UserPreferences> = context.dataStore.data
@@ -77,6 +83,7 @@ class PreferencesRepository(private val context: Context) {
                 lastChannel = p[Keys.lastChannel]?.let { runCatching { PaymentChannel.valueOf(it) }.getOrNull() },
                 lastProvider = p[Keys.lastProvider]?.let { runCatching { PaymentProvider.valueOf(it) }.getOrNull() },
                 dockOrder = DockOrder.parse(p[Keys.dockOrder]),
+                updateAvailable = p[Keys.updateAvailable],
             )
         }
 
@@ -99,6 +106,9 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setOnboardingDone() = context.dataStore.edit { it[Keys.onboarding] = true }
     suspend fun setVoiceDisclosureAccepted() = context.dataStore.edit { it[Keys.voiceDisclosure] = true }
     suspend fun setSecureScreen(enabled: Boolean) = context.dataStore.edit { it[Keys.secureScreen] = enabled }
+    suspend fun setUpdateAvailable(version: String?) = context.dataStore.edit {
+        if (version == null) it.remove(Keys.updateAvailable) else it[Keys.updateAvailable] = version
+    }
 
     /** Saves the dock's tab order, normalised so every tab is stored exactly once. */
     suspend fun setDockOrder(order: List<AppTab>) {

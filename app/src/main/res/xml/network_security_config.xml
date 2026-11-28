@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- MNYBOXD has no INTERNET permission and makes no network requests. This config is defence in
-     depth: cleartext is forbidden and only system CAs would ever be trusted. -->
+<!-- MNYBOXD goes online only for Settings → Check for updates (GitHub over HTTPS; see
+     AppUpdater, which also refuses hosts other than GitHub's). Cleartext is forbidden and only
+     system CAs are trusted. -->
 <network-security-config>
     <base-config cleartextTrafficPermitted="false">
         <trust-anchors>

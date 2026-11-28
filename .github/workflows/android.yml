@@ -103,7 +103,11 @@ jobs:
           test -f "$APK"
           "$BT/apksigner" verify --verbose "$APK" | grep -E "Verified using v2 scheme.*: true"
           if "$BT/aapt2" dump badging "$APK" | grep -q "application-debuggable"; then echo "$APK is debuggable" >&2; exit 1; fi
-          if "$BT/aapt2" dump badging "$APK" | grep -q "android.permission.INTERNET"; then echo "Unexpected INTERNET permission in $APK" >&2; exit 1; fi
+          # Exactly the microphone (voice entry) and what Settings → Check for updates needs.
+          PERMS=$("$BT/aapt2" dump permissions "$APK" | sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p" | grep -v DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION | sort | tr '\n' ' ')
+          if [ "$PERMS" != "android.permission.INTERNET android.permission.RECORD_AUDIO android.permission.REQUEST_INSTALL_PACKAGES " ]; then
+            echo "Unexpected permissions in $APK: $PERMS" >&2; exit 1
+          fi
           # Play Protect blocks browser/file-manager installs of apps declaring any of these
           # (developers.google.com/android/play-protect/warning-dev-guidance). MNYBOXD.apk must declare none.
           if "$BT/aapt2" dump xmltree --file AndroidManifest.xml "$APK" \

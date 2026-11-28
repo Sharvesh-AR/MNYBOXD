@@ -39,6 +39,7 @@ import androidx.compose.material.icons.rounded.Lock
 import androidx.compose.material.icons.rounded.Palette
 import androidx.compose.material.icons.rounded.Restore
 import androidx.compose.material.icons.rounded.Science
+import androidx.compose.material.icons.rounded.SystemUpdate
 import androidx.compose.material.icons.rounded.TableChart
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
@@ -79,6 +80,10 @@ import androidx.compose.ui.unit.dp
 import androidx.core.net.toUri
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import io.github.sharveshar.mnyboxd.BuildConfig
+import io.github.sharveshar.mnyboxd.appContainer
+import io.github.sharveshar.mnyboxd.ui.navigation.LocalAppContainer
+import io.github.sharveshar.mnyboxd.ui.update.UpdatePopup
+import io.github.sharveshar.mnyboxd.update.Releases
 import io.github.sharveshar.mnyboxd.ui.components.APP_NAME
 import io.github.sharveshar.mnyboxd.data.backup.BackupCodec
 import io.github.sharveshar.mnyboxd.ui.common.Formats
@@ -115,6 +120,9 @@ fun SettingsScreen(
     val csvAnchor = rememberOriginAnchor()
     val resetAnchor = rememberOriginAnchor()
     val restoreAnchor = importAnchor
+    val updateAnchor = rememberOriginAnchor()
+    var showUpdate by remember { mutableStateOf(false) }
+    val updater = (LocalAppContainer.current ?: LocalContext.current.appContainer).updater
 
     LaunchedEffect(message) {
         message?.let {
@@ -169,12 +177,12 @@ fun SettingsScreen(
                 SettingRow(
                     Icons.Rounded.Lock,
                     "Your data stays on this phone",
-                    "Encrypted on-device database. No account, no internet permission, no ads or trackers. Android cloud backup is turned off for MNYBOXD, so uninstalling the app deletes your data: create an encrypted backup below first, and restore it after you reinstall.",
+                    "Encrypted on-device database. No account, no ads or trackers, and MNYBOXD goes online only when you tap Check for updates. Android cloud backup is turned off for MNYBOXD, so uninstalling the app deletes your data: export a backup below first, and import it after you reinstall.",
                 )
 
                 Group("Data management")
-                SettingRow(Icons.Rounded.Download, "Create encrypted backup", "Password-protected file you save where you choose", Modifier.originAnchor(exportAnchor)) { popup = SettingsPopup.EXPORT_PASSWORD }
-                SettingRow(Icons.Rounded.Restore, "Restore from backup", "Replaces everything here after you confirm", Modifier.originAnchor(importAnchor)) { popup = SettingsPopup.IMPORT_PASSWORD }
+                SettingRow(Icons.Rounded.Download, "Export backup", "Encrypted, password-protected file you save where you choose", Modifier.originAnchor(exportAnchor)) { popup = SettingsPopup.EXPORT_PASSWORD }
+                SettingRow(Icons.Rounded.Restore, "Import backup", "Restore a MNYBOXD backup file. Replaces everything here after you confirm", Modifier.originAnchor(importAnchor)) { popup = SettingsPopup.IMPORT_PASSWORD }
                 SettingRow(Icons.Rounded.TableChart, "Export as CSV", "Unencrypted spreadsheet of all transactions", Modifier.originAnchor(csvAnchor)) { popup = SettingsPopup.CSV_WARNING }
                 SettingRow(
                     Icons.Rounded.DeleteForever,
@@ -194,6 +202,16 @@ fun SettingsScreen(
 
                 Group("About")
                 SettingRow(Icons.Rounded.Info, "About MNYBOXD", "Version, privacy, open-source licences", chevron = true, onClick = onAbout)
+                val newer = prefs.updateAvailable?.takeIf { Releases.isNewer(it, BuildConfig.VERSION_NAME) }
+                SettingRow(
+                    Icons.Rounded.SystemUpdate,
+                    "Check for updates",
+                    if (newer != null) "MNYBOXD $newer is available" else "You have ${BuildConfig.VERSION_NAME.substringBefore('-')}. Goes online only when you tap",
+                    Modifier.originAnchor(updateAnchor),
+                ) {
+                    showUpdate = true
+                    updater.check()
+                }
                 Spacer(Modifier.height(Space.xxxl))
                 BrandFooter()
                 Spacer(Modifier.height(Space.xl))
@@ -226,10 +244,11 @@ fun SettingsScreen(
         popup = SettingsPopup.NONE
         exportLauncher.launch("mnyboxd-backup-${LocalDate.now()}.${BackupCodec.EXTENSION}")
     }
+    UpdatePopup(visible = showUpdate, anchor = updateAnchor, onClose = { showUpdate = false })
     PasswordPopup(
         visible = popup == SettingsPopup.IMPORT_PASSWORD,
         anchor = importAnchor,
-        title = "Restore a backup",
+        title = "Import a backup",
         body = "Enter the backup's password, then pick the file. You'll see what's inside and confirm before anything is replaced.",
         confirm = false,
         action = "Choose file",

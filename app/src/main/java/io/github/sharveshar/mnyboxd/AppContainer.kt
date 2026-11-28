@@ -15,6 +15,7 @@ import io.github.sharveshar.mnyboxd.data.repo.BudgetRepository
 import io.github.sharveshar.mnyboxd.data.repo.CategoryRepository
 import io.github.sharveshar.mnyboxd.data.repo.TransactionRepository
 import io.github.sharveshar.mnyboxd.shortcut.ShortcutSettings
+import io.github.sharveshar.mnyboxd.update.AppUpdater
 import io.github.sharveshar.mnyboxd.widget.WidgetPrefs
 import io.github.sharveshar.mnyboxd.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineScope
@@ -37,6 +38,9 @@ class AppContainer(context: Context) {
     val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     val databaseManager = DatabaseManager(context.applicationContext)
     val preferences = PreferencesRepository(context.applicationContext)
+
+    /** Settings → Check for updates. Goes online only when the user asks. */
+    val updater by lazy { AppUpdater(appContext, appScope, preferences) }
 
     @Volatile private var cached: Pair<MnyboxdDatabase, Repositories>? = null
 
@@ -67,6 +71,8 @@ class AppContainer(context: Context) {
 
     fun start() {
         appScope.launch { databaseManager.open() }
+        // An update downloaded in an earlier run has been installed or abandoned by now.
+        appScope.launch(Dispatchers.IO) { runCatching { updater.clearDownloads() } }
     }
 }
 

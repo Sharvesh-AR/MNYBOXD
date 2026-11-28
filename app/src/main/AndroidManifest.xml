@@ -2,8 +2,17 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- The ONLY permission MNYBOXD requests. Asked at the moment voice entry is first used. -->
+    <!-- Voice entry. Asked at the moment voice entry is first used. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!--
+      Settings → Check for updates, and nothing else: only when the user taps it, MNYBOXD asks
+      GitHub for its latest release and downloads MNYBOXD.apk, then hands the file to Android's
+      installer (which needs REQUEST_INSTALL_PACKAGES; the user allows it once). No data is sent and
+      nothing runs in the background. See AppUpdater and SECURITY.md.
+    -->
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Microphone is optional: the app is fully usable without it. -->
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
@@ -179,6 +188,20 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_trend_info" />
         </receiver>
+
+        <!--
+          Lets Android's installer read a downloaded update (cache/updates only), one file at a time
+          through a temporary read grant. Not exported.
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
 
         <!-- Midnight refresh for widgets (inexact alarm, no permission). Only MNYBOXD sends it. -->
         <receiver android:name=".widget.WidgetRefreshReceiver" android:exported="false" />

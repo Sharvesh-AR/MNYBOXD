@@ -24,7 +24,7 @@ update.
 
 | Area | Approach |
 |---|---|
-| Network | **No `INTERNET` permission.** The app cannot make network requests. A restrictive Network Security Config (cleartext disabled, system CAs only) is kept as defence in depth. |
+| Network | Used **only** for *Settings → Check for updates*, and only when the user taps it (or the update arrow it leaves on Home). Requests go to GitHub over HTTPS and carry no identifiers or data; nothing runs in the background. A restrictive Network Security Config (cleartext disabled, system CAs only) applies, and the updater refuses any host other than GitHub's. See *In-app updates* below. |
 | Accounts / sign-in | None. No server, no cloud sync, no bank or UPI integration. MNYBOXD never moves money. |
 | Database | Room on **SQLCipher 4.20.0** (AES-256, per-page HMAC). The whole database file is encrypted. |
 | Database key | 256 random bits from `SecureRandom`, wrapped with an **AES-256-GCM key held in Android Keystore** (non-exportable; hardware-backed where the device supports it). Only the wrapped key is written to disk, in `noBackupFilesDir`. Never stored in SharedPreferences, DataStore or source code; never logged. |
@@ -98,8 +98,25 @@ No custom algorithms.
 Library-declared: `DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION` is a signature-level permission
 added by AndroidX Core to protect its own runtime receivers; it grants nothing to other apps.
 
-MNYBOXD does **not** request internet, location, contacts, SMS, phone, storage, notifications,
-overlay, device-admin or any background permission.
+| `INTERNET` | *Settings → Check for updates* (2.9+). | Used only when the user taps it. Reads the latest release from `api.github.com` and downloads its files from GitHub. |
+| `REQUEST_INSTALL_PACKAGES` | Handing a downloaded update to Android's installer. | Android asks the user to allow it once ("Install unknown apps"); the installer then asks again before installing. Only MNYBOXD's own update is ever offered. |
+
+MNYBOXD does **not** request location, contacts, SMS, phone, storage, notifications, overlay,
+device-admin or any background permission.
+
+### In-app updates
+
+*Settings → Check for updates* is the only code that goes online, and it does so only when the
+user taps it. It fetches `https://api.github.com/repos/Sharvesh-AR/MNYBOXD/releases/latest`
+(no token, no identifiers beyond a fixed `User-Agent`), and accepts `MNYBOXD.apk`,
+`SHA256SUMS.txt` and an optional picture only from this repository's release downloads.
+Redirects are followed manually and only to GitHub's hosts (`github.com`, `*.githubusercontent.com`).
+Before the installer is opened, the download must match the SHA-256 in the release's
+`SHA256SUMS.txt`, and be the package `io.github.sharveshar.spendly`, newer than the installed
+version and signed with the same certificate as the installed app. Android itself also refuses an
+update signed with a different key. The file lives in the app's cache (`cache/updates`), is shared
+with the installer through a non-exported `FileProvider` with a one-off read grant, and is deleted
+on the next start.
 
 ### No accessibility service, notification listener or SMS permission
 
@@ -130,6 +147,7 @@ The three activity aliases keep the entry-point names from before the app was re
 the update. An alias adds no entry point of its own: it opens the activity it names.
 | `androidx.profileinstaller.ProfileInstallReceiver` | Yes (library) | Requires `android.permission.DUMP` (system/shell only). |
 | Room `MultiInstanceInvalidationService`, AndroidX Startup provider | No | Not exported. |
+| `FileProvider` (`<package>.updates`) | No | Shares only a downloaded update in `cache/updates` with Android's installer, through a one-off read grant. |
 
 ## Voice input and privacy
 

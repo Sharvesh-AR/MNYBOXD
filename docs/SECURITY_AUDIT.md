@@ -30,10 +30,10 @@
 | 8 | Secret scanning | Regex sweep for keys/tokens/passwords/private keys; search for keystore files; `.gitignore` review | No secrets in tree (one obvious test-fixture password in `BackupTest`). Signing keystore lives outside the repo |
 | 9 | Release APK signature | `apksigner verify --print-certs` | v2 + v3 signatures valid |
 | 10 | Debuggable release | `aapt2 dump badging` / merged manifest | Not debuggable |
-| 11 | Permissions | Merged manifest | `RECORD_AUDIO` only (+ AndroidX signature-level internal permission). No `INTERNET` |
+| 11 | Permissions | Merged manifest | `RECORD_AUDIO`; since 2.9 `INTERNET` and `REQUEST_INSTALL_PACKAGES` for the tap-only in-app updater (see SECURITY.md, *In-app updates*) (+ AndroidX signature-level internal permission) |
 | 12 | Exported components | Merged manifest | Launcher activity (action allow-list), QS tile (system-only permission), ProfileInstaller (DUMP-protected). Nothing else exported |
 | 13 | Backup configuration | Manifest + `data_extraction_rules.xml` | `allowBackup=false`, `fullBackupContent=false`, all domains excluded from cloud backup and device transfer |
-| 14 | Cleartext traffic | Network Security Config | Cleartext disabled; app has no network permission |
+| 14 | Cleartext traffic | Network Security Config | Cleartext disabled; since 2.9 the network is used only by the tap-only updater (GitHub over HTTPS) |
 | 15 | SQL injection | Code review | Only Room-generated parameterised queries; `execSQL` used only with constant DDL/PRAGMA; `LIKE` input escaped; test with injection-style input |
 | 16 | Insecure crypto / weak RNG | Code review | AES-256-GCM, PBKDF2-HMAC-SHA256 (600k), Android Keystore, `SecureRandom` only. No ECB, no static IVs, no hardcoded keys |
 | 17 | Sensitive logging | Code review + R8 rule | No logging in app code; `Log.v/d/i` stripped in release |

@@ -7,9 +7,7 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.rounded.ReceiptLong
-import androidx.compose.material.icons.outlined.NotificationsNone
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
-import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.WarningAmber
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -52,7 +50,6 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -65,8 +62,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -88,7 +83,6 @@ import io.github.sharveshar.mnyboxd.ui.components.OriginPopup
 import io.github.sharveshar.mnyboxd.ui.components.RollingAmount
 import io.github.sharveshar.mnyboxd.ui.components.SectionCard
 import io.github.sharveshar.mnyboxd.ui.components.SectionHeader
-import io.github.sharveshar.mnyboxd.ui.components.Wordmark
 import io.github.sharveshar.mnyboxd.ui.insights.WeekGlanceCard
 import io.github.sharveshar.mnyboxd.ui.components.TransactionListItem
 import io.github.sharveshar.mnyboxd.ui.components.originAnchor
@@ -171,30 +165,7 @@ fun HomeScreen(
 
     LazyColumn(Modifier.fillMaxSize(), contentPadding = contentPadding) {
         item(key = "top") {
-            Row(Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.sm, top = Space.sm), verticalAlignment = Alignment.CenterVertically) {
-                // The app's name, as the page heading.
-                Wordmark(Modifier.semantics { heading() })
-                Spacer(Modifier.weight(1f))
-                // Bell: budgets that need attention, with a dot when there are any.
-                IconButton(onClick = { showAlerts = true }, modifier = Modifier.originAnchor(bell)) {
-                    Box {
-                        Icon(
-                            Icons.Outlined.NotificationsNone,
-                            contentDescription = if (state.alerts.isEmpty()) "Alerts, none" else "Alerts, ${state.alerts.size}",
-                            tint = MaterialTheme.colorScheme.onSurface,
-                        )
-                        if (state.alerts.isNotEmpty()) {
-                            Box(Modifier.align(Alignment.TopEnd).offset(x = 1.dp, y = (-1).dp).size(8.dp).background(c.negative, CircleShape).border(1.5.dp, c.background, CircleShape))
-                        }
-                    }
-                }
-                // You, and everything about the app: Settings.
-                IconButton(onClick = onSettings) {
-                    Box(Modifier.size(32.dp).background(c.cardElevated, CircleShape), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Person, contentDescription = "Settings", tint = MaterialTheme.colorScheme.onSurface, modifier = Modifier.size(20.dp))
-                    }
-                }
-            }
+            HomeHeader(alertCount = state.alerts.size, bell = bell, onAlerts = { showAlerts = true }, onSettings = onSettings)
         }
 
         item(key = "hero") {
