@@ -143,7 +143,7 @@ class MainActivity : ComponentActivity() {
     companion object {
         const val ACTION_QUICK_ADD = "${StableNames.PACKAGE_ID}.action.QUICK_ADD"
         const val ACTION_VOICE_ADD = "${StableNames.PACKAGE_ID}.action.VOICE_ADD"
-        /** Quick Add with Income selected (the Add income and Expense + Income widgets). */
+        /** Quick Add with Income selected (the Add income widget). */
         const val ACTION_ADD_INCOME = "${StableNames.PACKAGE_ID}.action.ADD_INCOME"
         const val ACTION_OPEN_HOME = "${StableNames.PACKAGE_ID}.action.OPEN_HOME"
         const val ACTION_OPEN_BUDGETS = "${StableNames.PACKAGE_ID}.action.OPEN_BUDGETS"

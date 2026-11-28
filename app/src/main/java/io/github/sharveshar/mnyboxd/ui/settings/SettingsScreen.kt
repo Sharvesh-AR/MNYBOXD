@@ -151,7 +151,7 @@ fun SettingsScreen(
                     chevron = true,
                     onClick = onShortcuts,
                 )
-                SettingRow(Icons.Rounded.Widgets, "Home-screen widgets", "Add expense or income, monthly overview, balances, trend and stats", chevron = true, onClick = onWidgets)
+                SettingRow(Icons.Rounded.Widgets, "Home-screen widgets", "Quick Add, Add income, monthly overview and spending trend", chevron = true, onClick = onWidgets)
 
                 Group("Privacy")
                 Row(
@@ -169,7 +169,7 @@ fun SettingsScreen(
                 SettingRow(
                     Icons.Rounded.Lock,
                     "Your data stays on this phone",
-                    "Encrypted on-device database. No account, no internet permission, no ads or trackers. Android cloud backup is turned off for MNYBOXD; use encrypted backups below.",
+                    "Encrypted on-device database. No account, no internet permission, no ads or trackers. Android cloud backup is turned off for MNYBOXD, so uninstalling the app deletes your data: create an encrypted backup below first, and restore it after you reinstall.",
                 )
 
                 Group("Data management")

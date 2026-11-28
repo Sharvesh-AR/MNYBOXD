@@ -4,13 +4,10 @@
 package io.github.sharveshar.mnyboxd.widget
 
 import io.github.sharveshar.mnyboxd.Repositories
-import io.github.sharveshar.mnyboxd.data.db.AccountWithBalance
 import io.github.sharveshar.mnyboxd.domain.insights.BudgetWindows
 import io.github.sharveshar.mnyboxd.domain.insights.Insights
 import io.github.sharveshar.mnyboxd.domain.insights.SpendRecord
 import io.github.sharveshar.mnyboxd.domain.insights.TimeRange
-import io.github.sharveshar.mnyboxd.domain.ledger.BalanceCalculator
-import io.github.sharveshar.mnyboxd.domain.model.AccountType
 import io.github.sharveshar.mnyboxd.domain.model.BudgetPeriod
 import kotlinx.coroutines.flow.first
 import java.time.LocalDate
@@ -19,14 +16,9 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-/** One account as a widget shows it. For credit cards [amountPaise] is the amount owed. */
-data class WidgetAccount(val id: Long, val name: String, val type: AccountType, val amountPaise: Long) {
-    val isCard get() = type == AccountType.CREDIT_CARD
-}
-
 /**
  * Everything the home-screen widgets show, computed from the database with the app's own rules
- * (the same net-spend, income and balance calculations as the dashboard). Widgets never store
+ * (the same net-spend and income calculations as the dashboard). Widgets never store
  * their own copy of financial data: they render a fresh snapshot each time they update.
  */
 data class WidgetSnapshot(
@@ -34,18 +26,10 @@ data class WidgetSnapshot(
     val spentMonthPaise: Long,
     val incomeMonthPaise: Long,
     val spentTodayPaise: Long,
-    /** Expenses, income and refunds dated this month (transfers aren't spending). */
-    val transactionsThisMonth: Int,
     /** The overall budget's limit, or null if none is set. */
     val budgetPaise: Long?,
     /** Net spending for each of the last 7 days, oldest first, ending today. */
     val week: List<Long>,
-    /** Money you have: banks, cash and wallets. Never includes card debt. */
-    val availablePaise: Long,
-    /** What's owed on credit cards, shown separately. */
-    val cardsOwedPaise: Long,
-    /** Active accounts in display order (debit cards are excluded; they spend from a bank). */
-    val accounts: List<WidgetAccount>,
     val hasAnyTransactions: Boolean,
     /** How often the overall budget starts over. */
     val budgetPeriod: BudgetPeriod = BudgetPeriod.MONTHLY,
@@ -73,7 +57,6 @@ data class WidgetSnapshot(
             today: LocalDate,
             zone: ZoneId,
             records: List<SpendRecord>,
-            accounts: List<AccountWithBalance>,
             overallBudgetPaise: Long?,
             hasAnyTransactions: Boolean,
             budgetPeriod: BudgetPeriod = BudgetPeriod.MONTHLY,
@@ -83,25 +66,13 @@ data class WidgetSnapshot(
             val todayRange = TimeRange.day(today, zone)
             // The overall budget runs over today, this week or this month.
             val budgetRange = BudgetWindows.of(budgetPeriod, today).range(zone)
-            val active = accounts.filter { !it.account.archived }
-            val shown = active
-                .filter { it.account.type != AccountType.DEBIT_CARD }
-                .sortedWith(compareBy({ it.account.type == AccountType.CREDIT_CARD }, { it.account.sortOrder }, { it.account.id }))
-                .map {
-                    val amount = if (it.account.type == AccountType.CREDIT_CARD) BalanceCalculator.outstanding(it.balancePaise) else it.balancePaise
-                    WidgetAccount(it.account.id, it.account.name, it.account.type, amount)
-                }
             return WidgetSnapshot(
                 today = today,
                 spentMonthPaise = Insights.netSpend(monthRecords),
                 incomeMonthPaise = Insights.income(monthRecords),
                 spentTodayPaise = Insights.netSpend(records.filter { it.occurredAt in todayRange }),
-                transactionsThisMonth = monthRecords.size,
                 budgetPaise = overallBudgetPaise,
                 week = Insights.dailyNetSpend(records, today.minusDays(6), 7, zone),
-                availablePaise = active.filter { it.account.type.holdsBalance && !it.account.type.isLiability }.sumOf { it.balancePaise },
-                cardsOwedPaise = active.filter { it.account.type.isLiability }.sumOf { BalanceCalculator.outstanding(it.balancePaise) },
-                accounts = shown,
                 hasAnyTransactions = hasAnyTransactions,
                 budgetPeriod = budgetPeriod,
                 budgetSpentPaise = maxOf(0L, Insights.netSpend(records.filter { it.occurredAt in budgetRange })),
@@ -116,10 +87,9 @@ data class WidgetSnapshot(
             val to = maxOf(month.endMillis, TimeRange.day(today, zone).endMillis)
             // This week's Monday is never before today minus six days, so a weekly budget is covered too.
             val records = repos.transactions.observeSpendRecords(TimeRange(from, to)).first()
-            val accounts = repos.accounts.observeWithBalances().first()
             val budget = repos.budgets.book().overall(YearMonth.from(today))
             val count = repos.transactions.observeCount().first()
-            return build(today, zone, records, accounts, budget?.amountPaise, count > 0, budget?.period ?: BudgetPeriod.MONTHLY)
+            return build(today, zone, records, budget?.amountPaise, count > 0, budget?.period ?: BudgetPeriod.MONTHLY)
         }
     }
 }

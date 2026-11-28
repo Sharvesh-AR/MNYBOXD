@@ -13,7 +13,6 @@ import android.graphics.RectF
 import android.graphics.Typeface
 import android.os.Build
 import android.util.SizeF
-import android.view.View
 import android.widget.RemoteViews
 import androidx.annotation.IdRes
 import androidx.annotation.LayoutRes
@@ -24,13 +23,16 @@ import io.github.sharveshar.mnyboxd.MainActivity
 import io.github.sharveshar.mnyboxd.QuickAddActivity
 import io.github.sharveshar.mnyboxd.R
 import io.github.sharveshar.mnyboxd.core.money.Money
-import io.github.sharveshar.mnyboxd.domain.model.AccountType
 import io.github.sharveshar.mnyboxd.domain.model.BudgetPeriod
 import io.github.sharveshar.mnyboxd.ui.theme.MnyboxdPalette
 import kotlin.math.max
 
-/** The home-screen widgets. [id] is stable: it's part of PendingIntent request codes. */
-enum class WidgetKind(val id: Int) { QUICK_ADD(1), MONTHLY(2), ACCOUNTS(3), TREND(4), STATS(5), ADD_INCOME(6), ADD_BOTH(7) }
+/**
+ * The home-screen widgets. [id] is stable: it's part of PendingIntent request codes. Ids 3, 5
+ * and 7 belonged to the Account balance, Quick stats and Expense + Income widgets (removed in
+ * 2.8); don't reuse them.
+ */
+enum class WidgetKind(val id: Int) { QUICK_ADD(1), MONTHLY(2), TREND(4), ADD_INCOME(6) }
 
 /**
  * Builds the RemoteViews for each widget, its sizes and the active theme.
@@ -52,7 +54,7 @@ object WidgetRenderer {
         val p = WidgetPrefs.palette(context)
         if (content is Content.Message) return message(context, kind, widgetId, content.text, p)
         val data = (content as Content.Ready).data
-        val sizes = sizesFor(kind, context, widgetId)
+        val sizes = sizesFor(kind)
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             RemoteViews(sizes.associate { s -> SizeF(s.minWidth, s.minHeight) to layout(context, kind, widgetId, s, data, p) })
         } else {
@@ -64,7 +66,7 @@ object WidgetRenderer {
     fun forSize(context: Context, kind: WidgetKind, widgetId: Int, content: Content, widthDp: Int, heightDp: Int): RemoteViews {
         val p = WidgetPrefs.palette(context)
         if (content is Content.Message) return message(context, kind, widgetId, content.text, p)
-        val sizes = sizesFor(kind, context, widgetId)
+        val sizes = sizesFor(kind)
         // The biggest layout that fits the reported size.
         val fit = sizes.filter { widthDp >= it.minWidth && heightDp >= it.minHeight }.maxByOrNull { it.minWidth * it.minHeight } ?: sizes.first()
         return layout(context, kind, widgetId, fit, (content as Content.Ready).data, p)
@@ -74,7 +76,7 @@ object WidgetRenderer {
     internal data class Breakpoint(val minWidth: Float, val minHeight: Float, @LayoutRes val layout: Int, val chartWidthDp: Int = 0, val chartHeightDp: Int = 0)
 
     @androidx.annotation.VisibleForTesting
-    internal fun sizesFor(kind: WidgetKind, context: Context, widgetId: Int): List<Breakpoint> = when (kind) {
+    internal fun sizesFor(kind: WidgetKind): List<Breakpoint> = when (kind) {
         WidgetKind.QUICK_ADD -> listOf(
             Breakpoint(100f, 40f, R.layout.widget_quick_add_small),
             Breakpoint(200f, 40f, R.layout.widget_quick_add),
@@ -84,32 +86,14 @@ object WidgetRenderer {
             Breakpoint(100f, 100f, R.layout.widget_monthly_small),
             Breakpoint(220f, 100f, R.layout.widget_monthly, chartWidthDp = 104, chartHeightDp = 70),
         )
-        WidgetKind.ACCOUNTS -> if (WidgetPrefs.account(context, widgetId) != null) {
-            listOf(Breakpoint(100f, 90f, R.layout.widget_account_single))
-        } else {
-            listOf(
-                Breakpoint(100f, 100f, R.layout.widget_accounts_small),
-                Breakpoint(220f, 140f, R.layout.widget_accounts),
-            )
-        }
         WidgetKind.TREND -> listOf(
             Breakpoint(100f, 100f, R.layout.widget_trend_small, chartWidthDp = 130, chartHeightDp = 60),
             Breakpoint(220f, 100f, R.layout.widget_trend, chartWidthDp = 260, chartHeightDp = 80),
-        )
-        WidgetKind.STATS -> listOf(
-            Breakpoint(200f, 40f, R.layout.widget_stats_wide),
-            Breakpoint(100f, 100f, R.layout.widget_stats),
         )
         WidgetKind.ADD_INCOME -> listOf(
             Breakpoint(100f, 40f, R.layout.widget_add_income_small),
             Breakpoint(200f, 40f, R.layout.widget_add_income),
             Breakpoint(200f, 110f, R.layout.widget_add_income_large),
-        )
-        // Labelled buttons need about 100dp each; narrower, they show just the arrows.
-        WidgetKind.ADD_BOTH -> listOf(
-            Breakpoint(100f, 40f, R.layout.widget_add_both_small),
-            Breakpoint(220f, 40f, R.layout.widget_add_both),
-            Breakpoint(220f, 110f, R.layout.widget_add_both_large),
         )
     }
 
@@ -120,11 +104,8 @@ object WidgetRenderer {
         when (kind) {
             WidgetKind.QUICK_ADD -> quickAdd(context, v, widgetId, bp, d, p)
             WidgetKind.MONTHLY -> monthly(context, v, widgetId, bp, d, p)
-            WidgetKind.ACCOUNTS -> accounts(context, v, widgetId, bp, d, p)
             WidgetKind.TREND -> trend(context, v, widgetId, bp, d, p)
-            WidgetKind.STATS -> stats(context, v, widgetId, bp, d, p)
             WidgetKind.ADD_INCOME -> addIncome(context, v, widgetId, bp, d, p)
-            WidgetKind.ADD_BOTH -> addBoth(context, v, widgetId, bp, d, p)
         }
         return v
     }
@@ -173,30 +154,6 @@ object WidgetRenderer {
         }
     }
 
-    /** Two buttons: Expense (the main, filled one) and Income (money in, in the positive colour). */
-    private fun addBoth(context: Context, v: RemoteViews, widgetId: Int, bp: Breakpoint, d: WidgetSnapshot, p: MnyboxdPalette) {
-        v.tint(R.id.add_bg, p.accent)
-        v.tint(R.id.add_icon, p.onAccent)
-        v.tint(R.id.income_bg, p.surfaceElevated)
-        v.tint(R.id.income_icon, p.positive)
-        // The narrowest size shows only the arrows, so there are no labels to colour.
-        if (bp.layout != R.layout.widget_add_both_small) {
-            v.setTextColor(R.id.add_label, p.onAccent.toArgb())
-            v.setTextColor(R.id.income_label, p.positive.toArgb())
-        }
-        v.setOnClickPendingIntent(R.id.add_button, quickAddIntent(context, widgetId, voice = false))
-        v.setOnClickPendingIntent(R.id.income_button, addIncomeIntent(context, widgetId))
-        v.setContentDescription(R.id.add_button, "Add expense")
-        v.setContentDescription(R.id.income_button, "Add income")
-        v.setOnClickPendingIntent(android.R.id.background, openApp(context, widgetId, WidgetKind.ADD_BOTH, MainActivity.ACTION_OPEN_HOME))
-        if (bp.layout == R.layout.widget_add_both_large) {
-            v.tint(R.id.logo, p.accent)
-            v.setTextColor(R.id.brand, p.text.toArgb())
-            v.setTextColor(R.id.caption, p.textMuted.toArgb())
-            v.text(R.id.today, if (d.spentTodayPaise != 0L) "Today ${Money.format(d.spentTodayPaise)}" else "Nothing spent today", p.textMuted)
-        }
-    }
-
     private fun logoTile(context: Context, v: RemoteViews, widgetId: Int, kind: WidgetKind, p: MnyboxdPalette) {
         v.tint(R.id.logo_bg, p.surfaceElevated)
         v.tint(R.id.logo, p.accent)
@@ -239,62 +196,6 @@ object WidgetRenderer {
         }
     }
 
-    private fun accounts(context: Context, v: RemoteViews, widgetId: Int, bp: Breakpoint, d: WidgetSnapshot, p: MnyboxdPalette) {
-        if (bp.layout == R.layout.widget_account_single) {
-            val id = WidgetPrefs.account(context, widgetId)
-            val a = d.accounts.firstOrNull { it.id == id }
-            v.setOnClickPendingIntent(android.R.id.background, openAccount(context, widgetId, 10, id))
-            v.tint(R.id.icon_bg, p.surfaceElevated)
-            v.tint(R.id.icon, p.accent)
-            if (a == null) {
-                // The chosen account was deleted or archived.
-                v.text(R.id.name, "Account not found", p.text)
-                v.text(R.id.type, "Tap to choose another", p.textMuted)
-                v.text(R.id.label, "", p.textMuted)
-                v.text(R.id.amount, "", p.text)
-                v.setOnClickPendingIntent(android.R.id.background, openApp(context, widgetId, WidgetKind.ACCOUNTS, MainActivity.ACTION_OPEN_ACCOUNTS))
-            } else {
-                v.setImageViewResource(R.id.icon, iconFor(a.type))
-                v.text(R.id.name, a.name, p.text)
-                v.text(R.id.type, a.type.label, p.textMuted)
-                v.text(R.id.label, if (a.isCard) "Owed" else "Balance", p.textMuted)
-                v.text(R.id.amount, Money.format(a.amountPaise), if ((a.isCard && a.amountPaise > 0) || (!a.isCard && a.amountPaise < 0)) p.negative else p.text)
-            }
-            return
-        }
-        v.setOnClickPendingIntent(android.R.id.background, openApp(context, widgetId, WidgetKind.ACCOUNTS, MainActivity.ACTION_OPEN_ACCOUNTS))
-        v.setTextColor(R.id.avail_label, p.textMuted.toArgb())
-        v.text(R.id.avail, Money.format(d.availablePaise), if (d.availablePaise < 0) p.negative else p.text)
-        v.setTextColor(R.id.owed_label, p.textMuted.toArgb())
-        val hasCards = d.accounts.any { it.isCard }
-        v.text(R.id.owed, if (hasCards) Money.format(d.cardsOwedPaise) else "No cards", if (d.cardsOwedPaise > 0) p.negative else p.textMuted)
-        if (bp.layout == R.layout.widget_accounts) {
-            val rows = listOf(
-                Row(R.id.row1, R.id.row1_icon_bg, R.id.row1_icon, R.id.row1_name, R.id.row1_amount),
-                Row(R.id.row2, R.id.row2_icon_bg, R.id.row2_icon, R.id.row2_name, R.id.row2_amount),
-                Row(R.id.row3, R.id.row3_icon_bg, R.id.row3_icon, R.id.row3_name, R.id.row3_amount),
-                Row(R.id.row4, R.id.row4_icon_bg, R.id.row4_icon, R.id.row4_name, R.id.row4_amount),
-            )
-            rows.forEachIndexed { i, r ->
-                val a = d.accounts.getOrNull(i)
-                // Empty slots stay in the layout (invisible) so rows never jump in height.
-                v.setViewVisibility(r.container, if (a == null) View.INVISIBLE else View.VISIBLE)
-                if (a != null) {
-                    v.tint(r.iconBg, p.surfaceElevated)
-                    v.setImageViewResource(r.icon, iconFor(a.type))
-                    v.tint(r.icon, if (a.isCard) p.negative else p.accent)
-                    v.text(r.name, a.name, p.text)
-                    v.text(r.amount, Money.format(a.amountPaise), if ((a.isCard && a.amountPaise > 0) || (!a.isCard && a.amountPaise < 0)) p.negative else p.text)
-                    v.setOnClickPendingIntent(r.container, openAccount(context, widgetId, 20 + i, a.id))
-                }
-            }
-            val more = d.accounts.size - rows.size
-            v.text(R.id.more, if (more > 0) "+$more more in MNYBOXD" else "", p.textMuted)
-        }
-    }
-
-    private data class Row(@IdRes val container: Int, @IdRes val iconBg: Int, @IdRes val icon: Int, @IdRes val name: Int, @IdRes val amount: Int)
-
     private fun trend(context: Context, v: RemoteViews, widgetId: Int, bp: Breakpoint, d: WidgetSnapshot, p: MnyboxdPalette) {
         v.setOnClickPendingIntent(android.R.id.background, openApp(context, widgetId, WidgetKind.TREND, MainActivity.ACTION_OPEN_INSIGHTS))
         v.setTextColor(R.id.label, p.textMuted.toArgb())
@@ -306,34 +207,6 @@ object WidgetRenderer {
             v.text(R.id.caption, if (hi == null) "Nothing spent in the last 7 days" else "Highest: ${d.dayLabel(hi)} · ${Money.format(d.week[hi])}", p.textMuted)
         } else {
             v.text(R.id.amount, Money.format(d.weekTotalPaise), p.text)
-        }
-    }
-
-    private fun stats(context: Context, v: RemoteViews, widgetId: Int, bp: Breakpoint, d: WidgetSnapshot, p: MnyboxdPalette) {
-        v.setOnClickPendingIntent(android.R.id.background, openApp(context, widgetId, WidgetKind.STATS, MainActivity.ACTION_OPEN_HOME))
-        val remaining = d.budgetRemainingPaise
-        // Short labels on the 2×2 grid so nothing is cut off; the wide strip has room for more.
-        val wide = bp.layout == R.layout.widget_stats_wide
-        val cells = listOf(
-            Triple("Today", Money.format(d.spentTodayPaise), p.text),
-            Triple(if (wide) "This month" else "Month", Money.format(d.spentMonthPaise), p.text),
-            Triple("Entries", d.transactionsThisMonth.toString(), p.text),
-            when {
-                remaining == null -> Triple("Budget", "Not set", p.textMuted)
-                remaining >= 0 -> Triple(if (!wide) "Left" else when (d.budgetPeriod) { BudgetPeriod.DAILY -> "Left today"; BudgetPeriod.WEEKLY -> "Left this week"; BudgetPeriod.MONTHLY -> "Budget left" }, Money.format(remaining), p.positive)
-                else -> Triple(if (!wide) "Over" else when (d.budgetPeriod) { BudgetPeriod.DAILY -> "Over today"; BudgetPeriod.WEEKLY -> "Over this week"; BudgetPeriod.MONTHLY -> "Over budget" }, Money.format(-remaining), p.negative)
-            },
-        )
-        val ids = listOf(
-            Triple(R.id.stat1_bg, R.id.stat1_label, R.id.stat1_value),
-            Triple(R.id.stat2_bg, R.id.stat2_label, R.id.stat2_value),
-            Triple(R.id.stat3_bg, R.id.stat3_label, R.id.stat3_value),
-            Triple(R.id.stat4_bg, R.id.stat4_label, R.id.stat4_value),
-        )
-        ids.zip(cells).forEach { (id, cell) ->
-            v.tint(id.first, p.surfaceElevated)
-            v.text(id.second, cell.first, p.textMuted)
-            v.text(id.third, cell.second, cell.third)
         }
     }
 
@@ -356,21 +229,12 @@ object WidgetRenderer {
         setTextColor(id, color.toArgb())
     }
 
-    private fun iconFor(type: AccountType) = when (type) {
-        AccountType.CASH -> R.drawable.ic_w_cash
-        AccountType.CREDIT_CARD, AccountType.DEBIT_CARD -> R.drawable.ic_w_card
-        AccountType.WALLET -> R.drawable.ic_w_wallet
-        AccountType.SAVINGS, AccountType.CURRENT -> R.drawable.ic_w_bank
-    }
-
     private fun weekDescription(d: WidgetSnapshot): String =
         "Spending over the last 7 days: " + d.week.indices.joinToString(", ") { "${d.dayLabel(it)} ${Money.format(d.week[it])}" }
 
     /**
-     * Unique, stable request codes so each widget's buttons keep their own PendingIntent (extras
-     * aren't part of a PendingIntent's identity, so two account rows must never share a code).
-     * Slots: 1 add, 2 voice, 3 + kind id (4..10) open app, 10 single account (only in the
-     * account widget, never alongside kind 7's), 20..29 account rows, 30 add income.
+     * Unique, stable request codes so each widget's buttons keep their own PendingIntent.
+     * Slots: 1 add, 2 voice, 3 + kind id (4..9) open app, 30 add income.
      */
     private fun requestCode(widgetId: Int, slot: Int) = widgetId * 64 + slot
 
@@ -388,13 +252,6 @@ object WidgetRenderer {
         val intent = Intent(action).setClass(context, MainActivity::class.java)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
         return PendingIntent.getActivity(context, requestCode(widgetId, 3 + kind.id), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-    }
-
-    private fun openAccount(context: Context, widgetId: Int, slot: Int, accountId: Long?): PendingIntent {
-        val intent = Intent(MainActivity.ACTION_OPEN_ACCOUNT).setClass(context, MainActivity::class.java)
-            .putExtra(MainActivity.EXTRA_ACCOUNT_ID, accountId ?: 0L)
-            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
-        return PendingIntent.getActivity(context, requestCode(widgetId, slot), intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
     // --- Bitmaps (drawn here because RemoteViews can't draw shapes or charts) -----------------

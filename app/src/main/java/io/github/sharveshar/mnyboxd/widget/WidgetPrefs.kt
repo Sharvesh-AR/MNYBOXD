@@ -19,7 +19,6 @@ import io.github.sharveshar.mnyboxd.StableNames
 object WidgetPrefs {
     private const val FILE = StableNames.WIDGET_PREFS_FILE
     private const val KEY_STYLE = "style"
-    private fun accountKey(widgetId: Int) = "account_$widgetId"
 
     private fun prefs(context: Context) = context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
@@ -34,27 +33,6 @@ object WidgetPrefs {
     fun palette(context: Context): MnyboxdPalette {
         val night = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES
         return Palettes.of(style(context) ?: ThemeCache.read(context).resolve(night))
-    }
-
-    /** Account shown by one Account widget; null = all accounts (the default). */
-    fun account(context: Context, widgetId: Int): Long? = prefs(context).getLong(accountKey(widgetId), 0L).takeIf { it > 0 }
-
-    fun setAccount(context: Context, widgetId: Int, accountId: Long?) = prefs(context).edit {
-        if (accountId == null || accountId <= 0) remove(accountKey(widgetId)) else putLong(accountKey(widgetId), accountId)
-    }
-
-    fun forget(context: Context, widgetIds: IntArray) = prefs(context).edit { widgetIds.forEach { remove(accountKey(it)) } }
-
-    /** Widgets get new ids when restored (e.g. moved to a new launcher); carry settings over. */
-    fun remap(context: Context, oldIds: IntArray, newIds: IntArray) {
-        val p = prefs(context)
-        p.edit {
-            oldIds.zip(newIds).forEach { (old, new) ->
-                val account = p.getLong(accountKey(old), 0L)
-                remove(accountKey(old))
-                if (account > 0) putLong(accountKey(new), account)
-            }
-        }
     }
 
     /** Part of Reset MNYBOXD. */

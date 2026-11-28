@@ -271,7 +271,7 @@ class ReviewShotsTest {
         val density = context.resources.displayMetrics.density
         for (palette in listOf(io.github.sharveshar.mnyboxd.ui.theme.Palettes.Mono, io.github.sharveshar.mnyboxd.ui.theme.Palettes.Light)) {
             for (kind in io.github.sharveshar.mnyboxd.widget.WidgetKind.entries) {
-                for (bp in io.github.sharveshar.mnyboxd.widget.WidgetRenderer.sizesFor(kind, context, 3)) {
+                for (bp in io.github.sharveshar.mnyboxd.widget.WidgetRenderer.sizesFor(kind)) {
                     // Render at a typical launcher cell size for this breakpoint.
                     val wDp = if (bp.minWidth >= 200f) 330 else 160
                     val hDp = when {

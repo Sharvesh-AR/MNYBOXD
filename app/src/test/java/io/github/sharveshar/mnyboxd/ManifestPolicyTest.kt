@@ -10,6 +10,7 @@ import android.content.pm.PackageManager
 import androidx.test.core.app.ApplicationProvider
 import kotlin.time.Duration.Companion.minutes
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -60,5 +61,13 @@ class ManifestPolicyTest {
         val requested = packageInfo().requestedPermissions.orEmpty()
             .filterNot { it == "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" }
         assertEquals(listOf(Manifest.permission.RECORD_AUDIO), requested)
+    }
+
+    @Test fun `the uninstall dialog offers to keep MNYBOXD's data`() {
+        // No account means uninstalling deletes everything; hasFragileUserData (Android 10+) makes
+        // the system's uninstall dialog offer to keep it, so a reinstall picks up where it left off.
+        // ApplicationInfo.hasFragileUserData() is hidden from the SDK; Robolectric runs the real framework.
+        val fragile = context.applicationInfo.javaClass.getMethod("hasFragileUserData").invoke(context.applicationInfo) as Boolean
+        assertTrue(fragile)
     }
 }

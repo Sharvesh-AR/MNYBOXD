@@ -15,8 +15,15 @@
         </intent>
     </queries>
 
+    <!--
+      hasFragileUserData: there's no account, so uninstalling deletes everything. With this flag
+      Android's uninstall dialog offers to keep the app's data (Android 10+), and reinstalling
+      MNYBOXD then picks up where it left off. Encrypted backups (Settings → Data management)
+      remain the way to move data to another phone.
+    -->
     <application
         android:name=".MnyboxdApplication"
+        android:hasFragileUserData="true"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules"
@@ -123,8 +130,10 @@
         -->
 
         <!--
-          Home-screen widgets. Providers must be exported to receive APPWIDGET_UPDATE, which only the
-          system can send. They show data from the encrypted database; nothing is stored for them.
+          Home-screen widgets: Quick Add, Add income, Monthly overview and Spending trend. Providers
+          must be exported to receive APPWIDGET_UPDATE, which only the system can send. They show data
+          from the encrypted database; nothing is stored for them. Never rename these classes:
+          Android drops placed widgets whose provider name changes.
         -->
         <receiver
             android:name=".widget.QuickAddWidget"
@@ -149,17 +158,6 @@
                 android:resource="@xml/widget_add_income_info" />
         </receiver>
         <receiver
-            android:name=".widget.AddBothWidget"
-            android:exported="true"
-            android:label="@string/widget_add_both_label">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_add_both_info" />
-        </receiver>
-        <receiver
             android:name=".widget.MonthlyWidget"
             android:exported="true"
             android:label="@string/widget_monthly_label">
@@ -169,17 +167,6 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_monthly_info" />
-        </receiver>
-        <receiver
-            android:name=".widget.AccountsWidget"
-            android:exported="true"
-            android:label="@string/widget_accounts_label">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_accounts_info" />
         </receiver>
         <receiver
             android:name=".widget.TrendWidget"
@@ -192,33 +179,9 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_trend_info" />
         </receiver>
-        <receiver
-            android:name=".widget.StatsWidget"
-            android:exported="true"
-            android:label="@string/widget_stats_label">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
-            </intent-filter>
-            <meta-data
-                android:name="android.appwidget.provider"
-                android:resource="@xml/widget_stats_info" />
-        </receiver>
 
         <!-- Midnight refresh for widgets (inexact alarm, no permission). Only MNYBOXD sends it. -->
         <receiver android:name=".widget.WidgetRefreshReceiver" android:exported="false" />
 
-        <!--
-          Account widget setup. Exported because the launcher opens it; it only accepts ids of
-          MNYBOXD's own Account widgets and only chooses which account that widget shows.
-        -->
-        <activity
-            android:name=".widget.AccountWidgetConfigActivity"
-            android:exported="true"
-            android:excludeFromRecents="true"
-            android:theme="@style/Theme.Mnyboxd">
-            <intent-filter>
-                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE" />
-            </intent-filter>
-        </activity>
     </application>
 </manifest>

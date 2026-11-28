@@ -39,10 +39,6 @@ abstract class MnyboxdWidgetProvider(private val kind: WidgetKind) : AppWidgetPr
     override fun onAppWidgetOptionsChanged(context: Context, manager: AppWidgetManager, id: Int, options: Bundle) =
         refresh(context, intArrayOf(id))
 
-    override fun onDeleted(context: Context, ids: IntArray) = WidgetPrefs.forget(context, ids)
-
-    override fun onRestored(context: Context, oldIds: IntArray, newIds: IntArray) = WidgetPrefs.remap(context, oldIds, newIds)
-
     override fun onDisabled(context: Context) = WidgetUpdater.scheduleMidnight(context)
 
     private fun refresh(context: Context, ids: IntArray) {
@@ -57,13 +53,11 @@ abstract class MnyboxdWidgetProvider(private val kind: WidgetKind) : AppWidgetPr
     }
 }
 
+// The four widgets. Never rename these classes: the launcher stores placed widgets by class name.
 class QuickAddWidget : MnyboxdWidgetProvider(WidgetKind.QUICK_ADD)
 class AddIncomeWidget : MnyboxdWidgetProvider(WidgetKind.ADD_INCOME)
-class AddBothWidget : MnyboxdWidgetProvider(WidgetKind.ADD_BOTH)
 class MonthlyWidget : MnyboxdWidgetProvider(WidgetKind.MONTHLY)
-class AccountsWidget : MnyboxdWidgetProvider(WidgetKind.ACCOUNTS)
 class TrendWidget : MnyboxdWidgetProvider(WidgetKind.TREND)
-class StatsWidget : MnyboxdWidgetProvider(WidgetKind.STATS)
 
 /** Fires shortly after midnight so "today" and "this month" roll over. Not exported. */
 class WidgetRefreshReceiver : BroadcastReceiver() {
@@ -83,11 +77,8 @@ object WidgetUpdater {
     private fun providerClass(kind: WidgetKind): Class<out AppWidgetProvider> = when (kind) {
         WidgetKind.QUICK_ADD -> QuickAddWidget::class.java
         WidgetKind.MONTHLY -> MonthlyWidget::class.java
-        WidgetKind.ACCOUNTS -> AccountsWidget::class.java
         WidgetKind.TREND -> TrendWidget::class.java
-        WidgetKind.STATS -> StatsWidget::class.java
         WidgetKind.ADD_INCOME -> AddIncomeWidget::class.java
-        WidgetKind.ADD_BOTH -> AddBothWidget::class.java
     }
 
     fun component(context: Context, kind: WidgetKind) = ComponentName(context, providerClass(kind))

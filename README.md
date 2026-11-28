@@ -58,13 +58,13 @@ builds (`ScreenshotTest`).</sub>
 * **"Add expense" app icon** (optional): a second icon that opens Quick Add directly, so your
   phone's own gestures can launch it, such as back tap (Pixel *Quick Tap*) or double-pressing
   the side key (Samsung).
-* **Home-screen widgets**: *Quick Add* (add or speak an expense), *Add income* (opens Quick Add
-  on Income), *Expense + Income* (both buttons side by side), *Monthly overview* (spent this
-  month, budget used and left for today, this week or this month, progress bar, last 7 days), *Account balance* (all accounts, or
-  one account you pick; tap an account to open it), plus *Spending trend* and *Quick stats*.
-  Each adapts to its size (touch and hold to resize), follows the app theme or one you choose,
-  and updates when your data changes and just after midnight, without polling. Preview them and
-  add them from *Settings → Widgets*.
+* **Home-screen widgets** (four): *Quick Add* (add or speak an expense), *Add income* (opens
+  Quick Add on Income), *Monthly overview* (spent this month, budget used and left for today,
+  this week or this month, progress bar, last 7 days) and *Spending trend* (the last 7 days, day
+  by day, and the highest day). Each adapts to its size (touch and hold to resize), follows the
+  app theme or one you choose, and updates when your data changes and just after midnight,
+  without polling. Preview them and add them from *Settings → Widgets*. The *Expense + Income*,
+  *Account balance* and *Quick stats* widgets were removed in 2.8.
 
 **Accurate money**
 * All amounts are integer paise (`Long`); floating point is never used for money.
@@ -193,9 +193,12 @@ was removed in 2.7. If you used that build, install `MNYBOXD.apk` over it as a n
 your data stays. To open Quick Add from anywhere, use the Quick Settings tile, a widget or the
 "Add expense" icon.
 
-> **Back up regularly.** MNYBOXD has no cloud sync. If you uninstall the app or reset your phone,
-> your records are gone unless you made an encrypted backup (*Settings → Data management →
-> Create encrypted backup*).
+> **Back up regularly.** MNYBOXD has no account and no cloud sync. If you uninstall the app or
+> reset your phone, your records are gone unless you made an encrypted backup (*Settings → Data
+> management → Create encrypted backup*), which you restore after reinstalling. On Android 10 and
+> newer, the uninstall dialog also offers to keep MNYBOXD's data on the phone; tick it and
+> reinstalling brings everything back. Phones whose launcher uses its own uninstall dialog may not
+> show that option.
 
 ## Build from source
 
@@ -272,8 +275,10 @@ refund; the coin animation and balances on Accounts; voice entry (allow and deny
 creating and restoring an encrypted backup; the Quick Settings tile; the "Add expense" app icon;
 dragging a dock tab to a new place and restarting the app; every theme; daily, weekly and
 monthly budgets (Home, Budgets, the bell and the Monthly overview widget, before and after
-midnight and on a Monday); adding, resizing, tapping and removing each widget; opening and
-closing Quick Add repeatedly; rotating the phone; and a large font size. Finally install it over
+midnight and on a Monday); the widget picker (each of the four widgets listed once, with its
+picture); adding, resizing, tapping and removing each widget; uninstalling with "keep app data"
+ticked and reinstalling; opening and closing Quick Add repeatedly; rotating the phone; and a
+large font size. Finally install it over
 the previous release, and over a `MNYBOXD-volume-shortcut.apk` install, and confirm your data
 and budgets are still there.
 

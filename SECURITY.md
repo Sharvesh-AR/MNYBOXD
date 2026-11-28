@@ -30,6 +30,7 @@ update.
 | Database key | 256 random bits from `SecureRandom`, wrapped with an **AES-256-GCM key held in Android Keystore** (non-exportable; hardware-backed where the device supports it). Only the wrapped key is written to disk, in `noBackupFilesDir`. Never stored in SharedPreferences, DataStore or source code; never logged. |
 | Preferences | Jetpack DataStore holds only non-sensitive UI settings (theme, last used account id/payment method, onboarding flags). |
 | Backups | Android Auto Backup and device-to-device transfer are **disabled** for all app data. Users create password-encrypted backup files explicitly. |
+| Uninstalling | `hasFragileUserData` makes Android's uninstall dialog offer to keep the app's data (Android 10+). Kept data stays encrypted on the phone, and only MNYBOXD reinstalled with the same signing key can open it. If the user doesn't keep it, everything is deleted. |
 | Exports | Encrypted backup (`.mnyboxd`) or plain CSV (with an explicit warning). Files are written only to locations the user picks with the Storage Access Framework. |
 | Logging | The app never logs. R8 strips `Log.v/d/i` calls from libraries in release builds. No crash-reporting or analytics SDK is included. |
 | Debug tooling | Sample-data tools exist only in the `debug` source set and are not compiled into release builds. Release builds are not debuggable. |
@@ -182,7 +183,8 @@ and review the diff before committing.
 * **No app lock.** Anyone who can unlock your phone can open MNYBOXD. Use a strong device lock;
   biometric app lock is on the roadmap.
 * **Key loss means data loss.** If Android Keystore loses the key (some factory resets or OEM
-  issues) or the app is uninstalled, local data is unrecoverable. Keep encrypted backups.
+  issues) or the app is uninstalled without keeping its data, local data is unrecoverable. Keep
+  encrypted backups.
 * **Backup strength depends on your password.** PBKDF2 (600k iterations) slows guessing but is
   not memory-hard. Use a long, unique passphrase.
 * **CSV exports are plain text.** Treat them like a bank statement.

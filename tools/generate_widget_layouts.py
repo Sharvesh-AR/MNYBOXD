@@ -4,7 +4,8 @@
 """Generates MNYBOXD's home-screen widget layouts (app/src/main/res/layout/widget_*.xml).
 
 The layouts share one structure, spacing and type scale, so they are written from this script
-rather than by hand. View ids must match WidgetRenderer. Run after editing:
+rather than by hand. View ids must match WidgetRenderer. Four widgets: Quick Add, Add income,
+Monthly overview and Spending trend. Run after editing:
 
     python3 tools/generate_widget_layouts.py app/src/main/res/layout
 """
@@ -13,16 +14,17 @@ OUT = sys.argv[1]
 A = 'xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools"'
 # Static labels in real widgets come from string resources (amounts are set at runtime).
 STRINGS = {"Add": "widget_text_add", "Add expense": "widget_text_add_expense", "MNYBOXD": "app_name",
-           "Add income": "widget_text_add_income", "Income": "widget_text_income", "Expense": "widget_text_expense",
+           "Add income": "widget_text_add_income", "Income": "widget_text_income",
            "Note it as it comes in": "widget_text_income_tagline",
-           "Record it while you remember": "widget_text_tagline", "Last 7 days": "widget_text_last_7_days",
-           "Available": "widget_text_available", "Owed on cards": "widget_text_owed_on_cards"}
+           "Record it while you remember": "widget_text_tagline", "Last 7 days": "widget_text_last_7_days"}
 def label(text, preview):
     if preview or not text:
         return text
     return "@string/" + STRINGS[text]
 
-# Mono Dark colours (the default theme), used only for static launcher-picker previews.
+# Mono Dark colours (the default theme), used only by preview mode (layouts(True): sample figures
+# in fixed colours). Nothing writes preview layouts any more: the launcher's widget picker shows the
+# PNGs that WidgetPickerPreviews draws from the real widgets.
 P = dict(bg="#0B0B0C", surface="#151517", elevated="#1F1F22", text="#F5F5F7", muted="#8E8E93",
          accent="#F5F5F7", onAccent="#0B0B0C", track="#2A2A2E", negative="#EE8E8E", positive="#86D3A3")
 
@@ -130,22 +132,6 @@ def layouts(pv):
         space() + "\n" +
         '<LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:orientation="horizontal" android:baselineAligned="false">' +
         income_button("Add income", text_size=16) + '</LinearLayout>', pv)
-    # Expense + Income: two buttons side by side ------------------------------------------------
-    def expense_button(label_text, text_size=15):
-        return button("add_button", "", "add_label" if label_text else None, label_text, icon="ic_w_expense", weight=True, preview=pv, text_size=text_size)
-    L['widget_add_both_small'] = root(
-        expense_button("") + "\n" + income_button("", extra='android:layout_marginStart="8dp"', accent=False),
-        pv, pad="8dp", orient="horizontal", gravity="center_vertical")
-    L['widget_add_both'] = root(
-        expense_button("Expense", 14) + "\n" + income_button("Income", extra='android:layout_marginStart="8dp"', accent=False, text_size=14),
-        pv, pad="8dp", orient="horizontal", gravity="center_vertical")
-    L['widget_add_both_large'] = root(
-        header(pv, "Today ₹345") + "\n" +
-        tv("caption", 12, "Record it while you remember", "muted", False, 'android:layout_marginTop="4dp"', pv, "Record it while you remember") + "\n" +
-        space() + "\n" +
-        '<LinearLayout android:layout_width="match_parent" android:layout_height="56dp" android:orientation="horizontal" android:baselineAligned="false">' +
-        expense_button("Expense", 16) + income_button("Income", extra='android:layout_marginStart="10dp"', accent=False, text_size=16) +
-        '</LinearLayout>', pv)
     # Monthly overview ----------------------------------------------------------------------
     L['widget_monthly_small'] = root(
         tv("label", 12, "", "muted", False, "", pv, "Spent in November") + "\n" +
@@ -166,45 +152,6 @@ def layouts(pv):
         tv("chart_label", 11, "Last 7 days", "muted", False, "", pv, "Last 7 days") +
         img("chart", "match_parent", "0dp", "widget_inner", 'android:layout_weight="1" android:layout_marginTop="6dp" android:scaleType="fitXY"', pv, "track") +
         '</LinearLayout>', pv, orient="horizontal")
-    # Accounts ----------------------------------------------------------------------------------
-    L['widget_accounts_small'] = root(
-        tv("avail_label", 12, "Available", "muted", False, "", pv, "Available") + "\n" +
-        amount("avail", 26, preview=pv, sample="₹2,70,265") + "\n" + space() + "\n" +
-        tv("owed_label", 12, "Owed on cards", "muted", False, "", pv, "Owed on cards") + "\n" +
-        tv("owed", 16, "", "negative", True, 'android:fontFeatureSettings="tnum" android:layout_marginTop="2dp"', pv, "₹18,955"),
-        pv)
-    rows = ""
-    samples = [("HDFC Savings", "₹19,434", "ic_w_bank"), ("SBI Salary", "₹2,24,407", "ic_w_bank"), ("Cash", "₹26,424", "ic_w_cash"), ("ICICI Coral", "₹18,955", "ic_w_card")]
-    for i in range(1, 5):
-        n, a, ic = samples[i - 1]
-        rows += (f'<LinearLayout android:id="@+id/row{i}" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:baselineAligned="false" android:gravity="center_vertical">'
-                 f'<FrameLayout android:layout_width="24dp" android:layout_height="24dp">'
-                 + img(f"row{i}_icon_bg", "match_parent", "match_parent", "widget_circle", "", pv, "elevated")
-                 + img(f"row{i}_icon", "14dp", "14dp", ic, 'android:layout_gravity="center"', pv, "accent") + '</FrameLayout>'
-                 + tv(f"row{i}_name", 13, "", "text", False, 'android:layout_width="0dp" android:layout_weight="1" android:layout_marginStart="10dp"', pv, n)
-                 + tv(f"row{i}_amount", 13, "", "negative" if i == 4 else "text", True, 'android:fontFeatureSettings="tnum" android:layout_marginStart="8dp"', pv, a)
-                 + '</LinearLayout>\n')
-    L['widget_accounts'] = root(
-        '<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:baselineAligned="false">' +
-        '<LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical">' +
-        tv("avail_label", 12, "Available", "muted", False, "", pv, "Available") + amount("avail", 24, preview=pv, sample="₹2,70,265", height=30) + '</LinearLayout>' +
-        '<LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:gravity="end" android:layout_marginStart="12dp">' +
-        tv("owed_label", 12, "Owed on cards", "muted", False, "", pv, "Owed on cards") +
-        tv("owed", 16, "", "negative", True, 'android:fontFeatureSettings="tnum" android:layout_marginTop="4dp"', pv, "₹18,955") + '</LinearLayout>' +
-        '</LinearLayout>\n' +
-        '<LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="8dp" android:orientation="vertical">\n' + rows + '</LinearLayout>\n' +
-        tv("more", 11, "", "muted", False, "", pv, ""), pv)
-    L['widget_account_single'] = root(
-        '<LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:baselineAligned="false" android:gravity="center_vertical">' +
-        '<FrameLayout android:layout_width="32dp" android:layout_height="32dp">' +
-        img("icon_bg", "match_parent", "match_parent", "widget_circle", "", pv, "elevated") +
-        img("icon", "18dp", "18dp", "ic_w_bank", 'android:layout_gravity="center"', pv, "accent") + '</FrameLayout>' +
-        '<LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="10dp" android:orientation="vertical">' +
-        tv("name", 14, "", "text", True, "", pv, "HDFC Savings") +
-        tv("type", 12, "", "muted", False, 'android:layout_marginTop="2dp"', pv, "Savings account") + '</LinearLayout></LinearLayout>\n' +
-        space() + "\n" +
-        tv("label", 12, "", "muted", False, "", pv, "Balance") + "\n" +
-        amount("amount", 28, preview=pv, sample="₹19,434"), pv)
     # Spending trend --------------------------------------------------------------------------
     L['widget_trend_small'] = root(
         tv("label", 12, "Last 7 days", "muted", False, "", pv, "Last 7 days") + "\n" +
@@ -218,28 +165,6 @@ def layouts(pv):
         img("chart", "match_parent", "0dp", "widget_inner", 'android:layout_weight="1" android:layout_marginTop="8dp" android:scaleType="fitXY"', pv, "track") + "\n" +
         tv("caption", 12, "", "muted", False, 'android:layout_marginTop="6dp" android:fontFeatureSettings="tnum"', pv, "Highest: Mon · ₹2,400"),
         pv)
-    # Quick stats -------------------------------------------------------------------------------
-    def cell(i, label, sample, weight=True, extra=""):
-        w = 'android:layout_width="0dp" android:layout_weight="1"'
-        return (f'<FrameLayout {w} android:layout_height="match_parent" {extra}>' +
-                img(f"stat{i}_bg", "match_parent", "match_parent", "widget_inner", 'android:scaleType="fitXY"', pv, "surface") +
-                '<LinearLayout android:layout_width="match_parent" android:layout_height="match_parent" android:orientation="vertical" android:gravity="center_vertical" android:paddingStart="10dp" android:paddingEnd="8dp">' +
-                tv(f"stat{i}_label", 11, "", "muted", False, "", pv, label) +
-                f'<TextView android:id="@+id/stat{i}_value" android:layout_width="match_parent" android:layout_height="22dp" android:layout_marginTop="3dp" '
-                f'android:text="{sample if pv else ""}" android:fontFamily="sans-serif-medium" android:fontFeatureSettings="tnum" android:maxLines="1" '
-                f'android:includeFontPadding="false" android:autoSizeTextType="uniform" android:autoSizeMinTextSize="11sp" android:autoSizeMaxTextSize="17sp" '
-                f'{"android:textColor=\"" + P["text"] + "\"" if pv else ""}/>' +
-                '</LinearLayout></FrameLayout>')
-    st = [("Today", "₹345"), ("Month", "₹28,921"), ("Entries", "42"), ("Left", "₹16,079")]
-    L['widget_stats'] = root(
-        '<LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:orientation="horizontal" android:baselineAligned="false">' +
-        cell(1, *st[0]) + cell(2, *st[1], extra='android:layout_marginStart="6dp"') + '</LinearLayout>' +
-        '<LinearLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:layout_marginTop="6dp" android:orientation="horizontal" android:baselineAligned="false">' +
-        cell(3, *st[2]) + cell(4, *st[3], extra='android:layout_marginStart="6dp"') + '</LinearLayout>', pv, pad="8dp")
-    L['widget_stats_wide'] = root(
-        cell(1, *st[0]) + cell(2, *st[1], extra='android:layout_marginStart="6dp"') +
-        cell(3, *st[2], extra='android:layout_marginStart="6dp"') + cell(4, *st[3], extra='android:layout_marginStart="6dp"'),
-        pv, pad="8dp", orient="horizontal")
     # Message (setup needed / database locked) -------------------------------------------------
     L['widget_message'] = root(
         img("logo", "24dp", "24dp", "ic_w_logo", "", pv, "accent") + "\n" +
@@ -251,9 +176,4 @@ def layouts(pv):
 real = layouts(False)
 for name, xml in real.items():
     open(os.path.join(OUT, name + ".xml"), "w").write(xml)
-previews = layouts(True)
-PREVIEWS = ["widget_quick_add", "widget_add_income", "widget_add_both", "widget_monthly", "widget_accounts", "widget_trend", "widget_stats"]
-for name in PREVIEWS:
-    xml = previews[name].replace("<!-- Generated", "<!-- Launcher widget-picker preview: illustrative figures only, never shown in a placed widget. Generated")
-    open(os.path.join(OUT, name + "_preview.xml"), "w").write(xml)
-print(len(real), "layouts +", len(PREVIEWS), "previews")
+print(len(real), "layouts")
