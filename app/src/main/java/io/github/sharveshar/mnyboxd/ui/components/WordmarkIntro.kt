@@ -1,208 +1,157 @@
 // SPDX-FileCopyrightText: 2026 ARS (Sharvesh-AR)
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-package io.github.sharveshar.mnyboxd.ui.start
+package io.github.sharveshar.mnyboxd.ui.components
 
-import androidx.activity.compose.BackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.lerp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.toPixelMap
-import androidx.compose.ui.text.TextPainter
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextPainter
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
-import io.github.sharveshar.mnyboxd.ui.components.APP_NAME
-import io.github.sharveshar.mnyboxd.ui.components.LocalReducedMotion
-import io.github.sharveshar.mnyboxd.ui.components.boxdColor
-import io.github.sharveshar.mnyboxd.ui.components.wordmarkStyle
-import io.github.sharveshar.mnyboxd.ui.components.wordmarkText
+import androidx.compose.ui.unit.DpSize
 import kotlin.math.PI
 import kotlin.math.min
 import kotlin.math.sin
 
-/** Where Home's wordmark sits on screen, so the opening animation can land exactly on it. */
-object BrandIntroAnchor {
-    var wordmark: Rect? by mutableStateOf(null)
-}
+/**
+ * Whether this launch still has the wordmark intro to play: set by MainActivity for a fresh start
+ * from the launcher (not a resume, rotation or restore), and used up by Home's header the first
+ * time it appears. Null outside MainActivity (tests, the Quick Add pop-up): never plays.
+ */
+val LocalWordmarkIntro = staticCompositionLocalOf<MutableState<Boolean>?> { null }
 
-private const val TOTAL_MS = 3_000
-private const val REDUCED_MS = 900
-private val InOut = CubicBezierEasing(0.65f, 0f, 0.35f, 1f)
+private const val TOTAL_MS = 2_100
+private val IntroEasing = CubicBezierEasing(0.65f, 0f, 0.35f, 1f)
 
-private fun clamp01(x: Float) = x.coerceIn(0f, 1f)
-private fun phase(t: Float, start: Float, length: Float) = clamp01((t - start) / length)
-private fun mix(a: Float, b: Float, f: Float) = a + (b - a) * f
+private fun introClamp(x: Float) = x.coerceIn(0f, 1f)
+private fun introPhase(t: Float, start: Float, length: Float) = introClamp((t - start) / length)
+private fun introMix(a: Float, b: Float, f: Float) = a + (b - a) * f
 
 /**
- * The opening of a new app session, about three seconds: MONEY becomes MNYBOXD. M, N and Y close
- * up; the O lifts out and lands as the O of BOXD; the E's arms curl into the bowls of a B; X and D
- * are drawn in. The finished wordmark then glides into Home's header (or fades, if Home isn't the
- * first screen) while the app appears around it. With reduced motion it's a short fade.
- *
- * Shown over the app, which starts underneath as usual; touches wait until it's done, and Back
- * skips it. Which launches play it is decided by MainActivity.
+ * Home's wordmark arriving, in its own place in the header: MONEY becomes MNYBOXD. M, N and Y
+ * close up; the O lifts out and lands as the O of BOXD; the E dips under it and its arms curl into
+ * a B; X and D are drawn in. About two seconds, then [onFinished], and the header shows the plain
+ * [Wordmark], which this ends on exactly (same size, same letters, same place).
  */
 @Composable
-fun BrandIntro(onFinished: () -> Unit) {
-    val reduced = LocalReducedMotion.current
-    val background = MaterialTheme.colorScheme.background
+fun WordmarkIntro(onFinished: () -> Unit, modifier: Modifier = Modifier) {
     val inkColor = MaterialTheme.colorScheme.onBackground
     val muted = boxdColor(inkColor)
     val style = wordmarkStyle(MaterialTheme.typography.titleLarge)
     val density = LocalDensity.current
     val measurer = rememberTextMeasurer(cacheSize = 16)
     val clock = remember { Animatable(0f) }
-    val total = if (reduced) REDUCED_MS else TOTAL_MS
 
     LaunchedEffect(Unit) {
-        clock.animateTo(total.toFloat(), tween(total, easing = LinearEasing))
+        clock.animateTo(TOTAL_MS.toFloat(), tween(TOTAL_MS, easing = LinearEasing))
         onFinished()
     }
-    BackHandler { onFinished() }
 
     val semi = remember(style) { style.copy(fontWeight = FontWeight.SemiBold) }
     val light = remember(style) { style.copy(fontWeight = FontWeight.Light) }
     val final = remember(style, inkColor) { measurer.measure(wordmarkText(inkColor), style.copy(color = inkColor)) }
     val money = remember(style) { measurer.measure(AnnotatedString("MONEY"), semi) }
     val glyphs = remember(style) {
-        fun g(c: String, s: androidx.compose.ui.text.TextStyle) = measurer.measure(AnnotatedString(c), s)
+        fun g(c: String, s: TextStyle) = measurer.measure(AnnotatedString(c), s)
         mapOf("M" to g("M", semi), "O" to g("O", semi), "N" to g("N", semi), "E" to g("E", semi), "Y" to g("Y", semi),
             "o" to g("O", light), "B" to g("B", light), "X" to g("X", light), "D" to g("D", light))
     }
-    val spacing = with(density) { style.letterSpacing.toPx() }
     val em = with(density) { style.fontSize.toPx() }
     // Where each letter's ink really is in this font, alone and inside the two words, so every
     // letter lands exactly where the real wordmark draws it and the strokes sit on the glyphs.
     val ink = remember(glyphs) { glyphs.mapValues { (key, layout) -> inkOf(layout, stemRow = if (key == "E" || key == "B") 0.25f else 0.5f) } }
     val finalInk = remember(style) { inkRuns(measurer.measure(wordmarkText(Color.Black), style.copy(color = Color.Black)), 7) }
     val moneyInk = remember(money) { inkRuns(money, 5) }
+    val size = with(density) { DpSize(final.size.width.toDp(), final.size.height.toDp()) }
 
-    Canvas(
-        Modifier
-            .fillMaxSize()
-            .semantics { contentDescription = APP_NAME }
-            .pointerInput(Unit) {
-                awaitPointerEventScope { while (true) awaitPointerEvent().changes.forEach { it.consume() } }
-            },
-    ) {
+    Canvas(modifier.size(size).semantics { contentDescription = APP_NAME }) {
         val t = clock.value
-        val finalW = final.size.width - spacing
-        val moneyW = money.size.width - spacing
-        val h = final.size.height.toFloat()
-        val stageScale = min(1.9f, size.width * 0.7f / finalW)
-        val centre = Offset(size.width / 2f, size.height / 2f)
-        val header = BrandIntroAnchor.wordmark
-
-        if (reduced) {
-            val a = phase(t, 0f, 200f) * (1f - phase(t, 600f, 300f))
-            drawRect(background, alpha = 1f - phase(t, 600f, 300f))
-            withTransform({ translate(centre.x, centre.y); scale(stageScale, stageScale, Offset.Zero) }) {
-                drawText(final, topLeft = Offset(-finalW / 2f, -h / 2f), alpha = a)
-            }
+        if (t >= 1_980f) {
+            // The real wordmark, exactly as the header draws it.
+            drawText(final, topLeft = Offset.Zero)
             return@Canvas
         }
+        // Layout origins that put a letter's ink where that letter's ink is in MONEY / MNYBOXD.
+        // Both words start at the wordmark's left edge.
+        fun mx(j: Int, key: String) = moneyInk?.get(j)?.minus(ink.getValue(key).left) ?: money.getBoundingBox(j).left
+        fun fx(i: Int, key: String) = finalInk?.get(i)?.minus(ink.getValue(key).left) ?: final.getBoundingBox(i).left
 
-        // Fly into the header (or fade where there's no header to land on).
-        val fly = InOut.transform(phase(t, 2_360f, 600f))
-        val landing = header?.let { Offset(it.left + finalW / 2f, it.top + h / 2f) }
-        val at = if (landing != null) lerp(centre, landing, fly) else centre
-        val scale = if (landing != null) mix(stageScale, 1f, fly) else stageScale
-        val fadeAll = if (landing == null) 1f - phase(t, 2_400f, 450f) else 1f
-        val backdrop = if (landing != null) 1f - phase(t, 2_700f, 300f) else fadeAll
-        drawRect(background, alpha = backdrop)
+        val move = IntroEasing.transform(introPhase(t, 820f, 880f))
+        fun intro(j: Int) = FastOutSlowInEasing.transform(introPhase(t, 70f * j, 360f))
+        fun rise(j: Int) = (1f - intro(j)) * em * 0.3f
 
-        withTransform({ translate(at.x, at.y); scale(scale, scale, Offset.Zero) }) {
-            val x0Money = -moneyW / 2f
-            val x0Final = -finalW / 2f
-            val top = -h / 2f
-            // Layout origins that put a letter's ink where that letter's ink is in MONEY / MNYBOXD.
-            fun mx(j: Int, key: String) = x0Money + (moneyInk?.get(j)?.minus(ink.getValue(key).left) ?: money.getBoundingBox(j).left)
-            fun fx(i: Int, key: String) = x0Final + (finalInk?.get(i)?.minus(ink.getValue(key).left) ?: final.getBoundingBox(i).left)
+        // M, N and Y keep their weight and close the gaps.
+        drawGlyph(glyphs.getValue("M"), introMix(mx(0, "M"), fx(0, "M"), move), rise(0), inkColor, intro(0))
+        drawGlyph(glyphs.getValue("N"), introMix(mx(2, "N"), fx(1, "N"), move), rise(2), inkColor, intro(2))
+        drawGlyph(glyphs.getValue("Y"), introMix(mx(4, "Y"), fx(2, "Y"), move), rise(4), inkColor, intro(4))
 
-            if (t >= 1_980f) {
-                // The real wordmark, exactly as Home draws it.
-                drawText(final, topLeft = Offset(x0Final, top), alpha = fadeAll)
-                return@withTransform
-            }
+        // O lifts out in an arc and lands as BOXD's light O.
+        val oy = rise(1) - em * 0.55f * sin(PI.toFloat() * move)
+        val soften = introPhase(t, 1_000f, 520f)
+        drawGlyph(glyphs.getValue("O"), introMix(mx(1, "O"), fx(4, "O"), move), oy, inkColor, intro(1) * (1f - soften))
+        drawGlyph(glyphs.getValue("o"), introMix(mx(1, "o"), fx(4, "o"), move), oy, muted, intro(1) * soften)
 
-            val move = InOut.transform(phase(t, 820f, 880f))
-            fun intro(j: Int) = FastOutSlowInEasing.transform(phase(t, 70f * j, 360f))
-            fun rise(j: Int) = (1f - intro(j)) * em * 0.35f
+        // E dips under the O and its arms curl into a B's bowls on the way to its place.
+        val ex = introMix(mx(3, "E"), fx(3, "B"), move)
+        val ey = rise(3) + em * 0.45f * sin(PI.toFloat() * move)
+        val toStroke = introPhase(t, 820f, 140f)
+        val toGlyph = introPhase(t, 1_560f, 220f)
+        drawGlyph(glyphs.getValue("E"), ex, ey, inkColor, intro(3) * (1f - toStroke))
+        val curl = IntroEasing.transform(introPhase(t, 940f, 560f))
+        drawCurl(ink.getValue("E"), ink.getValue("B"), ex, ey, curl, lerp(inkColor, muted, curl), toStroke * (1f - toGlyph))
+        drawGlyph(glyphs.getValue("B"), fx(3, "B"), 0f, muted, toGlyph)
 
-            // M, N and Y keep their weight and close the gaps.
-            drawGlyph(glyphs.getValue("M"), mix(mx(0, "M"), fx(0, "M"), move), top + rise(0), inkColor, intro(0))
-            drawGlyph(glyphs.getValue("N"), mix(mx(2, "N"), fx(1, "N"), move), top + rise(2), inkColor, intro(2))
-            drawGlyph(glyphs.getValue("Y"), mix(mx(4, "Y"), fx(2, "Y"), move), top + rise(4), inkColor, intro(4))
-
-            // O lifts out in an arc and lands as BOXD's light O.
-            val oy = top + rise(1) - em * 0.75f * sin(PI.toFloat() * move)
-            val soften = phase(t, 1_000f, 520f)
-            drawGlyph(glyphs.getValue("O"), mix(mx(1, "O"), fx(4, "O"), move), oy, inkColor, intro(1) * (1f - soften))
-            drawGlyph(glyphs.getValue("o"), mix(mx(1, "o"), fx(4, "o"), move), oy, muted, intro(1) * soften)
-
-            // E: its arms curl into a B's bowls on the way to its place.
-            val ex = mix(mx(3, "E"), fx(3, "B"), move)
-            val ey = top + rise(3) + em * 0.6f * sin(PI.toFloat() * move)
-            val toStroke = phase(t, 820f, 140f)
-            val toGlyph = phase(t, 1_560f, 220f)
-            drawGlyph(glyphs.getValue("E"), ex, ey, inkColor, intro(3) * (1f - toStroke))
-            val curl = InOut.transform(phase(t, 940f, 560f))
-            drawCurl(ink.getValue("E"), ink.getValue("B"), ex, ey, curl, lerp(inkColor, muted, curl), toStroke * (1f - toGlyph))
-            drawGlyph(glyphs.getValue("B"), fx(3, "B"), top, muted, toGlyph)
-
-            // X and D are drawn in, then handed to the typeface.
-            val xIn = FastOutSlowInEasing.transform(phase(t, 1_240f, 360f))
-            val xGlyph = phase(t, 1_640f, 220f)
-            drawX(ink.getValue("X"), fx(5, "X"), top, xIn, muted, ink.getValue("D").stem, 1f - xGlyph)
-            drawGlyph(glyphs.getValue("X"), fx(5, "X"), top, muted, xGlyph)
-            val dIn = FastOutSlowInEasing.transform(phase(t, 1_340f, 420f))
-            val dGlyph = phase(t, 1_760f, 220f)
-            drawD(ink.getValue("D"), fx(6, "D"), top, dIn, muted, 1f - dGlyph)
-            drawGlyph(glyphs.getValue("D"), fx(6, "D"), top, muted, dGlyph)
-        }
+        // X and D are drawn in, then handed to the typeface.
+        val xIn = FastOutSlowInEasing.transform(introPhase(t, 1_240f, 360f))
+        val xGlyph = introPhase(t, 1_640f, 220f)
+        drawX(ink.getValue("X"), fx(5, "X"), 0f, xIn, muted, ink.getValue("D").stem, 1f - xGlyph)
+        drawGlyph(glyphs.getValue("X"), fx(5, "X"), 0f, muted, xGlyph)
+        val dIn = FastOutSlowInEasing.transform(introPhase(t, 1_340f, 420f))
+        val dGlyph = introPhase(t, 1_760f, 220f)
+        drawD(ink.getValue("D"), fx(6, "D"), 0f, dIn, muted, 1f - dGlyph)
+        drawGlyph(glyphs.getValue("D"), fx(6, "D"), 0f, muted, dGlyph)
     }
 }
 
 private fun DrawScope.drawGlyph(layout: TextLayoutResult, x: Float, y: Float, color: Color, alpha: Float) {
     if (alpha <= 0.001f) return
-    drawText(layout, color = color, topLeft = Offset(x, y), alpha = clamp01(alpha))
+    drawText(layout, color = color, topLeft = Offset(x, y), alpha = introClamp(alpha))
 }
 
 /** A letter's ink inside its own layout (px), and its upright stroke's thickness. */
 private class Ink(val left: Float, val top: Float, val right: Float, val bottom: Float, val stem: Float) {
     fun mix(other: Ink, f: Float) = Ink(
-        mix(left, other.left, f), mix(top, other.top, f), mix(right, other.right, f), mix(bottom, other.bottom, f), mix(stem, other.stem, f),
+        introMix(left, other.left, f), introMix(top, other.top, f), introMix(right, other.right, f), introMix(bottom, other.bottom, f), introMix(stem, other.stem, f),
     )
 }
 
@@ -276,10 +225,10 @@ private fun DrawScope.drawCurl(e: Ink, b: Ink, x: Float, y: Float, curl: Float, 
     val a1 = bRight - r1 - (b.right - b.left) * 0.06f
     val a2 = bRight - r2
     val eRight = x + e.right
-    val xTop = mix(eRight, a1, curl)
-    val xMid = mix(x + e.left + (e.right - e.left) * 0.86f, a2, curl)
-    val xBot = mix(eRight, a2, curl)
-    val c = color.copy(alpha = color.alpha * clamp01(alpha))
+    val xTop = introMix(eRight, a1, curl)
+    val xMid = introMix(x + e.left + (e.right - e.left) * 0.86f, a2, curl)
+    val xBot = introMix(eRight, a2, curl)
+    val c = color.copy(alpha = color.alpha * introClamp(alpha))
     val line = Stroke(width = w, cap = StrokeCap.Butt, join = StrokeJoin.Round)
     drawLine(c, Offset(stem, top), Offset(stem, base), strokeWidth = w, cap = StrokeCap.Square)
     drawPath(Path().apply {
@@ -302,11 +251,11 @@ private fun DrawScope.drawX(k: Ink, x: Float, y: Float, progress: Float, color: 
     val r = x + k.right - width * 0.55f
     val top = y + k.top
     val base = y + k.bottom
-    val c = color.copy(alpha = color.alpha * clamp01(alpha))
-    val first = clamp01(progress * 2f)
-    val second = clamp01(progress * 2f - 1f)
-    drawLine(c, Offset(l, top), Offset(mix(l, r, first), mix(top, base, first)), strokeWidth = width)
-    if (second > 0f) drawLine(c, Offset(r, top), Offset(mix(r, l, second), mix(top, base, second)), strokeWidth = width)
+    val c = color.copy(alpha = color.alpha * introClamp(alpha))
+    val first = introClamp(progress * 2f)
+    val second = introClamp(progress * 2f - 1f)
+    drawLine(c, Offset(l, top), Offset(introMix(l, r, first), introMix(top, base, first)), strokeWidth = width)
+    if (second > 0f) drawLine(c, Offset(r, top), Offset(introMix(r, l, second), introMix(top, base, second)), strokeWidth = width)
 }
 
 /** A D drawn like a pen would over its own ink: the stem, then the bowl from top to bottom. */
@@ -321,7 +270,7 @@ private fun DrawScope.drawD(k: Ink, x: Float, y: Float, progress: Float, color: 
     val bar = (a - stem).coerceAtLeast(0f)
     val lengths = floatArrayOf(base - top, bar, (PI * r).toFloat(), bar)
     var left = lengths.sum() * progress
-    val c = color.copy(alpha = color.alpha * clamp01(alpha))
+    val c = color.copy(alpha = color.alpha * introClamp(alpha))
     val path = Path()
     val s = min(left, lengths[0]); left -= s
     path.moveTo(stem, top); path.lineTo(stem, top + s)

@@ -74,7 +74,8 @@ builds (`ScreenshotTest`).</sub>
   usual encrypted backup; *Maybe Later* waits five days). Adding records after a backup makes it
   out of date.
 * **First-time tour**: five short steps after setup (Skip any time), shown once and never to
-  people who already use MNYBOXD. Each fresh launch opens with *MONEY* becoming *MNYBOXD*.
+  people who already use MNYBOXD. On each fresh launch, Home's wordmark assembles itself in the
+  header: *MONEY* becomes *MNYBOXD*.
 
 **Accurate money**
 * All amounts are integer paise (`Long`); floating point is never used for money.

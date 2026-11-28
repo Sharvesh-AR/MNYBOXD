@@ -20,11 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.ui.Modifier
-import io.github.sharveshar.mnyboxd.ui.start.BrandIntro
+import io.github.sharveshar.mnyboxd.ui.components.LocalWordmarkIntro
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
@@ -66,7 +62,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) handleIntent(intent)
         publishShortcuts()
         val container = appContainer
-        // The opening animation belongs to a new app session: this activity created afresh (not
+        // Home's wordmark intro belongs to a new app session: this activity created afresh (not
         // recreated after rotation or restored after the system reclaimed it) and opened from the
         // launcher, not from a widget or shortcut. Resuming from the background never recreates it.
         val playIntro = savedInstanceState == null && intent?.action == Intent.ACTION_MAIN
@@ -80,13 +76,10 @@ class MainActivity : ComponentActivity() {
             val secure = prefs?.secureScreen == true
             LaunchedEffect(secure) { window.setSecure(secure) }
             val reduced = rememberReducedMotion()
-            CompositionLocalProvider(LocalReducedMotion provides reduced, LocalSecureWindows provides secure) {
+            val intro = remember { mutableStateOf(playIntro) }
+            CompositionLocalProvider(LocalReducedMotion provides reduced, LocalSecureWindows provides secure, LocalWordmarkIntro provides intro) {
                 AnimatedMnyboxdTheme(palette, reduced) {
-                    Box(Modifier.fillMaxSize()) {
-                        MnyboxdApp(container, launchRequests.receiveAsFlow())
-                        var intro by remember { mutableStateOf(playIntro) }
-                        if (intro) BrandIntro(onFinished = { intro = false })
-                    }
+                    MnyboxdApp(container, launchRequests.receiveAsFlow())
                 }
             }
         }
