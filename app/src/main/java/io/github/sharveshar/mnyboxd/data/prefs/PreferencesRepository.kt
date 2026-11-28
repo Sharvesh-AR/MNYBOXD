@@ -43,6 +43,20 @@ data class UserPreferences(
      * Home shows the update arrow while it's newer than the installed version; no network needed.
      */
     val updateAvailable: String? = null,
+    /** Expense Check-in: the 7 PM "Any expenses to add?" reminder. On unless switched off. */
+    val checkInEnabled: Boolean = true,
+    /** The last day ("2026-11-28") Expense Check-in notified or was answered "No Spending". */
+    val checkInHandledDay: String? = null,
+    /** Android 13+'s notification permission has been asked for once; never asked again unprompted. */
+    val notificationPermissionAsked: Boolean = false,
+    /** When the last encrypted backup was saved successfully (epoch millis). */
+    val lastBackupAt: Long? = null,
+    /** When the Data Safety reminder was last shown (epoch millis). */
+    val dataSafetyShownAt: Long? = null,
+    /** When the Data Safety reminder first looked at this install (epoch millis); starts its clock. */
+    val dataSafetySince: Long? = null,
+    /** The first-time tour is due: set when setup finishes on this phone, cleared when it's done or skipped. */
+    val tourPending: Boolean = false,
 )
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = StableNames.PREFERENCES_FILE)
@@ -69,6 +83,13 @@ class PreferencesRepository(private val context: Context) {
         val lastProvider = stringPreferencesKey("last_provider")
         val dockOrder = stringPreferencesKey("dock_order")
         val updateAvailable = stringPreferencesKey("update_available")
+        val checkInEnabled = booleanPreferencesKey("checkin_enabled")
+        val checkInHandledDay = stringPreferencesKey("checkin_handled_day")
+        val notificationPermissionAsked = booleanPreferencesKey("notification_permission_asked")
+        val lastBackupAt = longPreferencesKey("last_backup_at")
+        val dataSafetyShownAt = longPreferencesKey("data_safety_shown_at")
+        val dataSafetySince = longPreferencesKey("data_safety_since")
+        val tourPending = booleanPreferencesKey("tour_pending")
     }
 
     val preferences: Flow<UserPreferences> = context.dataStore.data
@@ -84,6 +105,13 @@ class PreferencesRepository(private val context: Context) {
                 lastProvider = p[Keys.lastProvider]?.let { runCatching { PaymentProvider.valueOf(it) }.getOrNull() },
                 dockOrder = DockOrder.parse(p[Keys.dockOrder]),
                 updateAvailable = p[Keys.updateAvailable],
+                checkInEnabled = p[Keys.checkInEnabled] ?: true,
+                checkInHandledDay = p[Keys.checkInHandledDay],
+                notificationPermissionAsked = p[Keys.notificationPermissionAsked] ?: false,
+                lastBackupAt = p[Keys.lastBackupAt],
+                dataSafetyShownAt = p[Keys.dataSafetyShownAt],
+                dataSafetySince = p[Keys.dataSafetySince],
+                tourPending = p[Keys.tourPending] ?: false,
             )
         }
 
@@ -109,6 +137,14 @@ class PreferencesRepository(private val context: Context) {
     suspend fun setUpdateAvailable(version: String?) = context.dataStore.edit {
         if (version == null) it.remove(Keys.updateAvailable) else it[Keys.updateAvailable] = version
     }
+    suspend fun setCheckInEnabled(enabled: Boolean) = context.dataStore.edit { it[Keys.checkInEnabled] = enabled }
+    suspend fun setCheckInHandledDay(day: String) = context.dataStore.edit { it[Keys.checkInHandledDay] = day }
+    suspend fun setNotificationPermissionAsked() = context.dataStore.edit { it[Keys.notificationPermissionAsked] = true }
+    suspend fun setLastBackupAt(millis: Long) = context.dataStore.edit { it[Keys.lastBackupAt] = millis }
+    suspend fun setDataSafetyShownAt(millis: Long) = context.dataStore.edit { it[Keys.dataSafetyShownAt] = millis }
+    /** Starts the Data Safety clock the first time it's checked; later calls change nothing. */
+    suspend fun startDataSafetyClock(millis: Long) = context.dataStore.edit { if (it[Keys.dataSafetySince] == null) it[Keys.dataSafetySince] = millis }
+    suspend fun setTourPending(pending: Boolean) = context.dataStore.edit { it[Keys.tourPending] = pending }
 
     /** Saves the dock's tab order, normalised so every tab is stored exactly once. */
     suspend fun setDockOrder(order: List<AppTab>) {

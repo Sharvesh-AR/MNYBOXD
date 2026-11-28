@@ -73,6 +73,8 @@ class TransactionRepository(
 
     fun observeCount(): Flow<Int> = dao.observeCount()
 
+    suspend fun lastChangedAt(): Long? = dao.lastChangedAt()
+
     fun observeFiltered(filter: TransactionFilter, limit: Int = 2_000): Flow<List<TransactionRow>> {
         val q = filter.query.trim().take(60)
         return dao.observeFiltered(

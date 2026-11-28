@@ -234,6 +234,10 @@ interface TransactionDao {
     @Query("SELECT COUNT(*) FROM transactions")
     fun observeCount(): Flow<Int>
 
+    /** When a transaction was last added or edited (null with none); the Data Safety reminder's "since the backup". */
+    @Query("SELECT MAX(updated_at) FROM transactions")
+    suspend fun lastChangedAt(): Long?
+
     @Query("$ROW_SELECT ORDER BY t.occurred_at, t.id")
     suspend fun getAllRows(): List<TransactionRow>
 }

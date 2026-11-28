@@ -62,6 +62,8 @@ class QuickAddActivity : ComponentActivity() {
         val bars = if (startPalette.isDark) SystemBarStyle.dark(Color.TRANSPARENT) else SystemBarStyle.light(Color.TRANSPARENT, Color.TRANSPARENT)
         enableEdgeToEdge(statusBarStyle = bars, navigationBarStyle = bars)
         super.onCreate(savedInstanceState)
+        // Opened from Expense Check-in's Add Expense (or anywhere): its question is answered.
+        io.github.sharveshar.mnyboxd.reminders.ExpenseCheckIn.clearNotification(this)
         val voice = intent?.action == MainActivity.ACTION_VOICE_ADD
         val income = intent?.action == MainActivity.ACTION_ADD_INCOME
         if (savedInstanceState == null) {

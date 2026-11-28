@@ -55,14 +55,18 @@ class ManifestPolicyTest {
         assertEquals(emptyList<String>(), servicesGuardedBy(Manifest.permission.BIND_ACCESSIBILITY_SERVICE))
     }
 
-    @Test fun `requests only the microphone and what Check for updates needs`() {
+    @Test fun `requests only the microphone, what Check for updates needs and Expense Check-in's notifications`() {
         // Voice entry needs the microphone; Check for updates needs internet (only when tapped) and
-        // the right to hand the downloaded APK to Android's installer. Anything new here needs a
+        // the right to hand the downloaded APK to Android's installer; Expense Check-in posts one
+        // notification a day and resets its alarm after a restart. Anything new here needs a
         // reason in SECURITY.md (library-added ones included, as this reads the merged manifest).
         val requested = packageInfo().requestedPermissions.orEmpty()
             .filterNot { it == "${context.packageName}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION" }
         assertEquals(
-            listOf(Manifest.permission.RECORD_AUDIO, Manifest.permission.INTERNET, Manifest.permission.REQUEST_INSTALL_PACKAGES).sorted(),
+            listOf(
+                Manifest.permission.RECORD_AUDIO, Manifest.permission.INTERNET, Manifest.permission.REQUEST_INSTALL_PACKAGES,
+                Manifest.permission.POST_NOTIFICATIONS, Manifest.permission.RECEIVE_BOOT_COMPLETED,
+            ).sorted(),
             requested.sorted(),
         )
     }

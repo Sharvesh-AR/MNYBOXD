@@ -213,6 +213,9 @@ import io.github.sharveshar.mnyboxd.ui.settings.ThemesScreen
 import io.github.sharveshar.mnyboxd.ui.settings.WidgetsScreen
 import io.github.sharveshar.mnyboxd.ui.start.RecoveryScreen
 import io.github.sharveshar.mnyboxd.ui.start.SplashScreen
+import io.github.sharveshar.mnyboxd.ui.start.OnboardingTour
+import io.github.sharveshar.mnyboxd.ui.reminders.HomeReminders
+import io.github.sharveshar.mnyboxd.reminders.DataSafety
 import io.github.sharveshar.mnyboxd.ui.start.WelcomeScreen
 import io.github.sharveshar.mnyboxd.ui.theme.Mnyboxd
 import io.github.sharveshar.mnyboxd.ui.transactions.TransactionDetailScreen
@@ -255,12 +258,24 @@ fun MnyboxdApp(container: AppContainer, launchRequests: Flow<LaunchRequest>) {
             val p = prefs
             when {
                 p == null -> SplashScreen()
-                !p.onboardingDone -> WelcomeScreen(onStart = { scope.launch { container.preferences.setOnboardingDone() } })
-                else -> MainShell(
-                    launchRequests = launchRequests,
-                    dockOrder = p.dockOrder,
-                    onDockReorder = { order -> scope.launch { container.preferences.setDockOrder(order) } },
-                )
+                !p.onboardingDone -> WelcomeScreen(onStart = {
+                    scope.launch {
+                        // Setup finished on this phone: the first-time tour follows, once.
+                        container.preferences.setTourPending(true)
+                        container.preferences.setOnboardingDone()
+                    }
+                })
+                else -> Box(Modifier.fillMaxSize()) {
+                    MainShell(
+                        launchRequests = launchRequests,
+                        dockOrder = p.dockOrder,
+                        onDockReorder = { order -> scope.launch { container.preferences.setDockOrder(order) } },
+                        reminders = !p.tourPending,
+                    )
+                    AnimatedVisibility(visible = p.tourPending, enter = fadeIn(tween(0)), exit = fadeOut(tween(280))) {
+                        OnboardingTour(onDone = { scope.launch { container.preferences.setTourPending(false) } })
+                    }
+                }
             }
         }
     }
@@ -273,7 +288,7 @@ private val DockMargin = 12.dp
 
 @OptIn(ExperimentalSharedTransitionApi::class)
 @Composable
-private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTab>, onDockReorder: (List<AppTab>) -> Unit) {
+private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTab>, onDockReorder: (List<AppTab>) -> Unit, reminders: Boolean) {
     val nav = rememberNavController()
     val top by nav.currentBackStackEntryAsState()
     // The screen underneath any sheet decides whether the dock and Quick Add button show, so
@@ -504,6 +519,16 @@ private fun MainShell(launchRequests: Flow<LaunchRequest>, dockOrder: List<AppTa
                         motion = sheetMotion,
                         onAdd = { openQuickAdd(EntryRoute()) },
                         onVoice = { openQuickAdd(EntryRoute(startVoice = true)) },
+                    )
+                    // One gentle ask per session on a settled Home (never over Quick Add): the
+                    // notification permission once, or the Data Safety reminder when it's due.
+                    val sheetClosed by remember { derivedStateOf { sheetMotion.progress == 0f } }
+                    HomeReminders(
+                        active = reminders && onHome && sheetClosed && top?.destination !is FloatingWindow,
+                        onExportBackup = {
+                            DataSafety.requestExport()
+                            nav.navigate(SettingsRoute) { launchSingleTop = true }
+                        },
                     )
                 }
             }

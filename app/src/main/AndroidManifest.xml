@@ -14,6 +14,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!--
+      Expense Check-in: at most one local notification a day, around 7 PM, only on days with no
+      expense recorded (Android 13+ asks the user once). RECEIVE_BOOT_COMPLETED lets the one
+      inexact 7 PM alarm be set again after a restart. No exact-alarm permission.
+    -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <!-- Microphone is optional: the app is fully usable without it. -->
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
 
@@ -202,6 +210,20 @@
                 android:name="android.support.FILE_PROVIDER_PATHS"
                 android:resource="@xml/update_paths" />
         </provider>
+
+        <!--
+          Expense Check-in: its own alarm and No Spending button (explicit intents from MNYBOXD),
+          and the system broadcasts after which the alarm is set again. Not exported; the system's
+          own broadcasts still arrive.
+        -->
+        <receiver android:name=".reminders.ExpenseCheckInReceiver" android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
+            </intent-filter>
+        </receiver>
 
         <!-- Midnight refresh for widgets (inexact alarm, no permission). Only MNYBOXD sends it. -->
         <receiver android:name=".widget.WidgetRefreshReceiver" android:exported="false" />

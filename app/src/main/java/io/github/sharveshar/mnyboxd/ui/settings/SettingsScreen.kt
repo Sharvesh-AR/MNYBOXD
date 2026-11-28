@@ -84,6 +84,17 @@ import io.github.sharveshar.mnyboxd.appContainer
 import io.github.sharveshar.mnyboxd.ui.navigation.LocalAppContainer
 import io.github.sharveshar.mnyboxd.ui.update.UpdatePopup
 import io.github.sharveshar.mnyboxd.update.Releases
+import io.github.sharveshar.mnyboxd.reminders.DataSafety
+import io.github.sharveshar.mnyboxd.reminders.ExpenseCheckIn
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import android.provider.Settings
+import androidx.compose.material.icons.rounded.Notifications
+import androidx.core.content.ContextCompat
+import androidx.lifecycle.compose.LifecycleResumeEffect
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
 import io.github.sharveshar.mnyboxd.ui.components.APP_NAME
 import io.github.sharveshar.mnyboxd.data.backup.BackupCodec
 import io.github.sharveshar.mnyboxd.ui.common.Formats
@@ -123,6 +134,39 @@ fun SettingsScreen(
     val updateAnchor = rememberOriginAnchor()
     var showUpdate by remember { mutableStateOf(false) }
     val updater = (LocalAppContainer.current ?: LocalContext.current.appContainer).updater
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    // Data Safety reminder → Export Backup: straight into the usual export flow.
+    LaunchedEffect(Unit) { if (DataSafety.consumeExportRequest()) popup = SettingsPopup.EXPORT_PASSWORD }
+    // Expense Check-in needs notifications; re-read on return from Android's settings.
+    var notificationsAllowed by remember { mutableStateOf(ExpenseCheckIn.canNotify(context)) }
+    LifecycleResumeEffect(Unit) {
+        notificationsAllowed = ExpenseCheckIn.canNotify(context)
+        onPauseOrDispose { }
+    }
+    val notificationPermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+        notificationsAllowed = ExpenseCheckIn.canNotify(context)
+        scope.launch { ExpenseCheckIn.schedule(context) }
+    }
+    fun allowNotifications() {
+        val activity = context as? android.app.Activity
+        val askable = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED &&
+            (!prefs.notificationPermissionAsked || activity?.shouldShowRequestPermissionRationale(Manifest.permission.POST_NOTIFICATIONS) == true)
+        if (askable) {
+            scope.launch { viewModel.markNotificationPermissionAsked() }
+            notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            // Asked before and refused: Android's own notification settings, never a repeat prompt.
+            runCatching {
+                context.startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName))
+            }
+        }
+    }
+    fun setCheckIn(on: Boolean) {
+        scope.launch { ExpenseCheckIn.setEnabled(context, on) }
+        if (on && !notificationsAllowed) allowNotifications()
+    }
 
     LaunchedEffect(message) {
         message?.let {
@@ -160,6 +204,29 @@ fun SettingsScreen(
                     onClick = onShortcuts,
                 )
                 SettingRow(Icons.Rounded.Widgets, "Home-screen widgets", "Quick Add, Add income, monthly overview and spending trend", chevron = true, onClick = onWidgets)
+
+                Group("Notifications")
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable(role = Role.Switch) { if (prefs.checkInEnabled && !notificationsAllowed) allowNotifications() else setCheckIn(!prefs.checkInEnabled) }
+                        .heightIn(min = 64.dp)
+                        .padding(horizontal = Space.gutter, vertical = Space.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Notifications, contentDescription = null, tint = Mnyboxd.colors.muted)
+                    Spacer(Modifier.width(Space.lg))
+                    Column(Modifier.weight(1f)) {
+                        Text("Expense Check-in", style = MaterialTheme.typography.bodyLarge)
+                        Text(
+                            if (prefs.checkInEnabled && !notificationsAllowed) "Notifications are off for MNYBOXD, so it can't remind you. Tap to allow them."
+                            else "Get a daily reminder to record expenses.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Mnyboxd.colors.muted,
+                        )
+                    }
+                    Switch(checked = prefs.checkInEnabled, onCheckedChange = { setCheckIn(it) })
+                }
 
                 Group("Privacy")
                 Row(

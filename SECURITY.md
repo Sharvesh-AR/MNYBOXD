@@ -101,8 +101,11 @@ added by AndroidX Core to protect its own runtime receivers; it grants nothing t
 | `INTERNET` | *Settings → Check for updates* (2.9+). | Used only when the user taps it. Reads the latest release from `api.github.com` and downloads its files from GitHub. |
 | `REQUEST_INSTALL_PACKAGES` | Handing a downloaded update to Android's installer. | Android asks the user to allow it once ("Install unknown apps"); the installer then asks again before installing. Only MNYBOXD's own update is ever offered. |
 
-MNYBOXD does **not** request location, contacts, SMS, phone, storage, notifications, overlay,
-device-admin or any background permission.
+| `POST_NOTIFICATIONS` | Expense Check-in (2.10+). | At most one local notification a day, about 7 PM, only on a day with no expense recorded. Android 13+ asks once; Settings never prompts again after a refusal. |
+| `RECEIVE_BOOT_COMPLETED` | Expense Check-in. | Sets its one inexact 7 PM alarm again after the phone restarts. No exact-alarm permission. |
+
+MNYBOXD does **not** request location, contacts, SMS, phone, storage, overlay, exact-alarm or
+device-admin permissions.
 
 ### In-app updates
 
@@ -147,6 +150,7 @@ The three activity aliases keep the entry-point names from before the app was re
 the update. An alias adds no entry point of its own: it opens the activity it names.
 | `androidx.profileinstaller.ProfileInstallReceiver` | Yes (library) | Requires `android.permission.DUMP` (system/shell only). |
 | Room `MultiInstanceInvalidationService`, AndroidX Startup provider | No | Not exported. |
+| `ExpenseCheckInReceiver` | No | Expense Check-in's alarm and No Spending button (MNYBOXD's own immutable PendingIntents), and the restart, app-update and time-zone broadcasts after which the alarm is set again. |
 | `FileProvider` (`<package>.updates`) | No | Shares only a downloaded update in `cache/updates` with Android's installer, through a one-off read grant. |
 
 ## Voice input and privacy

@@ -32,6 +32,7 @@ import androidx.compose.material.icons.rounded.Upgrade
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,6 +41,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -56,6 +59,7 @@ import io.github.sharveshar.mnyboxd.ui.components.rememberOriginAnchor
 import io.github.sharveshar.mnyboxd.ui.navigation.LocalAppContainer
 import io.github.sharveshar.mnyboxd.ui.theme.Mnyboxd
 import io.github.sharveshar.mnyboxd.ui.theme.Space
+import io.github.sharveshar.mnyboxd.ui.start.BrandIntroAnchor
 import io.github.sharveshar.mnyboxd.ui.update.UpdatePopup
 import io.github.sharveshar.mnyboxd.update.Releases
 import io.github.sharveshar.mnyboxd.update.UpdateState
@@ -78,12 +82,15 @@ fun HomeHeader(alertCount: Int, bell: OriginAnchor, onAlerts: () -> Unit, onSett
     var showUpdate by remember { mutableStateOf(false) }
     val c = Mnyboxd.colors
     val reduced = LocalReducedMotion.current
+    // Off screen, there's nowhere for the opening animation to land.
+    DisposableEffect(Unit) { onDispose { BrandIntroAnchor.wordmark = null } }
 
     Row(
         Modifier.fillMaxWidth().padding(start = Space.gutter, end = Space.gutter - Space.xs, top = Space.sm),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Wordmark(Modifier.semantics { heading() })
+        // Its place on screen is where the opening animation lands.
+        Wordmark(Modifier.semantics { heading() }.onGloballyPositioned { BrandIntroAnchor.wordmark = it.boundsInRoot() })
         Spacer(Modifier.weight(1f))
         Row(
             Modifier

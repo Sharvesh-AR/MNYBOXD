@@ -77,6 +77,8 @@ class SettingsViewModel(
         pendingPassword = null
     }
 
+    suspend fun markNotificationPermissionAsked() = prefs.setNotificationPermissionAsked()
+
     fun exportTo(uri: Uri) {
         val password = pendingPassword ?: run { _message.value = "Export cancelled"; return }
         pendingPassword = null
@@ -87,6 +89,8 @@ class SettingsViewModel(
                 withContext(Dispatchers.IO) {
                     resolver.openOutputStream(uri, "wt")?.use { it.write(bytes); it.flush() } ?: throw IOException("Could not open file")
                 }
+                // The file is written: this backup counts for the Data Safety reminder.
+                runCatching { prefs.setLastBackupAt(System.currentTimeMillis()) }
                 _message.value = "Encrypted backup saved. Keep the password safe: without it the backup can't be opened."
             } catch (e: IOException) {
                 _message.value = "Couldn't write the backup. Check there's enough free space and try again."

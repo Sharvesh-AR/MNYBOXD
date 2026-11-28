@@ -103,9 +103,10 @@ jobs:
           test -f "$APK"
           "$BT/apksigner" verify --verbose "$APK" | grep -E "Verified using v2 scheme.*: true"
           if "$BT/aapt2" dump badging "$APK" | grep -q "application-debuggable"; then echo "$APK is debuggable" >&2; exit 1; fi
-          # Exactly the microphone (voice entry) and what Settings → Check for updates needs.
+          # Exactly the microphone (voice entry), what Settings → Check for updates needs, and
+          # Expense Check-in's notification and restart permissions.
           PERMS=$("$BT/aapt2" dump permissions "$APK" | sed -n "s/^uses-permission: name='\([^']*\)'.*/\1/p" | grep -v DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION | sort | tr '\n' ' ')
-          if [ "$PERMS" != "android.permission.INTERNET android.permission.RECORD_AUDIO android.permission.REQUEST_INSTALL_PACKAGES " ]; then
+          if [ "$PERMS" != "android.permission.INTERNET android.permission.POST_NOTIFICATIONS android.permission.RECEIVE_BOOT_COMPLETED android.permission.RECORD_AUDIO android.permission.REQUEST_INSTALL_PACKAGES " ]; then
             echo "Unexpected permissions in $APK: $PERMS" >&2; exit 1
           fi
           # Play Protect blocks browser/file-manager installs of apps declaring any of these

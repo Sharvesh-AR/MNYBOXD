@@ -18,6 +18,13 @@ import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.Modifier
+import io.github.sharveshar.mnyboxd.ui.start.BrandIntro
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.content.pm.ShortcutInfoCompat
 import androidx.core.content.pm.ShortcutManagerCompat
@@ -59,6 +66,10 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState == null) handleIntent(intent)
         publishShortcuts()
         val container = appContainer
+        // The opening animation belongs to a new app session: this activity created afresh (not
+        // recreated after rotation or restored after the system reclaimed it) and opened from the
+        // launcher, not from a widget or shortcut. Resuming from the background never recreates it.
+        val playIntro = savedInstanceState == null && intent?.action == Intent.ACTION_MAIN
 
         setContent {
             val prefs by container.preferences.preferences.collectAsStateWithLifecycle(initialValue = null)
@@ -71,7 +82,11 @@ class MainActivity : ComponentActivity() {
             val reduced = rememberReducedMotion()
             CompositionLocalProvider(LocalReducedMotion provides reduced, LocalSecureWindows provides secure) {
                 AnimatedMnyboxdTheme(palette, reduced) {
-                    MnyboxdApp(container, launchRequests.receiveAsFlow())
+                    Box(Modifier.fillMaxSize()) {
+                        MnyboxdApp(container, launchRequests.receiveAsFlow())
+                        var intro by remember { mutableStateOf(playIntro) }
+                        if (intro) BrandIntro(onFinished = { intro = false })
+                    }
                 }
             }
         }

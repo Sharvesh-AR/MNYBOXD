@@ -16,6 +16,7 @@ import io.github.sharveshar.mnyboxd.data.repo.CategoryRepository
 import io.github.sharveshar.mnyboxd.data.repo.TransactionRepository
 import io.github.sharveshar.mnyboxd.shortcut.ShortcutSettings
 import io.github.sharveshar.mnyboxd.update.AppUpdater
+import io.github.sharveshar.mnyboxd.reminders.ExpenseCheckIn
 import io.github.sharveshar.mnyboxd.widget.WidgetPrefs
 import io.github.sharveshar.mnyboxd.widget.WidgetUpdater
 import kotlinx.coroutines.CoroutineScope
@@ -73,6 +74,8 @@ class AppContainer(context: Context) {
         appScope.launch { databaseManager.open() }
         // An update downloaded in an earlier run has been installed or abandoned by now.
         appScope.launch(Dispatchers.IO) { runCatching { updater.clearDownloads() } }
+        // Expense Check-in: (re)sets the one 7 PM alarm; does nothing if it's switched off.
+        appScope.launch { runCatching { ExpenseCheckIn.schedule(appContext) } }
     }
 }
 

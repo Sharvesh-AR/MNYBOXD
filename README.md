@@ -65,6 +65,16 @@ builds (`ScreenshotTest`).</sub>
   app theme or one you choose, and updates when your data changes and just after midnight,
   without polling. Preview them and add them from *Settings → Widgets*. The *Expense + Income*,
   *Account balance* and *Quick stats* widgets were removed in 2.8.
+* **Expense Check-in** (*Settings → Notifications*, on by default): at about 7 PM, only on a day
+  with no expense recorded yet, one notification asks *Any expenses to add?* with **Add Expense**
+  (opens Quick Add) and **No Spending**. Never more than once a day, even after a restart; it checks
+  your records just before asking and stays quiet once you've added an expense.
+* **Data Safety reminder**: MNYBOXD has no account, so while your records have no up-to-date
+  backup, Home reminds you at most once every five days to export one (*Export Backup* opens the
+  usual encrypted backup; *Maybe Later* waits five days). Adding records after a backup makes it
+  out of date.
+* **First-time tour**: five short steps after setup (Skip any time), shown once and never to
+  people who already use MNYBOXD. Each fresh launch opens with *MONEY* becoming *MNYBOXD*.
 
 **Accurate money**
 * All amounts are integer paise (`Long`); floating point is never used for money.

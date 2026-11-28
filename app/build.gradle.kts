@@ -40,8 +40,8 @@ android {
         applicationId = "io.github.sharveshar.spendly"
         minSdk = 26
         targetSdk = 37
-        versionCode = 15
-        versionName = "2.9.0"
+        versionCode = 16
+        versionName = "2.10.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
